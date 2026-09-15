@@ -390,8 +390,10 @@ body.v-panel-narrow #minimapCard{ display:none; }
   border-radius:7px; cursor:pointer;
 }
 .v-modal-scale-btn.v-active{ background:var(--v-accent); border-color:var(--v-accent); color:#fff; }
-.v-modal-body{ overflow:auto; background:#EEF0F4; display:flex; align-items:flex-start; justify-content:center; }
-.v-modal-body iframe{ border:none; display:block; background:#fff; flex:none; }
+.v-modal-body{ overflow:auto; background:#EEF0F4; display:flex; align-items:flex-start; max-width:calc(96vw - 64px); max-height:calc(96vh - 110px); min-height:0; }
+/* 中央寄せは margin:auto で行う（justify-content:center だと、はみ出した左端へスクロールできない） */
+.v-modal-frame{ position:relative; overflow:hidden; flex:none; margin:0 auto; }
+.v-modal-body iframe{ border:none; display:block; background:#fff; position:absolute; left:0; top:0; }
 
 /* ---------- レスポンシブ ---------- */
 @media (max-width: 720px){

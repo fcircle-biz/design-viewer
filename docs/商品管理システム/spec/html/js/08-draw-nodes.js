@@ -29,6 +29,7 @@
     }
   }
 
+  var SCREEN_HEAD_MIN_W = 90;
   function drawScreenNode(ctx, entry, sr, c){
     var scr = screensById.get(entry.id) || {};
     var mp = entry.modePos[state.mode];
@@ -43,8 +44,12 @@
     ctx.stroke();
 
     drawScreenImage(ctx, entry, sr.x+1, sr.y+1, Math.max(0,sr.w-2), Math.max(0,sr.h-2), c.w, c.h);
+    // 表（機能一覧の arrange: "table"）では ID・画面名を表の列に出すので、サムネイルの上には描かない
+    if(mp && mp.node && mp.node.table) return;
 
-    // 見出し（スクリーン座標固定サイズ）
+    // 見出し（スクリーン座標固定サイズ）。サムネイルが画面上で SCREEN_HEAD_MIN_W 未満の縮尺では
+    // 文字が隣の画面にはみ出して読めないので描かない（layout.js の GALLERY_HEAD_MIN_W と揃える）
+    if(sr.w < SCREEN_HEAD_MIN_W) return;
     var headY = sr.y-8;
     ctx.font = '700 12px '+FONT_STACK;
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';

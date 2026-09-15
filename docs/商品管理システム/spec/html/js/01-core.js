@@ -14,7 +14,7 @@
   // ---------------------------------------------------------
   // 定数
   // ---------------------------------------------------------
-  var MODE_LABEL_JA = { flow:'画面遷移', gallery:'画面イメージ', concept:'概念図', biz:'業務フロー', er:'ER 図', dfd:'データフロー' };
+  var MODE_LABEL_JA = { flow:'画面遷移図', gallery:'機能一覧', concept:'概念図', biz:'業務フロー', er:'ER図', dfd:'データフロー' };
   var MODE_MAX_K = { flow:0.6, gallery:0.6, concept:1.4, biz:1.4, er:1.4, dfd:1.4 };
   var MIN_K = 0.02, MAX_K = 4.0;
   var EDGE_COLOR = {

@@ -80,6 +80,7 @@
     currentEdges: [],                // 現在モードの辺（検証済み）
     currentGroups: [],
     currentPhases: [],
+    currentTable: null,
     modeBounds: { x:0,y:0,w:1000,h:1000 },
     dfdStep: null,
     autoplayTimer: null,
@@ -192,7 +193,7 @@
     var left=60, right=rt.cssW-60, top=60, bottom=rt.cssH-60;
     if(rt.cssW>900){
       var tc = document.getElementById('titleCard');
-      if(tc){
+      if(tc && !tc.hidden){
         var tcRect = tc.getBoundingClientRect();
         if(pinTitleToTop) top = Math.max(top, tcRect.bottom + 24);
         else left = Math.max(left, tcRect.right + 24);
@@ -238,10 +239,9 @@
     return list;
   }
 
-  // biz モードのフェーズ: v2 は phases[].block（見出し帯＋レーンのカード全体）を
-  // 持つのでそちらを全体表示の範囲に含める。block が無ければ見出し帯そのもの（v1）。
+  // biz モードのフェーズ（表の行。見出し欄を含む全幅）を全体表示の範囲に含める。
   function phaseRects(modeObj){
-    return ((modeObj && modeObj.phases) || []).map(function(p){ return p.block || p; });
+    return ((modeObj && modeObj.phases) || []).map(function(p){ return p; });
   }
   // --- body end ---
   // --- export ---

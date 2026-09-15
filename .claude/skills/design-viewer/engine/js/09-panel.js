@@ -417,30 +417,35 @@
     modalTitleEl.textContent = id+' ・ '+(s.title||'');
     var w = s.w||1440, h = s.h||900;
     modalBodyEl.innerHTML = '';
+    // transform: scale はレイアウト上の寸法を変えないため、縮小後の寸法を持つ枠で iframe を包む
+    // （包まないと 1440px のまま中央寄せされ、左端がスクロールできない位置にはみ出す）
+    var frame = document.createElement('div');
+    frame.className = 'v-modal-frame';
     var iframe = document.createElement('iframe');
     iframe.src = 'screens/'+encodeURIComponent(id)+'.html';
     iframe.width = w; iframe.height = h;
     iframe.style.width = w+'px'; iframe.style.height = h+'px';
-    modalBodyEl.appendChild(iframe);
+    frame.appendChild(iframe);
+    modalBodyEl.appendChild(frame);
     previewModalEl.classList.add('v-open');
     setModalScale('fit', w, h);
   }
   function setModalScale(mode, w, h){
     var iframe = modalBodyEl.querySelector('iframe');
-    if(!iframe) return;
+    var frame = modalBodyEl.querySelector('.v-modal-frame');
+    if(!iframe || !frame) return;
     modalScale100Btn.classList.toggle('v-active', mode==='100');
     modalScaleFitBtn.classList.toggle('v-active', mode==='fit');
-    if(mode==='100'){
-      iframe.style.transform = 'none';
-      modalBodyEl.style.width = w+'px'; modalBodyEl.style.height = h+'px';
-    } else {
+    var scale = 1;
+    if(mode!=='100'){
       var maxW = Math.min(window.innerWidth*0.9, 1400);
       var maxH = window.innerHeight*0.78;
-      var scale = Math.min(1, maxW/w, maxH/h);
-      iframe.style.transformOrigin = '0 0';
-      iframe.style.transform = 'scale('+scale+')';
-      modalBodyEl.style.width = (w*scale)+'px'; modalBodyEl.style.height = (h*scale)+'px';
+      scale = Math.min(1, maxW/w, maxH/h);
     }
+    iframe.style.transformOrigin = '0 0';
+    iframe.style.transform = scale===1 ? 'none' : 'scale('+scale+')';
+    frame.style.width = (w*scale)+'px'; frame.style.height = (h*scale)+'px';
+    modalBodyEl.style.width = (w*scale)+'px'; modalBodyEl.style.height = (h*scale)+'px';
   }
   function closeModal(){
     previewModalEl.classList.remove('v-open');

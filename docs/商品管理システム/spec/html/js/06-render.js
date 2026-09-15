@@ -4,9 +4,9 @@
   var rt = DV.rt;
   // 画像遅延ロード・背景ドット・カリング・メイン render・描画スケジューラ。
   // --- import ---
-  var SETTLE_MS, now, recordFrame, stageCtx, zoomPctEl, state, screenToWorld, stepAnim, renderMinimap, RASTER_BUILD_BUDGET_PER_FRAME, SCREEN_RASTER_BUILD_BUDGET_PER_FRAME, nodeRasterBudget, screenRasterBudget, drawGroups, drawEdges, drawNodes, drawHighlights;
+  var SETTLE_MS, now, recordFrame, stageCtx, zoomPctEl, state, screenToWorld, stepAnim, renderMinimap, RASTER_BUILD_BUDGET_PER_FRAME, SCREEN_RASTER_BUILD_BUDGET_PER_FRAME, nodeRasterBudget, screenRasterBudget, drawGroups, drawEdges, drawNodes, drawHighlights, drawGroupHeaders;
   DV.links.push(function(){
-    SETTLE_MS = DV.SETTLE_MS; now = DV.now; recordFrame = DV.recordFrame; stageCtx = DV.stageCtx; zoomPctEl = DV.zoomPctEl; state = DV.state; screenToWorld = DV.screenToWorld; stepAnim = DV.stepAnim; renderMinimap = DV.renderMinimap; RASTER_BUILD_BUDGET_PER_FRAME = DV.RASTER_BUILD_BUDGET_PER_FRAME; SCREEN_RASTER_BUILD_BUDGET_PER_FRAME = DV.SCREEN_RASTER_BUILD_BUDGET_PER_FRAME; nodeRasterBudget = DV.nodeRasterBudget; screenRasterBudget = DV.screenRasterBudget; drawGroups = DV.drawGroups; drawEdges = DV.drawEdges; drawNodes = DV.drawNodes; drawHighlights = DV.drawHighlights;
+    SETTLE_MS = DV.SETTLE_MS; now = DV.now; recordFrame = DV.recordFrame; stageCtx = DV.stageCtx; zoomPctEl = DV.zoomPctEl; state = DV.state; screenToWorld = DV.screenToWorld; stepAnim = DV.stepAnim; renderMinimap = DV.renderMinimap; RASTER_BUILD_BUDGET_PER_FRAME = DV.RASTER_BUILD_BUDGET_PER_FRAME; SCREEN_RASTER_BUILD_BUDGET_PER_FRAME = DV.SCREEN_RASTER_BUILD_BUDGET_PER_FRAME; nodeRasterBudget = DV.nodeRasterBudget; screenRasterBudget = DV.screenRasterBudget; drawGroups = DV.drawGroups; drawGroupHeaders = DV.drawGroupHeaders; drawEdges = DV.drawEdges; drawNodes = DV.drawNodes; drawHighlights = DV.drawHighlights;
   });
   // --- body ---
   // ---------------------------------------------------------
@@ -147,6 +147,7 @@
     drawEdges(ctx, cull, visSet, connected, focusId);
     drawNodes(ctx, cull, visSet);
     drawHighlights(ctx);
+    drawGroupHeaders(ctx);
 
     renderMinimap();
 
