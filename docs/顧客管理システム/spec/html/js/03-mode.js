@@ -2,11 +2,11 @@
   'use strict';
   var DV = window.DV;
   var rt = DV.rt;
-  // アニメーション・モード切替・凡例・DFD ステップ・検索。
+  // アニメーション・モード切替・凡例・DFD ステップ・ジョブフローの機能の絞り込み・検索。
   // --- import ---
-  var CONCEPT_VARIANT_COLOR, MODE_MAX_K, EDGE_COLOR, lerp, logLerp, easeInOutCubic, now, escHtml, modeDescEl, searchResultsEl, legendListEl, toggleListEl, stepPlayEl, stepListEl, stepsCardEl, detailPanelEl, neighborToggleBtn, registry, state, nodeLabel, computeBBox, fitView, routeRects, modeNodeRects, phaseRects, worldRectToScreen, invalidate, onViewChanged, selectNode, updateSegActive, currentPanelWidth, updatePanelCssVar;
+  var jobFilterCardEl, jobFilterSelectEl, batchesById, CONCEPT_VARIANT_COLOR, MODE_MAX_K, EDGE_COLOR, lerp, logLerp, easeInOutCubic, now, escHtml, modeDescEl, searchResultsEl, legendListEl, toggleListEl, stepPlayEl, stepListEl, stepsCardEl, detailPanelEl, neighborToggleBtn, registry, state, nodeLabel, computeBBox, fitView, routeRects, modeNodeRects, phaseRects, worldRectToScreen, invalidate, onViewChanged, selectNode, updateSegActive, currentPanelWidth, updatePanelCssVar;
   DV.links.push(function(){
-    CONCEPT_VARIANT_COLOR = DV.CONCEPT_VARIANT_COLOR; MODE_MAX_K = DV.MODE_MAX_K; EDGE_COLOR = DV.EDGE_COLOR; lerp = DV.lerp; logLerp = DV.logLerp; easeInOutCubic = DV.easeInOutCubic; now = DV.now; escHtml = DV.escHtml; modeDescEl = DV.modeDescEl; searchResultsEl = DV.searchResultsEl; legendListEl = DV.legendListEl; toggleListEl = DV.toggleListEl; stepPlayEl = DV.stepPlayEl; stepListEl = DV.stepListEl; stepsCardEl = DV.stepsCardEl; detailPanelEl = DV.detailPanelEl; neighborToggleBtn = DV.neighborToggleBtn; registry = DV.registry; state = DV.state; nodeLabel = DV.nodeLabel; computeBBox = DV.computeBBox; fitView = DV.fitView; routeRects = DV.routeRects; modeNodeRects = DV.modeNodeRects; phaseRects = DV.phaseRects; worldRectToScreen = DV.worldRectToScreen; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged; selectNode = DV.selectNode; updateSegActive = DV.updateSegActive; currentPanelWidth = DV.currentPanelWidth; updatePanelCssVar = DV.updatePanelCssVar;
+    jobFilterCardEl = DV.jobFilterCardEl; jobFilterSelectEl = DV.jobFilterSelectEl; batchesById = DV.batchesById; CONCEPT_VARIANT_COLOR = DV.CONCEPT_VARIANT_COLOR; MODE_MAX_K = DV.MODE_MAX_K; EDGE_COLOR = DV.EDGE_COLOR; lerp = DV.lerp; logLerp = DV.logLerp; easeInOutCubic = DV.easeInOutCubic; now = DV.now; escHtml = DV.escHtml; modeDescEl = DV.modeDescEl; searchResultsEl = DV.searchResultsEl; legendListEl = DV.legendListEl; toggleListEl = DV.toggleListEl; stepPlayEl = DV.stepPlayEl; stepListEl = DV.stepListEl; stepsCardEl = DV.stepsCardEl; detailPanelEl = DV.detailPanelEl; neighborToggleBtn = DV.neighborToggleBtn; registry = DV.registry; state = DV.state; nodeLabel = DV.nodeLabel; computeBBox = DV.computeBBox; fitView = DV.fitView; routeRects = DV.routeRects; modeNodeRects = DV.modeNodeRects; phaseRects = DV.phaseRects; worldRectToScreen = DV.worldRectToScreen; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged; selectNode = DV.selectNode; updateSegActive = DV.updateSegActive; currentPanelWidth = DV.currentPanelWidth; updatePanelCssVar = DV.updatePanelCssVar;
   });
   // --- body ---
   // ---------------------------------------------------------
@@ -133,6 +133,8 @@
     state.currentNodeIds = (modeObj.nodes||[]).map(function(n){ return n.id; }).filter(function(id){ return registry.has(id); });
     rebuildLegendAndToggles(modeObj);
     rebuildStepsUI(modeKey, modeObj);
+    rebuildJobFilterUI(modeKey, modeObj);
+    if(modeKey==='jobflow') applyJobFilterLayout();
     updateSegActive();
     modeDescEl.textContent = modeObj.desc || '';
     rebuildSearchIndex();
@@ -165,8 +167,16 @@
   // 全体表示の対象領域と最大倍率。表（機能一覧の arrange: "table"。layout が fit: "width" を付ける）は
   // 縦に長いので、全体を収めると文字が読めない。表の幅に合わせ、上端から画面の縦横比ぶんだけを対象にする。
   var FIT_WIDTH_ASPECT = 0.5;
+  // ジョブフローを機能で絞り込んでいるときは、対象のノードと行（フェーズ）だけを全体表示の対象にする。
   function modeFitBox(modeKey, modeObj){
     var extra = modeObj.table ? [modeObj.table] : [];
+    var filterNodes = modeKey===state.mode ? jobFilterNodeSet() : null;
+    if(filterNodes){
+      // 絞り込み中のジョブフローは applyJobFilterLayout で詰めた行・列・辺（state.current*）と、表示するノードだけで囲む
+      var rects = modeNodeRects(modeKey).filter(function(p){ return filterNodes.has(p.node.id); });
+      var fb = computeBBox(rects.concat(routeRects({ edges: state.currentEdges })), state.currentGroups.concat(state.currentPhases));
+      return { bbox:fb, box:fb, maxK: modeObj.maxK || MODE_MAX_K[modeKey] || 1.4 };
+    }
     var bbox = computeBBox(modeNodeRects(modeKey).concat(routeRects(modeObj)), (modeObj.groups||[]).concat(phaseRects(modeObj)).concat(extra));
     var box = bbox;
     if(modeObj.fit==='width') box = { x:bbox.x, y:bbox.y, w:bbox.w, h:Math.min(bbox.h, bbox.w*FIT_WIDTH_ASPECT) };
@@ -181,6 +191,9 @@
 
   function focusNode(id){
     if(!registry.has(id)){ console.warn('[viewer] focusNode: 未知のノード id: '+id); return; }
+    // 機能の絞り込みで隠れているノードへ寄るときは、絞り込みを解除する
+    var filterNodes = jobFilterNodeSet();
+    if(filterNodes && !filterNodes.has(id)) setJobFilter('', { noFit:true });
     selectNode(id);
     var entry = registry.get(id);
     var pos = entry.modePos[state.mode] || entry.cur;
@@ -239,7 +252,7 @@
       }
       var color = EDGE_COLOR[item.type] || '#8A93A3';
       var cls = 'v-legend-swatch';
-      if(item.type==='system' || item.type==='weak') cls += ' v-dash';
+      if(item.type==='system' || item.type==='weak' || item.type==='ng') cls += ' v-dash';
       else if(item.type==='nav') cls += ' v-dot';
       return '<div class="v-legend-item"><span class="'+cls+'" style="border-color:'+color+'"></span><span>'+escHtml(item.label)+'</span></div>';
     }).join('') : '<div class="v-empty">凡例なし</div>';
@@ -295,11 +308,119 @@
   }
 
   // ---------------------------------------------------------
+  // ジョブフローの機能の絞り込み
+  // ---------------------------------------------------------
+  // 右上のセレクトボックスで batches[] の 1 件を選ぶと、そのバッチのジョブだけを表示して寄る（ほかのバッチの行は取り除いて詰める）。
+  // 対象は「batch がそのバッチのノード」と「batch を持たず、それらと同じ行（フェーズ）にあるノード」
+  // （外部システム側の受け取り・分岐など、バッチを付けにくいノードを行ごと残すため）。
+  // 選択はモードを切り替えても保持する（機能一覧から戻ったときも同じ絞り込みのまま）。
+  var jobFilterCache = { key:null, nodes:null, phases:null };
+  function computeJobFilter(){
+    var modeObj = VIEWER_DATA.modes.jobflow;
+    var key = state.jobFilter;
+    if(jobFilterCache.key===key) return jobFilterCache;
+    var nodes = (modeObj && modeObj.nodes) || [];
+    var phases = new Set(), ids = new Set();
+    nodes.forEach(function(n){ if(n.batch===key){ ids.add(n.id); if(n.phase) phases.add(n.phase); } });
+    nodes.forEach(function(n){ if(!n.batch && n.phase && phases.has(n.phase)) ids.add(n.id); });
+    jobFilterCache = { key:key, nodes:ids, phases:phases };
+    return jobFilterCache;
+  }
+  function jobFilterActive(){ return state.mode==='jobflow' && !!state.jobFilter && !!VIEWER_DATA.modes.jobflow; }
+  function jobFilterNodeSet(){ return jobFilterActive() ? computeJobFilter().nodes : null; }
+  function jobFilterPhaseSet(){ return jobFilterActive() ? computeJobFilter().phases : null; }
+  // セレクトボックスの選択肢: jobflow のノードが参照するバッチを、ノードの記述順に 1 回ずつ
+  function jobFilterOptions(modeObj){
+    var seen = {}, list = [];
+    ((modeObj && modeObj.nodes) || []).forEach(function(n){
+      if(!n.batch || seen[n.batch]) return;
+      seen[n.batch] = true;
+      var b = batchesById.get(n.batch);
+      list.push({ id:n.batch, label: n.batch+(b && b.title ? ' '+b.title : '') });
+    });
+    return list;
+  }
+  function rebuildJobFilterUI(modeKey, modeObj){
+    var opts = modeKey==='jobflow' ? jobFilterOptions(modeObj) : [];
+    if(!opts.length){ jobFilterCardEl.hidden = true; return; }
+    if(state.jobFilter && !opts.some(function(o){ return o.id===state.jobFilter; })) state.jobFilter = '';
+    jobFilterSelectEl.innerHTML = '<option value="">すべての機能（'+opts.length+'）</option>'+opts.map(function(o){
+      return '<option value="'+escHtml(o.id)+'">'+escHtml(o.label)+'</option>';
+    }).join('');
+    jobFilterSelectEl.value = state.jobFilter;
+    jobFilterCardEl.hidden = false;
+  }
+  // 絞り込みの対象外の行（フェーズ）を取り除き、その下の行を上へ詰める。レイアウト（layout.js）は作り直さず、
+  // 元の座標（VIEWER_DATA と entry.jobBase）から y を写像して、ノード（modePos）・辺・行・列を置き換える。
+  // 写像は区分線形: 対象外の行より下の点はその行の高さだけ上へ、対象外の行の中の点はその行の上端へ寄せる
+  // （行をまたいで対象外の行を通る辺も途切れずにつながる）。絞り込みを解除すると元の座標に戻る。
+  function applyJobFilterLayout(){
+    var modeObj = VIEWER_DATA.modes.jobflow;
+    if(!modeObj) return;
+    var phaseSet = jobFilterPhaseSet();
+    var hidden = phaseSet ? (modeObj.phases||[]).filter(function(p){ return !phaseSet.has(p.id); }) : [];
+    function mapY(y){
+      var shift = 0;
+      for(var i=0;i<hidden.length;i++){
+        var p = hidden[i];
+        if(y >= p.y+p.h) shift += p.h;
+        else if(y > p.y) shift += y-p.y;
+      }
+      return y-shift;
+    }
+    (modeObj.nodes||[]).forEach(function(n){
+      var entry = registry.get(n.id);
+      var mp = entry && entry.modePos.jobflow;
+      if(!mp) return;
+      if(!entry.jobBase) entry.jobBase = { y: mp.y };
+      mp.y = mapY(entry.jobBase.y);
+    });
+    state.currentPhases = (modeObj.phases||[]).filter(function(p){ return !phaseSet || phaseSet.has(p.id); })
+      .map(function(p){ return Object.assign({}, p, { y: mapY(p.y) }); });
+    state.currentGroups = (modeObj.groups||[]).map(function(g){
+      var y = mapY(g.y);
+      return Object.assign({}, g, { y: y, h: mapY(g.y+g.h)-y });
+    });
+    state.currentEdges = prepareEdgesForMode('jobflow').map(function(e){
+      if(!hidden.length) return e;
+      return Object.assign({}, e, {
+        route: e.route.map(function(pt){ return [pt[0], mapY(pt[1])]; }),
+        labelAt: e.labelAt ? [e.labelAt[0], mapY(e.labelAt[1])] : e.labelAt
+      });
+    });
+  }
+
+  // id: batches[].id（'' で解除）。opts.noFit: 全体表示に寄せない（focusNode から呼ぶとき）
+  function setJobFilter(id, opts){
+    opts = opts || {};
+    state.jobFilter = id || '';
+    if(state.mode!=='jobflow') return;
+    jobFilterSelectEl.value = state.jobFilter;
+    var filterNodes = jobFilterNodeSet();
+    if(filterNodes && state.selected && !filterNodes.has(state.selected)){
+      state.selected = null; detailPanelEl.hidden = true; if(updatePanelCssVar) updatePanelCssVar();
+    }
+    // 行を詰め直し、ノードは新しい位置へそのまま移す（辺・行と同時に変わるので、ノードだけ動かすと途中でずれる）
+    applyJobFilterLayout();
+    if(state.nodeAnim){ state.nodeAnim = null; }
+    (VIEWER_DATA.modes.jobflow.nodes||[]).forEach(function(n){
+      var entry = registry.get(n.id), mp = entry && entry.modePos.jobflow;
+      if(mp) entry.cur = { x:mp.x, y:mp.y, w:mp.w, h:mp.h, op:1 };
+    });
+    state.modeBounds = modeFitBox('jobflow', VIEWER_DATA.modes.jobflow).bbox;
+    rebuildSearchIndex();
+    rt.minimapBgDirty = true;
+    if(!opts.noFit) fitCurrentMode(true);
+    invalidate();
+  }
+
+  // ---------------------------------------------------------
   // 検索
   // ---------------------------------------------------------
   var searchIndex = [];
   function rebuildSearchIndex(){
-    searchIndex = state.currentNodeIds.map(function(id){
+    var filterNodes = jobFilterNodeSet();
+    searchIndex = state.currentNodeIds.filter(function(id){ return !filterNodes || filterNodes.has(id); }).map(function(id){
       var entry = registry.get(id);
       var mp = entry.modePos[state.mode];
       var sub = (entry.kind!=='screen' && mp && mp.node && mp.node.sub) || '';
@@ -321,5 +442,5 @@
   }
   // --- body end ---
   // --- export ---
-  DV.stepAnim = stepAnim; DV.setMode = setMode; DV.fitCurrentMode = fitCurrentMode; DV.focusNode = focusNode; DV.fitGroup = fitGroup; DV.setDfdStep = setDfdStep; DV.toggleAutoplay = toggleAutoplay; DV.runSearch = runSearch; DV.nudgeViewForPanel = nudgeViewForPanel;
+  DV.stepAnim = stepAnim; DV.setMode = setMode; DV.fitCurrentMode = fitCurrentMode; DV.focusNode = focusNode; DV.fitGroup = fitGroup; DV.setDfdStep = setDfdStep; DV.toggleAutoplay = toggleAutoplay; DV.runSearch = runSearch; DV.nudgeViewForPanel = nudgeViewForPanel; DV.jobFilterNodeSet = jobFilterNodeSet; DV.jobFilterPhaseSet = jobFilterPhaseSet; DV.setJobFilter = setJobFilter;
 })();

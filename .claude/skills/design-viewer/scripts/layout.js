@@ -19,7 +19,10 @@
  * - gallery: ELK 不要。group 順・screens 順の格子。arrange: "table" のときは 1 画面 1 行の表
  *   （サムネイル・ID・画面名・概要・利用者・実装状況。layoutGalleryTable）。
  * - biz: ELK 不要。アクター（lanes）を列、業務内容（phases）を行にした 1 枚の表に、行の中を
- *   上→下の段で並べる（layoutBiz。詳細は同関数のコメントを参照）。
+ *   上→下の段で並べる（layoutSwimlane。詳細は同関数のコメントを参照）。
+ * - jobflow: biz と同じスイムレーン配置（layoutSwimlane）。ノードの kind が 'job' になり、関連画面の
+ *   代わりに関連バッチ（batch）を持つ。
+ * - gallery: batches[]（バッチ機能）は画面のグループの後ろに、バッチのセクション（ブロック）として並べる。
  * - dfd（arrange: "steps"）: steps ごとに辺と両端のノードだけの小さな図（外部実体 | プロセス |
  *   データストアの 3 列・曲線）を作り、ブロックを格子に詰める（layoutDfdBySteps / layoutDfdColumns）。
  * - concept / dfd: ELK layered(RIGHT・wrapping) と stress を両方試し、フィットズーム最大
@@ -474,7 +477,7 @@ function buildGalleryLayout(blocks, cellW, cellH, R, shelfCols, k) {
     b.items.forEach((s, idx) => {
       const r = Math.floor(idx / cols), c = idx % cols;
       nodes.push({
-        id: s.id, kind: 'screen', group: b.id,
+        id: s.id, kind: b.kind || 'screen', group: b.id,
         x: shelfX + g.pad + c * (cellW + g.gutterX),
         y: shelfY + g.header + rowY[r],
         w: s.w || DEFAULT_SCREEN_W, h: s.h || DEFAULT_SCREEN_H,
@@ -509,6 +512,10 @@ function layoutGallery(model, warnings) {
     };
   }).filter(b => b.items.length > 0);
   if (unassigned) warnings.push('gallery: group 未設定の画面を (未分類) レーンに配置しました');
+  // バッチ機能は画面のグループの後ろに並べる（サムネイルが無いので画面と同じ大きさのカードで描く）
+  batchSections(model).forEach(sec => {
+    blocks.push({ id: sec.id, label: sec.label, kind: 'batch', items: sec.items.map(b => ({ id: b.id, w: DEFAULT_SCREEN_W, h: DEFAULT_SCREEN_H })) });
+  });
   if (blocks.length === 0) return { nodes: [], groups: [], edges: [], bounds: { x: 0, y: 0, w: 0, h: 0 } };
 
   const maxItems = Math.max(...blocks.map(b => b.items.length));
@@ -532,6 +539,7 @@ function layoutGallery(model, warnings) {
 
 // ---------- gallery（arrange: "table"。表形式の機能一覧） ----------
 // 1 画面 1 行の表: サムネイル | ID | 画面名 | 概要（purpose） | 利用者（role） | 実装状況（status）。
+// batches[] があれば画面のセクションの後ろにバッチのセクションを足す（サムネイルの代わりにカード、利用者の代わりに schedule）。
 // groups[].order 順の見出し行（セクション）で区切る。文字はワールド座標の大きさで描き（ズームに比例）、
 // 行の高さはサムネイルの高さと、各列の文字を列幅で折り返したときの行数の大きい方で決める。
 // サムネイルは画面ノードそのもの（クリックで詳細パネル）で、縦横比を保ったまま最大 GT_THUMB_W×GT_THUMB_H に収める。
@@ -553,6 +561,22 @@ const GT_COLUMNS = [
   { key: 'status', label: '実装状況', w: 160 },
 ];
 
+// バッチ機能の行の画面イメージ列に置くカード（サムネイルの代わり）
+const GT_BATCH_W = 220, GT_BATCH_H = 120;
+
+/**
+ * batches[] を機能一覧のセクションに分ける。group が groups[] にあればそのグループごとに
+ * 「<グループ名>（バッチ）」、無ければまとめて「バッチ機能」。groups[].order 順で、画面のセクションの後ろに置く。
+ */
+function batchSections(model) {
+  const batches = (model.batches || []).filter(b => b && b.id);
+  const groups = [...(model.groups || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const known = new Set(groups.map(g => g.id));
+  const sections = groups.map(g => ({ id: `batch:${g.id}`, label: `${g.label}（バッチ）`, items: batches.filter(b => b.group === g.id) }));
+  sections.push({ id: 'batch:__all__', label: 'バッチ機能', items: batches.filter(b => !b.group || !known.has(b.group)) });
+  return sections.filter(s => s.items.length > 0);
+}
+
 /** 文字列を幅 w（ワールド px）・文字サイズ px で折り返したときの行数の見積もり */
 function estimateWrapLines(text, px, w) {
   let lines = 1, cur = 0;
@@ -572,38 +596,50 @@ function layoutGalleryTable(model, warnings) {
     sectionDefs.push({ id: '__unassigned__', label: '(未分類)' });
     warnings.push('gallery: group 未設定の画面を (未分類) セクションに配置しました');
   }
+  // バッチ機能がある表は、列の名前を画面とバッチの両方に合う名前にする（利用者の列はバッチでは起動のタイミング）
+  const bSections = batchSections(model);
+  const columnLabels = bSections.length ? { thumb: 'イメージ', title: '名称', role: '利用者／起動' } : {};
   let x = 0;
-  const columns = GT_COLUMNS.map(c => { const col = { ...c, x }; x += c.w; return col; });
+  const columns = GT_COLUMNS.map(c => { const col = { ...c, x, label: columnLabels[c.key] || c.label }; x += c.w; return col; });
   const tableW = x;
   const nodes = [], rows = [], sections = [];
   let y = GT_HEADER_H;
-  sectionDefs.forEach(def => {
-    const items = screens.filter(s => (s.group && known.has(s.group) ? s.group : '__unassigned__') === def.id);
+  const pushSection = (def, items, opts) => {
     if (items.length === 0) return;
     const counts = {};
     items.forEach(s => { if (s.status) counts[s.status] = (counts[s.status] || 0) + 1; });
-    sections.push({ id: def.id, label: def.label, y, h: GT_SECTION_H, count: items.length, counts });
+    sections.push({ id: def.id, label: def.label, y, h: GT_SECTION_H, count: items.length, unit: opts.unit, counts });
     y += GT_SECTION_H;
     items.forEach(s => {
-      const sw = s.w || DEFAULT_SCREEN_W, sh = s.h || DEFAULT_SCREEN_H;
-      const scale = Math.min(GT_THUMB_W / sw, GT_THUMB_H / sh);
-      const tw = sw * scale, th = sh * scale;
+      let tw, th;
+      if (opts.kind === 'batch') {
+        tw = GT_BATCH_W; th = GT_BATCH_H;
+      } else {
+        const sw = s.w || DEFAULT_SCREEN_W, sh = s.h || DEFAULT_SCREEN_H;
+        const scale = Math.min(GT_THUMB_W / sw, GT_THUMB_H / sh);
+        tw = sw * scale; th = sh * scale;
+      }
+      const role = opts.kind === 'batch' ? (s.schedule || '') : (s.role || '');
       let textH = 0;
       columns.forEach(c => {
         if (!c.px) return;
-        const text = c.key === 'id' ? s.id : s[c.key];
+        const text = c.key === 'id' ? s.id : (c.key === 'role' ? role : s[c.key]);
         textH = Math.max(textH, estimateWrapLines(text, c.px, c.w - GT_PAD_X * 2) * c.lineH);
       });
       const rowH = Math.ceil(Math.max(th, textH, 28) + GT_PAD_Y * 2);
       nodes.push({
-        id: s.id, kind: 'screen', group: def.id, table: true,
+        id: s.id, kind: opts.kind, group: def.id, table: true,
         x: columns[0].x + (columns[0].w - tw) / 2, y: y + (rowH - th) / 2, w: tw, h: th,
       });
-      if (s.status && !SCREEN_STATUSES[s.status]) warnings.push(`gallery: screens.${s.id}.status が未知です: ${s.status}`);
-      rows.push({ id: s.id, section: def.id, y, h: rowH, title: s.title || '', purpose: s.purpose || '', role: s.role || '', status: s.status || null });
+      if (s.status && !SCREEN_STATUSES[s.status]) warnings.push(`gallery: ${opts.kind === 'batch' ? 'batches' : 'screens'}.${s.id}.status が未知です: ${s.status}`);
+      rows.push({ id: s.id, section: def.id, y, h: rowH, title: s.title || '', purpose: s.purpose || '', role, status: s.status || null });
       y += rowH;
     });
+  };
+  sectionDefs.forEach(def => {
+    pushSection(def, screens.filter(s => (s.group && known.has(s.group) ? s.group : '__unassigned__') === def.id), { kind: 'screen', unit: '画面' });
   });
+  bSections.forEach(sec => pushSection(sec, sec.items, { kind: 'batch', unit: 'バッチ' }));
   const table = { x: 0, y: 0, w: tableW, h: y, headerH: GT_HEADER_H, padX: GT_PAD_X, padY: GT_PAD_Y, columns, sections, rows, statuses: SCREEN_STATUSES };
   const bounds = computeBounds(nodes, [table], []);
   // 表は縦に長いので、全体表示は表の幅に合わせて上端から見せる（fit: "width"）。文字が読める等倍まで拡大してよい
@@ -1457,7 +1493,13 @@ const BIZ_NODE_SIZE = {
   decision: { w: 150, h: 96 },
   start: { w: 190, h: 52 },
   end: { w: 190, h: 52 },
+  // jobflow
+  job: { w: 220, h: 76 },
+  jobnet: { w: 220, h: 88 },   // 右上に種別のタグを出すので、見出しをタグの下から始める分だけ高い
+  wait: { w: 220, h: 88 },
 };
+// 辺を引く順（小さい方が先）。主な流れを先に引き、異常終了（ng）、差し戻し・再実行（weak）は空いている経路を後から使う
+const BIZ_EDGE_ROUTE_ORDER = { ng: 1, weak: 2 };
 function bizNodeSize(variant) { return BIZ_NODE_SIZE[variant] || BIZ_NODE_SIZE.task; }
 
 /** DFS で逆辺（閉路の原因になる辺）を検出する。nodeIds の順（model 順）を探索順にして決定的にする。 */
@@ -1644,7 +1686,7 @@ function routeBizEdges(edgesIn, nodeRectById, nodeMetaById, nodeVariantById) {
   const placed = [];
   const drawn = [];
   const out = new Array(edgesIn.length);
-  const order = edgesIn.map((e, i) => i).sort((i, j) => (edgesIn[i].type === 'weak') - (edgesIn[j].type === 'weak') || i - j);
+  const order = edgesIn.map((e, i) => i).sort((i, j) => (BIZ_EDGE_ROUTE_ORDER[edgesIn[i].type] || 0) - (BIZ_EDGE_ROUTE_ORDER[edgesIn[j].type] || 0) || i - j);
   order.forEach(idx => {
     const e = edgesIn[idx];
     const a = nodeRectById.get(e.from), b = nodeRectById.get(e.to);
@@ -1696,8 +1738,10 @@ function routeBizEdges(edgesIn, nodeRectById, nodeMetaById, nodeVariantById) {
  *   ノードの無いアクターも列として出す（表の見出しを揃えるため）。
  * - 行の高さ: そのフェーズの段の高さと段の間隔の合計＋上下の余白。ノードの無いフェーズは 110。
  * - phases が無い入力は、全ノードを見出しの無い 1 行（id "_all"）として同じ手順で並べる。
+ * modeName: 'biz' | 'jobflow'（警告の接頭辞とノードの kind。jobflow のノードは kind 'job'）。
  */
-function layoutBiz(biz, warnings) {
+function layoutSwimlane(biz, warnings, modeName) {
+  const nodeKind = modeName === 'jobflow' ? 'job' : 'biz';
   const lanes = Array.isArray(biz.lanes) ? biz.lanes : [];
   const phasesIn = Array.isArray(biz.phases) ? biz.phases : [];
   const nodesIn = Array.isArray(biz.nodes) ? biz.nodes : [];
@@ -1711,7 +1755,7 @@ function layoutBiz(biz, warnings) {
 
   const usableNodes = nodesIn.filter(n => n && n.id && validLaneIds.has(n.lane) && (!hasPhases || validPhaseIds.has(n.phase)));
   if (usableNodes.length < nodesIn.length) {
-    warnings.push(`biz: lane / phase を解決できないノードが ${nodesIn.length - usableNodes.length} 件あります（表示から除外しました）`);
+    warnings.push(`${modeName}: lane / phase を解決できないノードが ${nodesIn.length - usableNodes.length} 件あります（表示から除外しました）`);
   }
   if (usableNodes.length === 0) return empty;
   const usableById = new Map(usableNodes.map(n => [n.id, n]));
@@ -1791,8 +1835,8 @@ function layoutBiz(biz, warnings) {
           gapBelow: r < pd.nRanks - 1 ? gapAfter[r] : BIZ_PHASE_PAD_Y,
         });
         nodes.push({
-          id, kind: 'biz', variant: n.variant, lane: n.lane, phase: hasPhases ? n.phase : undefined,
-          label: n.label, sub: n.sub, screen: n.screen, spec: n.spec, info: n.info,
+          id, kind: nodeKind, variant: n.variant, lane: n.lane, phase: hasPhases ? n.phase : undefined,
+          label: n.label, sub: n.sub, screen: n.screen, batch: n.batch, spec: n.spec, info: n.info,
           x: rect.x, y: rect.y, w: rect.w, h: rect.h,
         });
         nx += size.w + BIZ_CELL_GAP_X;
@@ -1815,7 +1859,7 @@ function layoutBiz(biz, warnings) {
 
   const validEdges = edgesIn.filter(e => e && nodeRectById.has(e.from) && nodeRectById.has(e.to));
   if (validEdges.length < edgesIn.length) {
-    warnings.push(`biz: from/to を解決できない辺が ${edgesIn.length - validEdges.length} 件あります（描画から除外しました）`);
+    warnings.push(`${modeName}: from/to を解決できない辺が ${edgesIn.length - validEdges.length} 件あります（描画から除外しました）`);
   }
   const edges = routeBizEdges(validEdges, nodeRectById, nodeMetaById, nodeVariantById);
 
@@ -1922,7 +1966,7 @@ async function computeLayout(model) {
   const modesIn = model.modes || {};
   let t;
 
-  if (modesIn.gallery !== undefined || (model.screens || []).length > 0) {
+  if (modesIn.gallery !== undefined || (model.screens || []).length > 0 || (model.batches || []).length > 0) {
     t = Date.now();
     modes.gallery = modesIn.gallery && modesIn.gallery.arrange === 'table'
       ? layoutGalleryTable(model, warnings)
@@ -1945,8 +1989,13 @@ async function computeLayout(model) {
   }
   if (modesIn.biz) {
     t = Date.now();
-    modes.biz = layoutBiz(modesIn.biz, warnings);
+    modes.biz = layoutSwimlane(modesIn.biz, warnings, 'biz');
     timings.biz = Date.now() - t;
+  }
+  if (modesIn.jobflow) {
+    t = Date.now();
+    modes.jobflow = layoutSwimlane(modesIn.jobflow, warnings, 'jobflow');
+    timings.jobflow = Date.now() - t;
   }
   if (modesIn.er) {
     t = Date.now();
@@ -1967,6 +2016,7 @@ async function computeLayout(model) {
     generatedAt: new Date().toISOString(),
     meta: model.meta,
     screens: model.screens || [],
+    batches: model.batches || [],
     thumbs: {},
     modes,
   };
@@ -2014,8 +2064,8 @@ if (require.main === module) {
         const o = v._other;
         console.log(`[layout] ${k}: ${v._algorithm} を採用（fitZoom ${(v._fitZoom * 100).toFixed(0)}%・交差 ${v._crossings}・重なり ${v._overlaps}`
           + (o ? `、比較対象 ${o.algorithm}: fitZoom ${(o.fitZoom * 100).toFixed(0)}%・交差 ${o.crossings}・重なり ${o.overlaps}）` : '）'));
-      } else if (k === 'biz') {
-        console.log(`[layout] biz: アクター ${v.groups.length}・フェーズ ${v.phases.length}・ノード ${v.nodes.length}・辺 ${v.edges.length}（bounds ${Math.round(v.bounds.w)}x${Math.round(v.bounds.h)}）`);
+      } else if (k === 'biz' || k === 'jobflow') {
+        console.log(`[layout] ${k}: アクター ${v.groups.length}・フェーズ ${v.phases.length}・ノード ${v.nodes.length}・辺 ${v.edges.length}（bounds ${Math.round(v.bounds.w)}x${Math.round(v.bounds.h)}）`);
       }
     });
     console.log(`[layout] 書き出し: ${path.join(outDir, '.layout.json')}`);

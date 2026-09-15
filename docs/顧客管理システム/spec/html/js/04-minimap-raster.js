@@ -4,9 +4,9 @@
   var rt = DV.rt;
   // ミニマップ描画とノード／画面ラスタキャッシュ。
   // --- import ---
-  var LOD_BUCKETS, RASTER_CACHE_MAX, minimapEl, minimapCtx, minimapCardEl, registry, state, screenToWorld, drawNodeRasterContent, BIZ_MINIMAP_COLOR, invalidate, onViewChanged;
+  var LOD_BUCKETS, RASTER_CACHE_MAX, minimapEl, minimapCtx, minimapCardEl, registry, state, screenToWorld, drawNodeRasterContent, BIZ_MINIMAP_COLOR, JOB_MINIMAP_COLOR, invalidate, onViewChanged;
   DV.links.push(function(){
-    LOD_BUCKETS = DV.LOD_BUCKETS; RASTER_CACHE_MAX = DV.RASTER_CACHE_MAX; minimapEl = DV.minimapEl; minimapCtx = DV.minimapCtx; minimapCardEl = DV.minimapCardEl; registry = DV.registry; state = DV.state; screenToWorld = DV.screenToWorld; drawNodeRasterContent = DV.drawNodeRasterContent; BIZ_MINIMAP_COLOR = DV.BIZ_MINIMAP_COLOR; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged;
+    LOD_BUCKETS = DV.LOD_BUCKETS; RASTER_CACHE_MAX = DV.RASTER_CACHE_MAX; minimapEl = DV.minimapEl; minimapCtx = DV.minimapCtx; minimapCardEl = DV.minimapCardEl; registry = DV.registry; state = DV.state; screenToWorld = DV.screenToWorld; drawNodeRasterContent = DV.drawNodeRasterContent; BIZ_MINIMAP_COLOR = DV.BIZ_MINIMAP_COLOR; JOB_MINIMAP_COLOR = DV.JOB_MINIMAP_COLOR; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged;
   });
   // --- body ---
   // ---------------------------------------------------------
@@ -39,13 +39,17 @@
     bctx.fillStyle = '#F6F7FA';
     bctx.fillRect(0,0,geom.mw,geom.mh);
     var ids = state.currentNodeIds;
+    var filter = DV.jobFilterNodeSet();
     var defaultFill = 'rgba(47,91,234,.55)';
     bctx.fillStyle = defaultFill;
     for(var i=0;i<ids.length;i++){
       var entry = registry.get(ids[i]);
       var p = entry.modePos[state.mode];
-      if(!p) continue;
-      bctx.fillStyle = entry.kind==='biz' ? (BIZ_MINIMAP_COLOR[(p.node&&p.node.variant)||'task'] || defaultFill) : defaultFill;
+      if(!p || (filter && !filter.has(ids[i]))) continue;
+      var variant = p.node && p.node.variant;
+      bctx.fillStyle = entry.kind==='biz' ? (BIZ_MINIMAP_COLOR[variant||'task'] || defaultFill)
+        : entry.kind==='job' ? (JOB_MINIMAP_COLOR[variant||'job'] || defaultFill)
+        : entry.kind==='batch' ? 'rgba(15,118,110,.55)' : defaultFill;
       var x = geom.offX + p.x*geom.scale, y = geom.offY + p.y*geom.scale;
       var w = Math.max(1, p.w*geom.scale), h = Math.max(1, p.h*geom.scale);
       bctx.fillRect(x,y,w,h);
@@ -90,7 +94,7 @@
   }
 
   // ---------------------------------------------------------
-  // ノードのラスタキャッシュ（concept / biz / er / dfd / pill）
+  // ノードのラスタキャッシュ（concept / biz / job / er / dfd / pill）
   // ---------------------------------------------------------
   var rasterCache = new Map(); // key -> {canvas,w,h}
   function pickBucket(viewK, dpr){

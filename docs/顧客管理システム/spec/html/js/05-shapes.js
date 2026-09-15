@@ -2,7 +2,7 @@
   'use strict';
   var DV = window.DV;
   var rt = DV.rt;
-  // ノード種別（pill/concept/biz/er/dfd）ごとの図形ラスタ描画。
+  // ノード種別（pill/concept/biz/job/er/dfd）ごとの図形ラスタ描画。
   // --- import ---
   var getIconPath, clamp, roundRectPath, measureCached, truncateText, wrapCharLines, state, FONT_STACK;
   DV.links.push(function(){
@@ -15,6 +15,7 @@
     if(entry.kind==='pill') drawPillContent(ctx, n, w, h);
     else if(entry.kind==='concept') drawConceptContent(ctx, n, w, h);
     else if(entry.kind==='biz') drawBizContent(ctx, n, w, h, noText);
+    else if(entry.kind==='job') drawJobContent(ctx, n, w, h, noText);
     else if(entry.kind==='er') drawErContent(ctx, n, w, h);
     else if(entry.kind==='dfd') drawDfdContent(ctx, n, w, h);
   }
@@ -117,11 +118,17 @@
     ctx.fillStyle = col.bar; ctx.fill();
 
     if(noText) return;
+    drawStepText(ctx, n, w, h, variant==='system' ? { text:'システム', color:col.bar } : null,
+      variant==='task' && n.screen ? { text:n.screen, bg:'#EAF0FF', fg:'#2F5BEA' } : null);
+  }
 
-    if(variant==='system'){
+  // 角丸の箱（biz の task / system、jobflow の job など）の文字: 見出し（2 行まで）・補足・右上の種別タグ・右下のバッジ。
+  // minTop: 見出しの上端の下限（右上のタグと見出しが重ならないよう、高さに余裕のある箱で下げる）
+  function drawStepText(ctx, n, w, h, tag, badge, minTop){
+    if(tag){
       ctx.font = '700 10px '+FONT_STACK;
-      ctx.fillStyle = col.bar; ctx.textAlign='right'; ctx.textBaseline='alphabetic';
-      ctx.fillText('システム', w-12, 18);
+      ctx.fillStyle = tag.color; ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+      ctx.fillText(tag.text, w-12, 18);
       ctx.textAlign='left';
     }
 
@@ -130,7 +137,7 @@
     var lines = wrapCharLines(ctx, n.label||'', ctx.font, maxTextW, 2);
     var lh = 18;
     var blockH = lines.length*lh + (n.sub? 16:0);
-    var top = Math.max(14, h/2-blockH/2);
+    var top = Math.max(minTop||14, h/2-blockH/2);
     ctx.fillStyle = '#1A2029'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     lines.forEach(function(line,i){ ctx.fillText(line, padX, top+lh*(i+1)-4); });
     if(n.sub){
@@ -138,16 +145,48 @@
       ctx.fillText(truncateText(ctx, n.sub, ctx.font, maxTextW), padX, top+lines.length*lh+12);
     }
 
-    if(variant==='task' && n.screen){
+    if(badge){
       ctx.font = '800 10px '+FONT_STACK;
-      var bw = Math.max(30, measureCached(ctx, n.screen, ctx.font)+14);
+      var bw = Math.max(30, measureCached(ctx, badge.text, ctx.font)+14);
       var bh = 18, bx = w-12-bw, by = h-12-bh;
       roundRectPath(ctx, bx, by, bw, bh, 6);
-      ctx.fillStyle = '#EAF0FF'; ctx.fill();
-      ctx.fillStyle = '#2F5BEA'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(n.screen, bx+bw/2, by+bh/2+0.5);
+      ctx.fillStyle = badge.bg; ctx.fill();
+      ctx.fillStyle = badge.fg; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(badge.text, bx+bw/2, by+bh/2+0.5);
       ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     }
+  }
+
+  // jobflow（ジョブフロー）ノード。variant: start | end | decision は業務フローと同じ形。
+  // job（ジョブ）・jobnet（ジョブネット。二重枠）・wait（待ち合わせ。破線枠）は角丸の箱で、関連バッチ（batch）を右下のバッジに出す。
+  // 種別のタグは jobnet / wait だけに付ける（大半を占める job に付けると見出しを圧迫するだけのため）。
+  // タグ付きの箱は layout.js で高さを 88 にしてあり、見出しをタグの下から始める。
+  var JOB_VARIANT_COLOR = {
+    job:   { bg:'#FFFFFF', border:'#99D5CB', bar:'#0F766E' },
+    jobnet:{ bg:'#ECF7F5', border:'#0F766E', bar:'#0F766E', tag:'ジョブネット', double:true },
+    wait:  { bg:'#FFFFFF', border:'#94A3B8', bar:'#64748B', tag:'待ち合わせ', dash:[6,4] }
+  };
+  var JOB_MINIMAP_COLOR = {
+    job:'rgba(15,118,110,.55)', jobnet:'rgba(15,118,110,.75)', wait:'rgba(100,116,139,.55)',
+    decision:'rgba(242,184,75,.7)', start:'rgba(26,32,41,.7)', end:'rgba(26,32,41,.45)'
+  };
+  var JOB_DOT_COLOR = { job:'#0F766E', jobnet:'#0F766E', wait:'#64748B', decision:'#F2B84B', start:'#1A2029', end:'#1A2029' };
+  function drawJobContent(ctx, n, w, h, noText){
+    var variant = n.variant||'job';
+    var col = JOB_VARIANT_COLOR[variant];
+    if(!col){ drawBizContent(ctx, n, w, h, noText); return; }
+    roundRectPath(ctx,0.5,0.5,w-1,h-1,12);
+    ctx.fillStyle = col.bg; ctx.fill();
+    ctx.lineWidth = col.double ? 1.5 : 1; ctx.strokeStyle = col.border;
+    if(col.dash) ctx.setLineDash(col.dash);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if(col.double){ roundRectPath(ctx,4.5,4.5,w-9,h-9,9); ctx.lineWidth = 1; ctx.stroke(); }
+    roundRectPath(ctx,0,0,4,h,2);
+    ctx.fillStyle = col.bar; ctx.fill();
+    if(noText) return;
+    drawStepText(ctx, n, w, h, col.tag ? { text:col.tag, color:col.bar } : null,
+      n.batch ? { text:n.batch, bg:'#DDF1EC', fg:'#0F766E' } : null, col.tag ? 26 : 14);
   }
 
   // ノードの縮小時ラベル（biz）: ラスタ内の label が画面上で読めなくなる倍率で、
@@ -352,5 +391,5 @@
   }
   // --- body end ---
   // --- export ---
-  DV.drawNodeRasterContent = drawNodeRasterContent; DV.BIZ_MINIMAP_COLOR = BIZ_MINIMAP_COLOR; DV.BIZ_DOT_COLOR = BIZ_DOT_COLOR; DV.BIZ_LABEL_WORLD_PX = BIZ_LABEL_WORLD_PX; DV.drawBizLabelOverlay = drawBizLabelOverlay; DV.CONCEPT_VARIANT_COLOR = CONCEPT_VARIANT_COLOR; DV.ER_TONE_GRAD = ER_TONE_GRAD; DV.topRoundRectPath = topRoundRectPath; DV.DFD_VARIANT_COLOR = DFD_VARIANT_COLOR;
+  DV.drawNodeRasterContent = drawNodeRasterContent; DV.BIZ_MINIMAP_COLOR = BIZ_MINIMAP_COLOR; DV.BIZ_DOT_COLOR = BIZ_DOT_COLOR; DV.BIZ_LABEL_WORLD_PX = BIZ_LABEL_WORLD_PX; DV.JOB_MINIMAP_COLOR = JOB_MINIMAP_COLOR; DV.JOB_DOT_COLOR = JOB_DOT_COLOR; DV.drawBizLabelOverlay = drawBizLabelOverlay; DV.CONCEPT_VARIANT_COLOR = CONCEPT_VARIANT_COLOR; DV.ER_TONE_GRAD = ER_TONE_GRAD; DV.topRoundRectPath = topRoundRectPath; DV.DFD_VARIANT_COLOR = DFD_VARIANT_COLOR;
 })();

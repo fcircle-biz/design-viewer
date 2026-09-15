@@ -18,6 +18,11 @@ const { readModel } = require('./lib/load-model');
 const KNOWN_EDGE_TYPES = new Set(['user', 'system', 'nav', 'start', 'rel', 'weak', 'flow']);
 const KNOWN_CONCEPT_VARIANTS = new Set(['actor', 'entity', 'system', 'file']);
 const KNOWN_BIZ_VARIANTS = new Set(['start', 'end', 'task', 'system', 'decision']);
+const KNOWN_BIZ_EDGE_TYPES = new Set(['flow', 'weak']);
+const KNOWN_JOB_VARIANTS = new Set(['start', 'end', 'job', 'jobnet', 'wait', 'decision']);
+const KNOWN_JOB_EDGE_TYPES = new Set(['flow', 'ng', 'weak']);
+const KNOWN_STATUSES = ['done', 'wip', 'designed', 'planned'];
+const KNOWN_MODES = ['flow', 'gallery', 'concept', 'biz', 'jobflow', 'er', 'dfd'];
 const KNOWN_ER_TONES = new Set(['blue', 'amber', 'green', 'slate', 'purple', 'teal']);
 const KNOWN_DFD_VARIANTS = new Set(['ext', 'proc', 'store']);
 const KNOWN_FIELD_KEYS = new Set(['PK', 'FK', 'UK', '']);
@@ -62,11 +67,10 @@ function validateModel(model, viewerSrcDir) {
     pushErr(errors, 'meta.title が必須です');
   }
   if (model.meta && model.meta.modeOrder !== undefined) {
-    const known = ['flow', 'gallery', 'concept', 'biz', 'er', 'dfd'];
     if (!Array.isArray(model.meta.modeOrder)) {
-      pushWarn(warnings, 'meta.modeOrder は配列で指定してください（例: ["concept","biz","gallery","flow","er","dfd"]）');
+      pushWarn(warnings, 'meta.modeOrder は配列で指定してください（例: ["concept","biz","gallery","flow","er","dfd","jobflow"]）');
     } else {
-      model.meta.modeOrder.filter(k => !known.includes(k)).forEach(k => pushWarn(warnings, `meta.modeOrder の未知のモード: ${k}`));
+      model.meta.modeOrder.filter(k => !KNOWN_MODES.includes(k)).forEach(k => pushWarn(warnings, `meta.modeOrder の未知のモード: ${k}`));
     }
   }
 
@@ -95,7 +99,7 @@ function validateModel(model, viewerSrcDir) {
     }
     if (s.w !== undefined && (typeof s.w !== 'number' || s.w <= 0)) pushWarn(warnings, `screens.${s.id}.w が不正です（正の数値を指定してください）`);
     if (s.h !== undefined && (typeof s.h !== 'number' || s.h <= 0)) pushWarn(warnings, `screens.${s.id}.h が不正です（正の数値を指定してください）`);
-    if (s.status !== undefined && !['done', 'wip', 'designed', 'planned'].includes(s.status)) {
+    if (s.status !== undefined && !KNOWN_STATUSES.includes(s.status)) {
       pushWarn(warnings, `screens.${s.id}.status が未知です: ${s.status}（done | wip | designed | planned）`);
     }
     screenIds.add(s.id);
@@ -117,7 +121,32 @@ function validateModel(model, viewerSrcDir) {
     }
   }
 
+  // --- batches（バッチ機能） ---
+  const batches = Array.isArray(model.batches) ? model.batches : [];
+  if (model.batches !== undefined && !Array.isArray(model.batches)) pushErr(errors, 'batches が配列ではありません');
+  const batchIds = new Set();
+  batches.forEach((b, i) => {
+    if (!b || !b.id) { pushErr(errors, `batches[${i}] に id がありません`); return; }
+    if (!b.title) pushWarn(warnings, `batches[${i}] (${b.id}) に title がありません`);
+    if (screenIds.has(b.id)) pushErr(errors, `batches の id が screens の id と重複しています: ${b.id}`);
+    if (b.group && !groupIds.has(b.group)) pushErr(errors, `batches.${b.id}.group が未知の group を参照しています: ${b.group}`);
+    if (b.status !== undefined && !KNOWN_STATUSES.includes(b.status)) {
+      pushWarn(warnings, `batches.${b.id}.status が未知です: ${b.status}（done | wip | designed | planned）`);
+    }
+    if (!b.schedule) pushWarn(warnings, `batches.${b.id} に schedule がありません（機能一覧の表の「利用者／起動」列が空欄になります）`);
+    batchIds.add(b.id);
+  });
+  findDuplicates(batches, b => b && b.id).forEach(id => pushErr(errors, `batches の id が重複しています: ${id}`));
+
   const modes = model.modes && typeof model.modes === 'object' ? model.modes : {};
+
+  // 画面・バッチの id を各モードのノード id に使うと、ビューアは同じノードとみなして種別の食い違いで表示できない
+  ['concept', 'biz', 'jobflow', 'er', 'dfd'].forEach(k => {
+    const ns = modes[k] && Array.isArray(modes[k].nodes) ? modes[k].nodes : [];
+    ns.forEach(n => {
+      if (n && batchIds.has(n.id)) pushErr(errors, `modes.${k}.nodes の id が batches の id と重複しています: ${n.id}`);
+    });
+  });
 
   // --- modes.flow ---
   if (modes.flow) {
@@ -189,9 +218,11 @@ function validateModel(model, viewerSrcDir) {
     if (modes.gallery.arrange === 'table') {
       const noStatus = screens.filter(s => s && s.id && !s.status).map(s => s.id);
       if (noStatus.length) pushWarn(warnings, `modes.gallery.arrange: "table" ですが status の無い画面があります（実装状況が空欄になります）: ${noStatus.slice(0, 5).join(', ')}${noStatus.length > 5 ? ` ほか ${noStatus.length - 5} 件` : ''}`);
+      const noBatchStatus = batches.filter(b => b && b.id && !b.status).map(b => b.id);
+      if (noBatchStatus.length) pushWarn(warnings, `modes.gallery.arrange: "table" ですが status の無いバッチがあります（実装状況が空欄になります）: ${noBatchStatus.slice(0, 5).join(', ')}${noBatchStatus.length > 5 ? ` ほか ${noBatchStatus.length - 5} 件` : ''}`);
     }
     if (Array.isArray(modes.gallery.nodes) && modes.gallery.nodes.length > 0) {
-      pushWarn(warnings, 'modes.gallery.nodes は無視されます（gallery はビルドが screens から自動生成します）');
+      pushWarn(warnings, 'modes.gallery.nodes は無視されます（gallery はビルドが screens / batches から自動生成します）');
     }
     if (Array.isArray(modes.gallery.edges) && modes.gallery.edges.length > 0) {
       pushWarn(warnings, 'modes.gallery.edges は無視されます（gallery に辺はありません）');
@@ -206,69 +237,15 @@ function validateModel(model, viewerSrcDir) {
     });
   }
 
-  // --- modes.biz ---
+  // --- modes.biz / modes.jobflow（スイムレーン） ---
   if (modes.biz) {
-    const biz = modes.biz;
-    const lanes = Array.isArray(biz.lanes) ? biz.lanes : [];
-    if (!Array.isArray(biz.lanes) || lanes.length === 0) pushErr(errors, 'modes.biz.lanes が必須です（1 件以上）');
-    const laneIds = new Set();
-    lanes.forEach((l, i) => {
-      if (!l || !l.id) { pushErr(errors, `modes.biz.lanes[${i}] に id がありません`); return; }
-      if (!l.label) pushErr(errors, `modes.biz.lanes[${i}] (${l.id}) に label がありません`);
-      laneIds.add(l.id);
+    validateSwimlane('biz', modes.biz, errors, warnings, {
+      variants: KNOWN_BIZ_VARIANTS, edgeTypes: KNOWN_BIZ_EDGE_TYPES, refField: 'screen', refIds: screenIds, refName: 'screen',
     });
-    findDuplicates(lanes, l => l && l.id).forEach(id => pushErr(errors, `modes.biz.lanes の id が重複しています: ${id}`));
-
-    const phasesArr = Array.isArray(biz.phases) ? biz.phases : [];
-    const hasPhases = phasesArr.length > 0;
-    const phaseIds = new Set();
-    phasesArr.forEach((p, i) => {
-      if (!p || !p.id) { pushErr(errors, `modes.biz.phases[${i}] に id がありません`); return; }
-      if (!p.label) pushErr(errors, `modes.biz.phases[${i}] (${p.id}) に label がありません`);
-      phaseIds.add(p.id);
-    });
-    findDuplicates(phasesArr, p => p && p.id).forEach(id => pushErr(errors, `modes.biz.phases の id が重複しています: ${id}`));
-
-    const nodesArr = Array.isArray(biz.nodes) ? biz.nodes : [];
-    const nodeIds = new Set();
-    const phaseNodeCount = new Map([...phaseIds].map(id => [id, 0]));
-    const nodeEdgeCount = new Map();
-    nodesArr.forEach((n, i) => {
-      if (!n || !n.id) { pushErr(errors, `modes.biz.nodes[${i}] に id がありません`); return; }
-      if (nodeIds.has(n.id)) pushErr(errors, `modes.biz.nodes の id が重複しています: ${n.id}`);
-      nodeIds.add(n.id);
-      nodeEdgeCount.set(n.id, 0);
-      if (!n.label) pushWarn(warnings, `modes.biz.nodes.${n.id} に label がありません`);
-      if (n.variant && !KNOWN_BIZ_VARIANTS.has(n.variant)) pushErr(errors, `modes.biz.nodes.${n.id}.variant が未知です: ${n.variant}（start | end | task | system | decision）`);
-      else if (!n.variant) pushErr(errors, `modes.biz.nodes.${n.id}.variant が必須です`);
-      if (!n.lane) pushErr(errors, `modes.biz.nodes.${n.id}.lane が必須です`);
-      else if (!laneIds.has(n.lane)) pushErr(errors, `modes.biz.nodes.${n.id}.lane が未知の lane を参照しています: ${n.lane}`);
-      if (hasPhases) {
-        if (!n.phase) pushErr(errors, `modes.biz.nodes.${n.id}.phase が必須です（phases が定義されているため）`);
-        else if (!phaseIds.has(n.phase)) pushErr(errors, `modes.biz.nodes.${n.id}.phase が未知の phase を参照しています: ${n.phase}`);
-        else phaseNodeCount.set(n.phase, (phaseNodeCount.get(n.phase) || 0) + 1);
-      } else if (n.phase) {
-        pushWarn(warnings, `modes.biz.nodes.${n.id}.phase は phases が未定義のため無視されます`);
-      }
-      if (n.screen && !screenIds.has(n.screen)) pushWarn(warnings, `modes.biz.nodes.${n.id}.screen が未知の screen を参照しています: ${n.screen}`);
-    });
-    if (hasPhases) {
-      phasesArr.forEach(p => {
-        if (p && p.id && (phaseNodeCount.get(p.id) || 0) === 0) pushWarn(warnings, `modes.biz.phases.${p.id} に属するノードがありません`);
-      });
-    }
-
-    const edgesArr = Array.isArray(biz.edges) ? biz.edges : [];
-    edgesArr.forEach((e, i) => {
-      if (!e || !e.from || !e.to) { pushErr(errors, `modes.biz.edges[${i}] に from/to がありません`); return; }
-      if (!nodeIds.has(e.from)) pushErr(errors, `modes.biz.edges[${i}] の from が未知の id を参照しています: ${e.from}`);
-      else nodeEdgeCount.set(e.from, (nodeEdgeCount.get(e.from) || 0) + 1);
-      if (!nodeIds.has(e.to)) pushErr(errors, `modes.biz.edges[${i}] の to が未知の id を参照しています: ${e.to}`);
-      else nodeEdgeCount.set(e.to, (nodeEdgeCount.get(e.to) || 0) + 1);
-      if (e.type && !['flow', 'weak'].includes(e.type)) pushWarn(warnings, `modes.biz.edges[${i}] の type が未知です: ${e.type}（flow | weak）`);
-    });
-    nodeEdgeCount.forEach((count, id) => {
-      if (count === 0) pushWarn(warnings, `modes.biz.nodes.${id} に接続する辺がありません`);
+  }
+  if (modes.jobflow) {
+    validateSwimlane('jobflow', modes.jobflow, errors, warnings, {
+      variants: KNOWN_JOB_VARIANTS, edgeTypes: KNOWN_JOB_EDGE_TYPES, refField: 'batch', refIds: batchIds, refName: 'batch',
     });
   }
 
@@ -350,6 +327,78 @@ function validateModel(model, viewerSrcDir) {
   return { errors, warnings };
 }
 
+/**
+ * biz / jobflow 共通（スイムレーン）の lanes・phases・nodes・edges 検証。
+ * opts: variants（variant の集合）, edgeTypes（辺の type の集合）, refField / refIds / refName（関連画面・関連バッチの参照。未知なら警告）
+ */
+function validateSwimlane(modeName, mode, errors, warnings, opts) {
+  const lanes = Array.isArray(mode.lanes) ? mode.lanes : [];
+  if (!Array.isArray(mode.lanes) || lanes.length === 0) pushErr(errors, `modes.${modeName}.lanes が必須です（1 件以上）`);
+  const laneIds = new Set();
+  lanes.forEach((l, i) => {
+    if (!l || !l.id) { pushErr(errors, `modes.${modeName}.lanes[${i}] に id がありません`); return; }
+    if (!l.label) pushErr(errors, `modes.${modeName}.lanes[${i}] (${l.id}) に label がありません`);
+    laneIds.add(l.id);
+  });
+  findDuplicates(lanes, l => l && l.id).forEach(id => pushErr(errors, `modes.${modeName}.lanes の id が重複しています: ${id}`));
+
+  const phasesArr = Array.isArray(mode.phases) ? mode.phases : [];
+  const hasPhases = phasesArr.length > 0;
+  const phaseIds = new Set();
+  phasesArr.forEach((p, i) => {
+    if (!p || !p.id) { pushErr(errors, `modes.${modeName}.phases[${i}] に id がありません`); return; }
+    if (!p.label) pushErr(errors, `modes.${modeName}.phases[${i}] (${p.id}) に label がありません`);
+    phaseIds.add(p.id);
+  });
+  findDuplicates(phasesArr, p => p && p.id).forEach(id => pushErr(errors, `modes.${modeName}.phases の id が重複しています: ${id}`));
+
+  const variantList = [...opts.variants].join(' | ');
+  const nodesArr = Array.isArray(mode.nodes) ? mode.nodes : [];
+  const nodeIds = new Set();
+  const phaseNodeCount = new Map([...phaseIds].map(id => [id, 0]));
+  const nodeEdgeCount = new Map();
+  nodesArr.forEach((n, i) => {
+    if (!n || !n.id) { pushErr(errors, `modes.${modeName}.nodes[${i}] に id がありません`); return; }
+    if (nodeIds.has(n.id)) pushErr(errors, `modes.${modeName}.nodes の id が重複しています: ${n.id}`);
+    nodeIds.add(n.id);
+    nodeEdgeCount.set(n.id, 0);
+    if (!n.label) pushWarn(warnings, `modes.${modeName}.nodes.${n.id} に label がありません`);
+    if (n.variant && !opts.variants.has(n.variant)) pushErr(errors, `modes.${modeName}.nodes.${n.id}.variant が未知です: ${n.variant}（${variantList}）`);
+    else if (!n.variant) pushErr(errors, `modes.${modeName}.nodes.${n.id}.variant が必須です`);
+    if (!n.lane) pushErr(errors, `modes.${modeName}.nodes.${n.id}.lane が必須です`);
+    else if (!laneIds.has(n.lane)) pushErr(errors, `modes.${modeName}.nodes.${n.id}.lane が未知の lane を参照しています: ${n.lane}`);
+    if (hasPhases) {
+      if (!n.phase) pushErr(errors, `modes.${modeName}.nodes.${n.id}.phase が必須です（phases が定義されているため）`);
+      else if (!phaseIds.has(n.phase)) pushErr(errors, `modes.${modeName}.nodes.${n.id}.phase が未知の phase を参照しています: ${n.phase}`);
+      else phaseNodeCount.set(n.phase, (phaseNodeCount.get(n.phase) || 0) + 1);
+    } else if (n.phase) {
+      pushWarn(warnings, `modes.${modeName}.nodes.${n.id}.phase は phases が未定義のため無視されます`);
+    }
+    const ref = n[opts.refField];
+    if (ref && !opts.refIds.has(ref)) pushWarn(warnings, `modes.${modeName}.nodes.${n.id}.${opts.refField} が未知の ${opts.refName} を参照しています: ${ref}`);
+  });
+  if (hasPhases) {
+    phasesArr.forEach(p => {
+      if (p && p.id && (phaseNodeCount.get(p.id) || 0) === 0) pushWarn(warnings, `modes.${modeName}.phases.${p.id} に属するノードがありません`);
+    });
+  }
+
+  const edgeTypeList = [...opts.edgeTypes].join(' | ');
+  const edgesArr = Array.isArray(mode.edges) ? mode.edges : [];
+  edgesArr.forEach((e, i) => {
+    if (!e || !e.from || !e.to) { pushErr(errors, `modes.${modeName}.edges[${i}] に from/to がありません`); return; }
+    if (!nodeIds.has(e.from)) pushErr(errors, `modes.${modeName}.edges[${i}] の from が未知の id を参照しています: ${e.from}`);
+    else nodeEdgeCount.set(e.from, (nodeEdgeCount.get(e.from) || 0) + 1);
+    if (!nodeIds.has(e.to)) pushErr(errors, `modes.${modeName}.edges[${i}] の to が未知の id を参照しています: ${e.to}`);
+    else nodeEdgeCount.set(e.to, (nodeEdgeCount.get(e.to) || 0) + 1);
+    if (e.type && !opts.edgeTypes.has(e.type)) pushWarn(warnings, `modes.${modeName}.edges[${i}] の type が未知です: ${e.type}（${edgeTypeList}）`);
+  });
+  nodeEdgeCount.forEach((count, id) => {
+    if (count === 0) pushWarn(warnings, `modes.${modeName}.nodes.${id} に接続する辺がありません`);
+  });
+  return nodeIds;
+}
+
 /** concept / dfd 共通の nodes/edges 検証。使用済みの node id セットを返す。 */
 function validateGenericDiagram(modeName, mode, errors, warnings, opts) {
   const nodes = Array.isArray(mode.nodes) ? mode.nodes : [];
@@ -397,6 +446,6 @@ if (require.main === module) {
     errors.forEach(e => console.error(`  - ${e}`));
     process.exit(1);
   }
-  console.log(`[validate] OK（画面 ${((model.screens) || []).length} 件、警告 ${warnings.length} 件）`);
+  console.log(`[validate] OK（画面 ${((model.screens) || []).length} 件、バッチ ${((model.batches) || []).length} 件、警告 ${warnings.length} 件）`);
   process.exit(0);
 }

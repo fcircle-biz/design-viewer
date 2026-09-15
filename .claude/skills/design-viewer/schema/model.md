@@ -23,11 +23,13 @@ viewer-src/
   model/
     10-meta.json          ← { "meta": {…} }
     20-screens.json       ← { "screens": […] }
+    25-batches.json       ← { "batches": […] }
     30-groups.json        ← { "groups": […] }
     modes/
       10-flow.json        ← { "modes": { "flow": {…} } }
       20-gallery.json     ← { "modes": { "gallery": {…} } }
       30-concept.json     ← { "modes": { "concept": {…} } }
+      35-jobflow.json     ← { "modes": { "jobflow": {…} } }
       40-biz.json         ← { "modes": { "biz": {…} } }
       50-er.json          ← { "modes": { "er": {…} } }
       60-dfd.json         ← { "modes": { "dfd": {…} } }
@@ -62,14 +64,16 @@ viewer-src/
 
 ```jsonc
 {
-  "meta": { "title": "…", "subtitle": "…", "statusNote": "…（任意）", "modeOrder": ["concept", "biz", "gallery", "flow", "er", "dfd"] },
+  "meta": { "title": "…", "subtitle": "…", "statusNote": "…（任意）", "modeOrder": ["concept", "biz", "gallery", "flow", "er", "dfd", "jobflow"] },
   "screens": [ Screen, … ],
+  "batches": [ Batch, … ],
   "groups": [ Group, … ],
   "modes": {
     "concept": { "label": "概念図",     "desc": "…", "nodes": [ConceptNode], "edges": [Edge], "legend": [Legend] },
     "biz":     { "label": "業務フロー", "desc": "…", "lanes": [Lane], "phases": [Phase], "nodes": [BizNode], "edges": [Edge], "legend": [Legend] },
     "gallery": { "label": "機能一覧", "arrange": "table", "desc": "…" },
     "flow":    { "label": "画面遷移図", "desc": "…", "nodes": [FlowNode], "edges": [Edge], "legend": [Legend], "toggles": [Toggle] },
+    "jobflow": { "label": "ジョブフロー", "desc": "…", "lanes": [Lane], "phases": [Phase], "nodes": [JobNode], "edges": [Edge], "legend": [Legend] },
     "er":      { "label": "ER図",       "desc": "…", "nodes": [ErNode],      "edges": [Edge], "legend": [Legend] },
     "dfd":     { "label": "データフロー", "desc": "…", "nodes": [DfdNode],     "edges": [Edge], "legend": [Legend], "steps": [Step], "arrange": "elk | steps" }
   }
@@ -78,10 +82,10 @@ viewer-src/
 
 - `meta.title` は必須。`subtitle` / `statusNote` は任意（`statusNote` は「作成中」等の一言を
   タイトルカードに表示する用途）。
-- `modes` の 6 モードはすべて省略可。無いモードはビューアのモード切替ボタンに出ない。
-- モード切替ボタンの表示名は各モードの `label`（省略時の既定名は 概念図 / 業務フロー / 機能一覧 / 画面遷移図 / ER図 / データフロー）。
+- `modes` の 7 モードはすべて省略可。無いモードはビューアのモード切替ボタンに出ない。
+- モード切替ボタンの表示名は各モードの `label`（省略時の既定名は 概念図 / 業務フロー / 機能一覧 / 画面遷移図 / ER図 / データフロー / ジョブフロー）。
   並び順は `meta.modeOrder`（任意。モードのキーの配列）で指定でき、書かなかったモードは既定順
-  （concept, biz, gallery, flow, er, dfd）で後ろに続く。数字キー 1〜n はボタンの並び順に対応する。
+  （concept, biz, gallery, flow, er, dfd, jobflow）で後ろに続く。数字キー 1〜n はボタンの並び順に対応する。
 - `screens` / `groups` は `modes.flow` や `modes.gallery` が無くても、画面一覧・詳細パネルの
   メタ情報として使われるので用意しておくとよい。
 
@@ -108,6 +112,40 @@ viewer-src/
 `screens[]` に列挙した画面は、`modes.flow` があれば flow モードのノードとして、
 `modes.gallery` があれば gallery モードのノードとして**自動的に**追加される
 （`modes.flow.nodes` / `modes.gallery.nodes` に画面ノードを書く必要はない）。
+
+## 2.1 `batches[]`（バッチ機能）
+
+画面を持たない処理（定時起動・ファイル到着などのイベント起動）を 1 機能 1 件で書く。粒度は機能一覧の単位
+（例: 仕様書の機能一覧の「受注データ出力（バッチ）」）。バッチを構成するジョブの順序は `modes.jobflow`（§6.4）に書く。
+
+```jsonc
+"batches": [
+  { "id": "J01", "title": "受注データ出力", "schedule": "毎日 2:00", "trigger": "時刻起動", "status": "designed",
+    "purpose": "前日に受注になった商談を会計システム向けの CSV に出力する。",
+    "ops": ["前日に受注になった商談を抽出する", "CSV に出力する", "出力日時を記録する"],
+    "reads": ["商談（stage, exported_at）"], "writes": ["商談（exported_at）", "受注データ CSV"],
+    "onError": "運用担当へメールで通知する", "rerun": "再実行可（出力済みの商談は除く）",
+    "spec": ["業務ルール（受注データ出力）: 出力済みの商談には出力日時を記録し、再出力しない。"], "notes": ["…"] }
+]
+```
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | ○ | バッチの一意 id（例: `J01`）。`screens[].id` と重複不可。**各モードのノード id とも重ねない**（ビューアはモードをまたいで同じ id を同じノードとみなすため、業務フローの `B01` などと重なると表示できない） |
+| `title` | string | ○ | バッチ名 |
+| `group` | string | - | `groups[].id` を参照。書くと機能一覧で「<グループ名>（バッチ）」のセクションに入る。省略すると「バッチ機能」のセクションにまとまる |
+| `schedule` | string | 推奨 | 起動のタイミング（例: 「毎日 2:00」「毎月 1 日 3:00」「ファイル到着時」）。機能一覧の表の「利用者／起動」列・格子のカード・詳細パネルに出る |
+| `trigger` | string | - | 起動条件の種類（例: 「時刻起動」「ファイル到着」「前のバッチの正常終了」） |
+| `status` | string | - | 実装状況。`screens[].status` と同じ値（`done` \| `wip` \| `designed` \| `planned`） |
+| `purpose` | string | - | バッチの目的（機能一覧の表では「概要」列） |
+| `ops` | string[] | - | 処理の流れ（詳細パネルに番号付きで表示） |
+| `reads` / `writes` | string[] | - | 読み取り／書き込みするデータ・ファイル（詳細パネルに表示） |
+| `onError` | string | - | 異常時の扱い（通知先・後続を止めるかなど）。仕様書に無ければ書かず、`notes` に「未確定」と書く |
+| `rerun` | string | - | 再実行の可否と手順 |
+| `tasks` / `spec` / `notes` | string[] | - | `screens[]` と同じ（`spec` は「出典の名前: 転記した内容」） |
+
+`batches[]` に列挙したバッチは、`modes.gallery` があれば機能一覧に**自動的に**追加される（§5）。
+詳細パネルには、`modes.jobflow` のノードのうち `batch` がそのバッチを指すもの（ジョブ）が並び、クリックするとジョブフローへ移る。
 
 ## 3. `groups[]`（グループ／レーン）
 
@@ -247,7 +285,8 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
 "gallery": { "label": "機能一覧", "arrange": "table", "desc": "…" }
 ```
 
-`nodes` / `edges` は書かない（書いても無視され、`validate.js` が警告する）。画面は `screens[]` から自動で並ぶ。
+`nodes` / `edges` は書かない（書いても無視され、`validate.js` が警告する）。画面は `screens[]`、バッチ機能は `batches[]` から自動で並ぶ
+（バッチは画面のセクション・ブロックの後ろ。`batches[].group` があれば `groups[].order` 順に「<グループ名>（バッチ）」、無ければ「バッチ機能」にまとまる）。
 `arrange` で並べ方を選ぶ: `"grid"`（既定。サムネイルの格子）| `"table"`（表）。
 
 ### 5.1 `arrange: "table"`（表）
@@ -263,6 +302,8 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
 - 全体表示（F）は表の幅に合わせて上端から見せる（66 画面で高さ約 12,000px になり、全体を収めると文字が読めないため）。
   列見出しはスクロールしても画面の上端に貼り付く。検索でノードに寄ると、その画面の行に寄る。
 - `status` の無い画面は実装状況が空欄になる（`validate.js` が警告する）。
+- `batches[]` があると、列名が **イメージ | ID | 名称 | 概要 | 利用者／起動 | 実装状況** になる。バッチの行はサムネイルの代わりに
+  時計のアイコンのカード（220×120）を置き、「利用者／起動」列に `schedule` を出す。セクションの見出しは「N バッチ」と数える。
 
 ### 5.2 `arrange: "grid"`（格子。既定）
 
@@ -274,6 +315,7 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
 画面上で 90px 未満になる縮尺では描かないので、想定倍率は「全体表示の倍率」と「画面名が出る倍率（90 ÷ 画面幅）」の
 大きい方にする。画面数が多いとき、全体表示の倍率で隙間を決めると隙間が画面幅の半分を超えてサムネイルが小さく見えたため。
 行の高さはブロック内のその行で最も高い画面に合わせる（縦長の画面が 1 枚あっても他の行を広げない）。
+バッチ機能は画面と同じ 1440×900 のカード（時計のアイコン・名称・`schedule`）で、見出しの右端に「バッチ」のタグを出す。
 
 ## 6. `modes.concept`（概念図）／ `modes.biz`（業務フロー）／ `modes.dfd`（データフロー）
 
@@ -419,6 +461,62 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
   ノードの `info` や ER図で補う。
 - 列が固定なので、同じ列どうしの辺（proc → proc など）は曲線が大きく回り込む。
 
+### 6.4 `modes.jobflow`（ジョブフロー）
+
+バッチを構成するジョブの順序を、業務フロー（§6.2）と同じスイムレーン表で描く。レイアウト（列・行・段・辺のルート）は
+業務フローとまったく同じ（`layout.js` の `layoutSwimlane` を共用）。
+
+```jsonc
+"jobflow": {
+  "label": "ジョブフロー", "desc": "…",
+  "lanes":  [ { "id": "JL_SYS", "label": "顧客管理システム", "sub": "バッチサーバー" }, { "id": "JL_ACC", "label": "会計システム" } ],
+  "phases": [ { "id": "JP1", "label": "J01 受注データ出力（毎日 2:00）" } ],
+  "nodes": [
+    { "id": "J01-0", "variant": "start", "lane": "JL_SYS", "phase": "JP1", "label": "毎日 2:00 に起動", "batch": "J01" },
+    { "id": "J01-1", "variant": "job", "lane": "JL_SYS", "phase": "JP1", "label": "受注商談を抽出する", "sub": "出力済みは除く", "batch": "J01",
+      "spec": ["…"], "info": ["…"] },
+    { "id": "J01-2", "variant": "decision", "lane": "JL_SYS", "phase": "JP1", "label": "正常終了？" }
+  ],
+  "edges": [
+    { "from": "J01-0", "to": "J01-1", "type": "flow" },
+    { "from": "J01-2", "to": "J01-3", "type": "ng", "label": "いいえ" }
+  ],
+  "legend": [ { "type": "flow", "label": "正常終了で次へ" }, { "type": "ng", "label": "異常終了時" }, { "type": "weak", "label": "再実行" } ]
+}
+```
+
+- `lanes[]`: 処理するシステム・サーバー（外部システムを含む）。左→右。書き方は §6.2 と同じ。
+- `phases[]`: バッチ（起動のタイミング）ごとの行。上→下。1 バッチ 1 行にし、見出しに `batches[].id` と `schedule` を入れると機能一覧と対応が取りやすい。
+- `nodes[]` は §6.2 の `nodes[]` と同じ項目で、`screen` の代わりに `batch`（`batches[].id`。未知なら警告）を持つ。
+  `batch` を書くとノードの右下にバッジを出し、詳細パネルの［関連バッチ］から機能一覧のそのバッチへ移れる。
+  id は `<バッチ id>-<連番>`（例: `J01-1`）にすると、どのバッチのジョブか分かりやすい。
+
+**機能の絞り込み**: ビューアのジョブフローでは右上に「機能で絞り込む」セレクトボックスが出る（`batch` を持つノードが 1 件以上あるとき）。
+
+- 選択肢は「すべての機能」と、ノードの `batch` が参照するバッチ（ノードの記述順に 1 回ずつ。表示は `<id> <batches[].title>`）。
+- バッチを選ぶと、表示するのは **`batch` がそのバッチのノード** と **`batch` を持たず、それらと同じ行（`phase`）にあるノード** だけ。
+  辺は両端が表示されているものだけを描き、対象のノードが無い行は取り除いてその下の行を上へ詰める。全体表示（F）は詰めた表に寄る。検索・ミニマップ・［近傍のみ］も同じ範囲に絞る。
+- レイアウト（layout.js）は作り直さず、ビューアが行の y 座標を詰め直すだけ（列の幅・行の高さは全バッチ分のまま）。1 バッチ 1 行（`phase`）にしておくと、絞り込んだときに余白が出ない。
+- `start` / `end` のノードにも `batch` を付ける（付けないと、同じ行にそのバッチのジョブが無い場合に絞り込みから外れる）。
+
+| `variant` | 形 | 用途 |
+|---|---|---|
+| `start` / `end` | 業務フローと同じ角丸（黒地 / 白地） | 起動・終了。外部システム側の受け取りを `end` で置いてもよい |
+| `job` | 白地・左に緑の色帯の角丸 | 1 つのジョブ（プログラム・SQL・転送など） |
+| `jobnet` | 淡緑地・二重枠、右上に「ジョブネット」 | 複数のジョブをまとめたジョブネット（中身は別の行・`info` に書く） |
+| `wait` | 白地・破線枠、右上に「待ち合わせ」 | ファイル到着・先行ジョブの終了などの待ち合わせ |
+| `decision` | 業務フローと同じひし形 | 終了コード・件数などによる分岐 |
+
+`edges[].type`:
+
+| `type` | 線 | 用途 |
+|---|---|---|
+| `flow` | 青の実線 | 正常終了で次のジョブへ（段の決定に使う） |
+| `ng` | 赤の破線 | 異常終了時の流れ（段の決定に使う。`flow` の後に空いている経路を選ぶ） |
+| `weak` | 灰の破線 | 再実行・戻り（段の決定に使わない。§6.2 と同じ） |
+
+- 仕様書に異常時の扱いが無い場合は `ng` の辺・分岐を推測で描かず、ノードの `info` やバッチの `notes` に「未確定」と書く。
+
 ## 7. `modes.er`（ER図）
 
 ```jsonc
@@ -455,7 +553,7 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
 全モード共通:
 
 ```jsonc
-{ "from": "…", "to": "…", "label": "…", "type": "user|system|nav|start|rel|weak|flow",
+{ "from": "…", "to": "…", "label": "…", "type": "user|system|nav|start|rel|weak|flow|ng",   // ng は jobflow のみ
   "fromField": "…", "toField": "…",     // er のみ
   "fromLabel": "…", "toLabel": "…",     // 端点近くの小さな補助ラベル（任意）
   "step": 1                              // dfd のみ。modes.dfd.steps[].n を参照
@@ -486,7 +584,7 @@ v1 の `data.js` からの移植時はこの 2 プロパティを削除してよ
 ## 10. icon 名の集合
 
 `icon` に指定できる名前は v1 と同じ固定集合:
-`chat bell team cal bot apps search inbox doc check tag user flow db spark shield gear plus back list send warn`
+`chat bell team cal bot apps search inbox doc check tag user flow db spark shield gear plus back list send warn clock`
 
 ## 11. 最小の例
 
@@ -525,6 +623,10 @@ v1 の `data.js` からの移植時はこの 2 プロパティを削除してよ
 - biz ノードの `variant` が未知の値、`lane` が `lanes[].id` に、`phase`（`phases` があるとき）が
   `phases[].id` に存在しない
 - biz ノードの `screen` が `screens[].id` に存在しない（警告のみ）
+- jobflow も biz と同じ検査（`variant` は `start | end | job | jobnet | wait | decision`、辺の `type` は `flow | ng | weak`）。
+  ノードの `batch` が `batches[].id` に存在しない（警告のみ）
+- `batches` の id の欠落・重複、`screens` の id との重複、各モードのノード id との重複、`group` が `groups[].id` に存在しない（エラー）。
+  `status` の未知の値、`schedule` の欠落、`arrange: "table"` で `status` の無いバッチ（警告）
 - `phases` を定義したのにノードが 1 つも属さないフェーズがある（警告のみ。行は高さ 110px の空行として出る）
 - ER の `fromField` / `toField` が対応ノードの `fields[].name` に存在しない
 - dfd の `edges[].step` が `steps[].n` に存在しない

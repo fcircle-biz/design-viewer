@@ -97,15 +97,18 @@
   }
 
   // ---------------------------------------------------------
-  // 近傍のみ表示 - 表示対象ノード id 集合
+  // 近傍のみ表示・機能の絞り込み - 表示対象ノード id 集合
   // ---------------------------------------------------------
+  // 近傍のみ表示 と ジョブフローの機能の絞り込み（DV.jobFilterNodeSet）の両方を満たすノード。どちらも無効なら null
   function visibleNodeIdSet(){
-    if(!state.neighborOnly || !state.selected) return null;
+    var filter = DV.jobFilterNodeSet();
+    if(!state.neighborOnly || !state.selected) return filter;
     var set = new Set([state.selected]);
     state.currentEdges.forEach(function(e){
       if(e.from===state.selected) set.add(e.to);
       else if(e.to===state.selected) set.add(e.from);
     });
+    if(filter) set.forEach(function(id){ if(!filter.has(id)) set.delete(id); });
     return set;
   }
 

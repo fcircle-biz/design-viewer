@@ -14,21 +14,21 @@
   // ---------------------------------------------------------
   // 定数
   // ---------------------------------------------------------
-  var MODE_LABEL_JA = { flow:'画面遷移図', gallery:'機能一覧', concept:'概念図', biz:'業務フロー', er:'ER図', dfd:'データフロー' };
-  var MODE_MAX_K = { flow:0.6, gallery:0.6, concept:1.4, biz:1.4, er:1.4, dfd:1.4 };
+  var MODE_LABEL_JA = { flow:'画面遷移図', gallery:'機能一覧', concept:'概念図', biz:'業務フロー', jobflow:'ジョブフロー', er:'ER図', dfd:'データフロー' };
+  var MODE_MAX_K = { flow:0.6, gallery:0.6, concept:1.4, biz:1.4, jobflow:1.4, er:1.4, dfd:1.4 };
   var MIN_K = 0.02, MAX_K = 4.0;
   var EDGE_COLOR = {
     user:'#3B6FF5', system:'#8B5CF6', nav:'#A3ABB9', start:'#64748B',
-    rel:'#475569', weak:'#94A3B8', flow:'#2F5BEA'
+    rel:'#475569', weak:'#94A3B8', flow:'#2F5BEA', ng:'#DC2626'
   };
   var EDGE_DASH = {
-    system:[7,6], weak:[7,6], nav:[1.5,7]
+    system:[7,6], weak:[7,6], nav:[1.5,7], ng:[7,6]
   };
   var EDGE_ALPHA = { start:0.72 };
-  var KIND_LABEL_JA = { pill:'開始点', concept:'概念', biz:'業務ステップ', er:'テーブル（リスト）', dfd:'処理・データストア・外部' };
+  var KIND_LABEL_JA = { pill:'開始点', concept:'概念', biz:'業務ステップ', job:'ジョブ', batch:'バッチ', er:'テーブル（リスト）', dfd:'処理・データストア・外部' };
   var LOD_BUCKETS = [0.25,0.5,1,2];
   var LIVE_MIN_PX = 300;      // 画面ノードの表示幅（デバイス px）がこれ以上で「大」サムネイル
-  var TEXT_MIN_SCALE = 0.3;   // concept/biz/er/dfd: 表示倍率×DPR がこれ未満なら文字を描かず箱だけ
+  var TEXT_MIN_SCALE = 0.3;   // concept/biz/job/er/dfd: 表示倍率×DPR がこれ未満なら文字を描かず箱だけ
   var EDGE_LABEL_MIN_K = 0.14;
   var CARD_TITLE_MIN_PX = 12;  // layout: "elk" の画面カード見出しの最小文字サイズ（これ未満ならカード上に出す）
   var RASTER_CACHE_MAX = 300;
@@ -59,7 +59,8 @@
     back: [['path','M15 5l-7 7 7 7']],
     list: [['path','M9 6.5h11M9 12h11M9 17.5h11'],['circle',4.3,6.5,1.1],['circle',4.3,12,1.1],['circle',4.3,17.5,1.1]],
     send: [['path','M4.5 12 20 4.5 15 19.5 11.2 13 4.5 12Z'],['path','M11.2 13 15 19.5']],
-    warn: [['path','M12 4 21 19.5H3Z'],['path','M12 10.2v4'],['circle',12,16.8,0.9]]
+    warn: [['path','M12 4 21 19.5H3Z'],['path','M12 10.2v4'],['circle',12,16.8,0.9]],
+    clock: [['circle',12,12,8.5],['path','M12 7v5.2l3.4 2']]
   };
   var iconPathCache = new Map();
   function getIconPath(name){

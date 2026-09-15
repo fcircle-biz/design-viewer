@@ -42,6 +42,11 @@
     <div id="stepList" class="v-step-list"></div>
   </div>
 
+  <div id="jobFilterCard" class="v-card" hidden>
+    <label class="v-card-heading" for="jobFilterSelect">機能で絞り込む</label>
+    <select id="jobFilterSelect" class="v-select"></select>
+  </div>
+
   <div id="minimapCard" class="v-card" hidden>
     <canvas id="minimapCanvas"></canvas>
   </div>
@@ -60,6 +65,7 @@
       <button class="v-seg-btn" data-mode="flow" type="button">画面遷移図</button>
       <button class="v-seg-btn" data-mode="er" type="button">ER図</button>
       <button class="v-seg-btn" data-mode="dfd" type="button">データフロー</button>
+      <button class="v-seg-btn" data-mode="jobflow" type="button">ジョブフロー</button>
     </div>
     <div class="v-toolbar-sep"></div>
     <!-- 1 行に収めるため、モード切替以外はアイコンボタン（名前は title のツールチップと aria-label） -->
