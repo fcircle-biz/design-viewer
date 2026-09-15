@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S06 取引先一覧</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .list-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .lv-head { display: flex; align-items: center; gap: 12px; padding: 12px 14px 4px; }
+  .lv-title { display: flex; align-items: center; gap: 6px; font-size: 18px; font-weight: 700; }
+  .lv-title .ico { color: #747474; }
+  .lv-head .actions { margin-left: auto; display: flex; gap: 8px; }
+  .list-toolbar .spacer { flex: 1; }
+  .input.search { width: 240px; gap: 6px; color: #747474; }
+  .select.flt { min-width: 180px; gap: 10px; }
+  .select.flt b { font-weight: 400; color: #444; }
+  .table-wrap { flex: 1; min-height: 0; overflow: hidden; border-top: 1px solid #e5e5e5; }
+  .table th .sort { color: #0b5cab; font-weight: 700; }
+  .table th .ico { width: 12px; height: 12px; }
+  .table td .ico.chk, .table th .ico.chk { width: 14px; height: 14px; }
+  .rn { color: #747474; width: 36px; }
+  .pager { border-top: 1px solid #e5e5e5; }
+  .pages { display: flex; gap: 4px; align-items: center; }
+  .pages .pg { min-width: 26px; height: 26px; border: 1px solid #c9c9c9; border-radius: 4px; display: grid; place-items: center; background: #fff; color: #0b5cab; }
+  .pages .pg.on { background: #0176d3; border-color: #0176d3; color: #fff; }
+  .owner { display: inline-flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+      <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>リード、取引先、商談などを検索…</div>
+      <div class="top-actions">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="avatar" title="佐藤 美咲（営業担当）">佐</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-app">営業</div>
+      <a>ホーム</a><a>リード</a><a class="active">取引先</a><a>商談</a><a>活動</a><a>ケース</a><a>レポート</a>
+    </div>
+    <div class="main">
+      <div class="card list-card">
+        <div class="lv-head">
+          <div class="obj-icon obj-account"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/></svg></div>
+          <div>
+            <div class="muted" style="font-size:12px">取引先</div>
+            <div class="lv-title">自分の取引先 <svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+          <div class="actions">
+            <button class="btn primary"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新規</button>
+          </div>
+        </div>
+        <div class="list-toolbar">
+          <span class="meta">128 件 ・ 取引先名で並べ替え ・ 所有者: 佐藤 美咲</span>
+          <span class="spacer"></span>
+          <div class="input search"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>このリストを検索…</div>
+          <div class="select flt"><span><b>業種:</b> すべて</span></div>
+          <div class="select flt"><span><b>所有者:</b> 自分</span></div>
+          <button class="btn"><svg class="ico" viewBox="0 0 24 24"><path d="M22 3H2l8 9.5V19l4 2v-8.5z"/></svg>絞り込み</button>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="rn"></th>
+                <th><span class="sort">取引先名 <svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7-7 7 7"/></svg></span></th>
+                <th>取引先コード</th>
+                <th>業種</th>
+                <th>親取引先</th>
+                <th>電話</th>
+                <th>所有者</th>
+                <th>最終活動日</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="rn">1</td><td><a>株式会社アオバ電子</a></td><td>A-000104</td><td>電気機器</td><td></td><td>022-555-0142</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/14</td></tr>
+              <tr><td class="rn">2</td><td><a>株式会社ウミカゼ物産</a></td><td>A-000131</td><td>卸売</td><td></td><td>078-555-0310</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/08/27</td></tr>
+              <tr><td class="rn">3</td><td><a>光陽商事株式会社</a></td><td>A-000089</td><td>卸売</td><td></td><td>03-5555-0198</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/11</td></tr>
+              <tr><td class="rn">4</td><td><a>株式会社さくら住建</a></td><td>A-000152</td><td>建設</td><td></td><td>045-555-0276</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/09</td></tr>
+              <tr><td class="rn">5</td><td><a>東雲フーズ株式会社</a></td><td>A-000117</td><td>食品</td><td></td><td>06-5555-0421</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/15</td></tr>
+              <tr><td class="rn">6</td><td><a>中央テクノサービス株式会社</a></td><td>A-000096</td><td>情報通信</td><td></td><td>03-5555-0833</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/03</td></tr>
+              <tr><td class="rn">7</td><td><a>株式会社ツバサ医療システム</a></td><td>A-000160</td><td>医療・福祉</td><td></td><td>052-555-0617</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/10</td></tr>
+              <tr><td class="rn">8</td><td><a>株式会社ハヤテ通信</a></td><td>A-000073</td><td>情報通信</td><td></td><td>092-555-0154</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/08/19</td></tr>
+              <tr><td class="rn">9</td><td><a>北斗ロジスティクス株式会社</a></td><td>A-000108</td><td>運輸・物流</td><td></td><td>011-555-0382</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/16</td></tr>
+              <tr><td class="rn">10</td><td><a>北斗ロジスティクス東北株式会社</a></td><td>A-000139</td><td>運輸・物流</td><td><a>北斗ロジスティクス株式会社</a></td><td>022-555-0719</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/07/30</td></tr>
+              <tr><td class="rn">11</td><td><a>株式会社ミナト精機</a></td><td>A-000118</td><td>製造</td><td><a>株式会社ミナト精機ホールディングス</a></td><td>03-5555-0120</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/15</td></tr>
+              <tr><td class="rn">12</td><td><a>株式会社ミナト精機ホールディングス</a></td><td>A-000112</td><td>製造</td><td></td><td>03-5555-0100</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/08/22</td></tr>
+              <tr><td class="rn">13</td><td><a>ミナト精機九州株式会社</a></td><td>A-000125</td><td>製造</td><td><a>株式会社ミナト精機ホールディングス</a></td><td>092-555-0461</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/08</td></tr>
+              <tr><td class="rn">14</td><td><a>株式会社みらい薬品</a></td><td>A-000144</td><td>医薬品</td><td></td><td>06-5555-0925</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/12</td></tr>
+              <tr><td class="rn">15</td><td><a>株式会社ヤマブキ化成</a></td><td>A-000121</td><td>化学</td><td></td><td>0285-55-0147</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td class="muted">2026/06/18</td></tr>
+              <tr><td class="rn">16</td><td><a>ユキノ工業株式会社</a></td><td>A-000167</td><td>製造</td><td></td><td>025-555-0238</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/01</td></tr>
+              <tr><td class="rn">17</td><td><a>リンドウ建機株式会社</a></td><td>A-000170</td><td>建設</td><td></td><td>048-555-0564</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/08/25</td></tr>
+              <tr><td class="rn">18</td><td><a>株式会社ワカバ食品</a></td><td>A-000176</td><td>食品</td><td></td><td>0120-55-0812</td><td><span class="owner"><span class="avatar sm">佐</span>佐藤 美咲</span></td><td>2026/09/04</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <span>1〜50 件を表示（全 128 件）・ 1 ページ 50 件</span>
+          <div class="pages">
+            <span class="pg muted">‹</span><span class="pg on">1</span><span class="pg">2</span><span class="pg">3</span><span class="pg">›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

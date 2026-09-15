@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S07 取引先詳細</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .head-card .page-head { border: 0; border-radius: 0; padding-bottom: 4px; }
+  .head-card .highlights { padding-bottom: 12px; gap: 48px; }
+  .hl-item .v .avatar { display: inline-grid; vertical-align: middle; margin-right: 4px; }
+  .related { padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+  .rl { border: 1px solid #e5e5e5; border-radius: 6px; overflow: hidden; }
+  .rl .card-head { background: #fafaf9; padding: 8px 12px; }
+  .rl .card-head .obj-icon { width: 24px; height: 24px; border-radius: 4px; }
+  .rl .card-head .obj-icon .ico { width: 14px; height: 14px; }
+  .rl .table td, .rl .table th { padding: 6px 12px; }
+  .rl .table tr:last-child td { border-bottom: 0; }
+  .rl-foot { text-align: center; padding: 6px; border-top: 1px solid #e5e5e5; font-size: 12px; }
+  .tree { display: flex; flex-direction: column; gap: 2px; }
+  .tree .node { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; }
+  .tree .node .ico { color: #7f8de1; }
+  .tree .node.me { background: #eef4ff; font-weight: 700; }
+  .tree .node .sub { margin-left: auto; font-size: 12px; color: #747474; font-weight: 400; }
+  .tree .lvl1 { padding-left: 30px; position: relative; }
+  .tree .lvl1::before { content: ""; position: absolute; left: 16px; top: -4px; height: 22px; width: 10px; border-left: 1px solid #c9c9c9; border-bottom: 1px solid #c9c9c9; }
+  .tl-group { font-size: 12px; font-weight: 700; color: #444; padding: 8px 0 2px; }
+  .tl-icon .ico { width: 14px; height: 14px; }
+  .tl-top { display: flex; justify-content: space-between; gap: 8px; }
+  .tl-date { color: #747474; font-size: 12px; white-space: nowrap; }
+  .tl-desc { font-size: 12px; color: #444; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="screen" style="height:900px">
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+      <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>リード、取引先、商談などを検索…</div>
+      <div class="top-actions">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="avatar" title="佐藤 美咲（営業担当）">佐</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-app">営業</div>
+      <a>ホーム</a><a>リード</a><a class="active">取引先</a><a>商談</a><a>活動</a><a>ケース</a><a>レポート</a>
+    </div>
+    <div class="main">
+      <div class="card head-card">
+        <div class="page-head">
+          <div class="obj-icon obj-account"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/></svg></div>
+          <div>
+            <div class="eyebrow">取引先</div>
+            <h1>株式会社ミナト精機</h1>
+          </div>
+          <div class="actions">
+            <button class="btn">編集</button>
+            <button class="btn">新規取引先責任者</button>
+            <button class="btn">新規商談</button>
+            <button class="btn">新規ケース</button>
+          </div>
+        </div>
+        <div class="highlights">
+          <div class="hl-item"><div class="k">業種</div><div class="v">製造</div></div>
+          <div class="hl-item"><div class="k">法人番号</div><div class="v">4010401123456</div></div>
+          <div class="hl-item"><div class="k">取引先コード</div><div class="v">A-000118</div></div>
+          <div class="hl-item"><div class="k">電話</div><div class="v">03-5555-0120</div></div>
+          <div class="hl-item"><div class="k">親取引先</div><div class="v"><a>株式会社ミナト精機ホールディングス</a></div></div>
+          <div class="hl-item"><div class="k">所有者</div><div class="v"><span class="avatar sm">佐</span>佐藤 美咲</div></div>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div class="col-main">
+          <div class="card">
+            <div class="tabs"><a class="active">関連</a><a>詳細</a></div>
+            <div class="related">
+              <div class="rl">
+                <div class="card-head">
+                  <span class="obj-icon obj-contact"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
+                  <h2>取引先責任者</h2><span class="count">(3)</span>
+                  <div class="actions"><button class="btn sm">新規</button></div>
+                </div>
+                <table class="table">
+                  <thead><tr><th>氏名</th><th>役職</th><th>メール</th><th>電話</th></tr></thead>
+                  <tbody>
+                    <tr><td><a>高橋 健一</a></td><td>購買部 部長</td><td>k.takahashi@minato-seiki.example.co.jp</td><td>03-5555-0131</td></tr>
+                    <tr><td><a>中村 由香</a></td><td>生産技術課 課長</td><td>y.nakamura@minato-seiki.example.co.jp</td><td>03-5555-0147</td></tr>
+                    <tr><td><a>小林 大輔</a></td><td>情報システム室 主任</td><td>d.kobayashi@minato-seiki.example.co.jp</td><td>03-5555-0152</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="rl">
+                <div class="card-head">
+                  <span class="obj-icon obj-opp"><svg class="ico" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+                  <h2>商談</h2><span class="count">(3)</span>
+                  <div class="actions"><button class="btn sm">新規</button></div>
+                </div>
+                <table class="table">
+                  <thead><tr><th>商談名</th><th>フェーズ</th><th class="num">金額</th><th>完了予定日</th><th>所有者</th></tr></thead>
+                  <tbody>
+                    <tr><td><a>ミナト精機 IoT 監視パッケージ</a></td><td><span class="badge blue">見積提示</span></td><td class="num">¥6,380,000</td><td>2026/09/30</td><td>佐藤 美咲</td></tr>
+                    <tr><td><a>ミナト精機 検査ライン増設</a></td><td><span class="badge blue">要件確認</span></td><td class="num">¥12,500,000</td><td>2026/09/10</td><td>佐藤 美咲</td></tr>
+                    <tr><td><a>ミナト精機 保守契約 2026 年度</a></td><td><span class="badge green">受注</span></td><td class="num">¥1,800,000</td><td>2026/04/01</td><td>佐藤 美咲</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="rl">
+                <div class="card-head">
+                  <span class="obj-icon obj-case"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+                  <h2>ケース</h2><span class="count">(2)</span>
+                  <div class="actions"><button class="btn sm">新規</button></div>
+                </div>
+                <table class="table">
+                  <thead><tr><th>ケース番号</th><th>件名</th><th>状況</th><th>優先度</th><th>受付日</th></tr></thead>
+                  <tbody>
+                    <tr><td><a>C-00318</a></td><td>ゲートウェイがクラウドに接続できない</td><td><span class="badge amber">対応中</span></td><td><span class="badge red">高</span></td><td>2026/09/15</td></tr>
+                    <tr><td><a>C-00287</a></td><td>ライセンス更新手続きの確認</td><td><span class="badge gray">解決</span></td><td><span class="badge">低</span></td><td>2026/09/02</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-side">
+          <div class="card">
+            <div class="card-head">
+              <svg class="ico" viewBox="0 0 24 24" style="color:#7f8de1"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-3h14v3"/></svg>
+              <h2>取引先の階層</h2>
+            </div>
+            <div class="card-body tree">
+              <div class="node"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/></svg><a>株式会社ミナト精機ホールディングス</a><span class="sub">親取引先</span></div>
+              <div class="node lvl1 me"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/></svg>株式会社ミナト精機<span class="sub">この取引先</span></div>
+              <div class="node lvl1"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/></svg><a>ミナト精機九州株式会社</a></div>
+            </div>
+          </div>
+
+          <div class="card" style="flex:1">
+            <div class="card-head">
+              <h2>活動</h2>
+              <div class="actions"><button class="btn sm">新規 ToDo</button><button class="btn sm">新規行動</button></div>
+            </div>
+            <div class="card-body" style="padding-top:4px">
+              <div class="tl-group">予定・未完了</div>
+              <div class="timeline">
+                <div class="tl-item">
+                  <div class="tl-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">見積内容の説明（訪問）</span><span class="tl-date">9/18 14:00</span></div><div class="tl-meta">行動 ・ 高橋 健一</div></div>
+                </div>
+              </div>
+              <div class="tl-group">完了した活動（新しい順）</div>
+              <div class="timeline">
+                <div class="tl-item">
+                  <div class="tl-icon obj-task"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">見積書 Q-2026-00042 を送付</span><span class="tl-date">9/15</span></div><div class="tl-meta">ToDo ・ 完了 ・ 佐藤 美咲</div></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">要件ヒアリング（生産技術課）</span><span class="tl-date">9/08</span></div><div class="tl-meta">行動 ・ 中村 由香</div><div class="tl-desc">センサー台数は 60 台で確定。</div></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-icon obj-task"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">デモ環境のアカウント発行</span><span class="tl-date">9/01</span></div><div class="tl-meta">ToDo ・ 完了 ・ 佐藤 美咲</div></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+                  <div class="tl-body" style="border-bottom:0"><div class="tl-top"><span class="tl-title">製品紹介（オンライン）</span><span class="tl-date">8/25</span></div><div class="tl-meta">行動 ・ 高橋 健一</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

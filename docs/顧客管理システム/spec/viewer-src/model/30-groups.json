@@ -1,0 +1,12 @@
+{
+  "groups": [
+    { "id": "g_hub", "label": "入口・共通", "order": 1 },
+    { "id": "g_lead", "label": "リード", "order": 2 },
+    { "id": "g_account", "label": "取引先・取引先責任者", "order": 3 },
+    { "id": "g_opp", "label": "商談・見積", "order": 4 },
+    { "id": "g_activity", "label": "活動", "order": 5 },
+    { "id": "g_case", "label": "ケース（サポート）", "order": 6 },
+    { "id": "g_report", "label": "レポート", "order": 7 },
+    { "id": "g_admin", "label": "設定（管理者のみ）", "order": 8 }
+  ]
+}

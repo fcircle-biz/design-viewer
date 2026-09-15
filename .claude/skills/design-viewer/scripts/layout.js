@@ -14,9 +14,14 @@
  *   またぐ辺だけ手動で直交ルートを引く（下記「設計判断」参照）。
  * - flow（layout: "elk"）: レーンを作らず全ノードを 1 回の ELK layered(RIGHT) で配置し、
  *   画面はカード（見出し＋サムネイル）、辺は 3 次ベジェ曲線にする（layoutFlowElk）。
- * - gallery: ELK 不要。group 順・screens 順の格子。
- * - biz: ELK 不要。フェーズをレーン×列の自己完結ブロックにして、ブロックを 1480x700 に
- *   最も大きくフィットする列数で格子詰めする（layoutBiz。詳細は同関数のコメントを参照）。
+ *   arrange: "groups" のときは ELK を使わず、hubGroup を左端の列、他のグループを 1 ブロック
+ *   ずつ段（最長経路）で並べた格子に決定的に置く（arrangeFlowByGroups）。
+ * - gallery: ELK 不要。group 順・screens 順の格子。arrange: "table" のときは 1 画面 1 行の表
+ *   （サムネイル・ID・画面名・概要・利用者・実装状況。layoutGalleryTable）。
+ * - biz: ELK 不要。アクター（lanes）を列、業務内容（phases）を行にした 1 枚の表に、行の中を
+ *   上→下の段で並べる（layoutBiz。詳細は同関数のコメントを参照）。
+ * - dfd（arrange: "steps"）: steps ごとに辺と両端のノードだけの小さな図（外部実体 | プロセス |
+ *   データストアの 3 列・曲線）を作り、ブロックを格子に詰める（layoutDfdBySteps / layoutDfdColumns）。
  * - concept / dfd: ELK layered(RIGHT・wrapping) と stress を両方試し、フィットズーム最大
  *   （重なり 0 件必須）→ 交差最小 → 総エッジ長最小の複合スコアで採用する方を選ぶ。
  * - er: ELK layered(RIGHT)。FK 辺は行位置に固定した FIXED_POS ポートで接続。
@@ -439,12 +444,17 @@ function placeLaneRow(memberIds, nodeMeta, laneEdges) {
 // 画面上に必要な px」から隙間を決め、グループを横に並べるブロック（R 行 × 必要列）を棚詰めする。
 // R と棚の幅の候補を総当たりし、想定倍率が最も大きくなる配置を採用する。
 const GALLERY_VIEW = { w: 1500, h: 600 };   // 全体表示で使える領域の想定（タイトルカード・ツールバーを除く）
-const GALLERY_PX = { title: 30, header: 76, gutterX: 28, groupGapX: 44, groupGapY: 40, pad: 20 };
-const GALLERY_BASE = { title: 160, header: 130, gutterX: 140, groupGapX: 100, groupGapY: 100, pad: 140 };
+const GALLERY_PX = { title: 26, header: 34, gutterX: 18, groupGapX: 40, groupGapY: 40, pad: 16 };
+const GALLERY_BASE = { title: 160, header: 130, gutterX: 120, groupGapX: 100, groupGapY: 100, pad: 120 };
+// 画面名はサムネイルが画面上でこの幅以上のときだけ描く（engine/js/08-draw-nodes.js の SCREEN_HEAD_MIN_W と揃える）。
+// 画面数が多く全体表示の倍率が小さいとき、隙間を全体表示の倍率で決めると隙間が画面幅の半分を超え、
+// サムネイルが小さく見えた。画面名が出る倍率より小さい倍率では隙間を広げない。
+const GALLERY_HEAD_MIN_W = 90;
 
 function buildGalleryLayout(blocks, cellW, cellH, R, shelfCols, k) {
   const g = {};
-  Object.keys(GALLERY_PX).forEach(key => { g[key] = Math.max(GALLERY_BASE[key], GALLERY_PX[key] / k); });
+  const kGap = Math.max(k, GALLERY_HEAD_MIN_W / cellW);
+  Object.keys(GALLERY_PX).forEach(key => { g[key] = Math.max(GALLERY_BASE[key], GALLERY_PX[key] / kGap); });
   const nodes = [], outGroups = [];
   let shelfX = 0, shelfY = 0, shelfH = 0, shelfUsedCols = 0;
   blocks.forEach(b => {
@@ -453,14 +463,20 @@ function buildGalleryLayout(blocks, cellW, cellH, R, shelfCols, k) {
     if (shelfUsedCols > 0 && shelfUsedCols + cols > shelfCols) {
       shelfY += shelfH + g.groupGapY; shelfX = 0; shelfH = 0; shelfUsedCols = 0;
     }
+    // 行の高さはその行で最も高い画面に合わせる（全画面共通の最大高にすると、縦長の画面が 1 枚あるだけで
+    // 他の行の下が大きく空く）
+    const rowH = [];
+    b.items.forEach((s, idx) => { const r = Math.floor(idx / cols); rowH[r] = Math.max(rowH[r] || 0, s.h || DEFAULT_SCREEN_H); });
+    const rowY = [];
+    rowH.forEach((h, r) => { rowY[r] = r === 0 ? 0 : rowY[r - 1] + rowH[r - 1] + g.title; });
     const bw = g.pad * 2 + cols * cellW + (cols - 1) * g.gutterX;
-    const bh = g.header + rows * cellH + (rows - 1) * g.title + g.pad;
+    const bh = g.header + rowH.reduce((s, h) => s + h, 0) + (rows - 1) * g.title + g.pad;
     b.items.forEach((s, idx) => {
       const r = Math.floor(idx / cols), c = idx % cols;
       nodes.push({
         id: s.id, kind: 'screen', group: b.id,
         x: shelfX + g.pad + c * (cellW + g.gutterX),
-        y: shelfY + g.header + r * (cellH + g.title),
+        y: shelfY + g.header + rowY[r],
         w: s.w || DEFAULT_SCREEN_W, h: s.h || DEFAULT_SCREEN_H,
       });
     });
@@ -512,6 +528,86 @@ function layoutGallery(model, warnings) {
     }
   }
   return { nodes: best.nodes, groups: best.groups, edges: [], bounds: best.bounds };
+}
+
+// ---------- gallery（arrange: "table"。表形式の機能一覧） ----------
+// 1 画面 1 行の表: サムネイル | ID | 画面名 | 概要（purpose） | 利用者（role） | 実装状況（status）。
+// groups[].order 順の見出し行（セクション）で区切る。文字はワールド座標の大きさで描き（ズームに比例）、
+// 行の高さはサムネイルの高さと、各列の文字を列幅で折り返したときの行数の大きい方で決める。
+// サムネイルは画面ノードそのもの（クリックで詳細パネル）で、縦横比を保ったまま最大 GT_THUMB_W×GT_THUMB_H に収める。
+const SCREEN_STATUSES = {
+  done: { label: '実装済', tone: 'green' },
+  wip: { label: '実装中', tone: 'blue' },
+  designed: { label: '設計済・未実装', tone: 'amber' },
+  planned: { label: '未着手', tone: 'slate' },
+};
+const GT_THUMB_W = 220, GT_THUMB_H = 150;
+const GT_PAD_X = 18, GT_PAD_Y = 14;
+const GT_HEADER_H = 44, GT_SECTION_H = 48;
+const GT_COLUMNS = [
+  { key: 'thumb', label: '画面イメージ', w: GT_THUMB_W + GT_PAD_X * 2 },
+  { key: 'id', label: 'ID', w: 110, px: 14, lineH: 21, weight: '700' },
+  { key: 'title', label: '画面名', w: 210, px: 16, lineH: 24, weight: '700' },
+  { key: 'purpose', label: '概要', w: 540, px: 15, lineH: 24, weight: '400' },
+  { key: 'role', label: '利用者', w: 210, px: 14, lineH: 21, weight: '400' },
+  { key: 'status', label: '実装状況', w: 160 },
+];
+
+/** 文字列を幅 w（ワールド px）・文字サイズ px で折り返したときの行数の見積もり */
+function estimateWrapLines(text, px, w) {
+  let lines = 1, cur = 0;
+  for (const ch of String(text || '')) {
+    const cw = (ch.charCodeAt(0) > 0xff ? 1 : 0.58) * px;
+    if (cur + cw > w && cur > 0) { lines++; cur = cw; } else cur += cw;
+  }
+  return lines;
+}
+
+function layoutGalleryTable(model, warnings) {
+  const screens = model.screens || [];
+  const groups = [...(model.groups || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const known = new Set(groups.map(g => g.id));
+  const sectionDefs = groups.map(g => ({ id: g.id, label: g.label }));
+  if (screens.some(s => !s.group || !known.has(s.group))) {
+    sectionDefs.push({ id: '__unassigned__', label: '(未分類)' });
+    warnings.push('gallery: group 未設定の画面を (未分類) セクションに配置しました');
+  }
+  let x = 0;
+  const columns = GT_COLUMNS.map(c => { const col = { ...c, x }; x += c.w; return col; });
+  const tableW = x;
+  const nodes = [], rows = [], sections = [];
+  let y = GT_HEADER_H;
+  sectionDefs.forEach(def => {
+    const items = screens.filter(s => (s.group && known.has(s.group) ? s.group : '__unassigned__') === def.id);
+    if (items.length === 0) return;
+    const counts = {};
+    items.forEach(s => { if (s.status) counts[s.status] = (counts[s.status] || 0) + 1; });
+    sections.push({ id: def.id, label: def.label, y, h: GT_SECTION_H, count: items.length, counts });
+    y += GT_SECTION_H;
+    items.forEach(s => {
+      const sw = s.w || DEFAULT_SCREEN_W, sh = s.h || DEFAULT_SCREEN_H;
+      const scale = Math.min(GT_THUMB_W / sw, GT_THUMB_H / sh);
+      const tw = sw * scale, th = sh * scale;
+      let textH = 0;
+      columns.forEach(c => {
+        if (!c.px) return;
+        const text = c.key === 'id' ? s.id : s[c.key];
+        textH = Math.max(textH, estimateWrapLines(text, c.px, c.w - GT_PAD_X * 2) * c.lineH);
+      });
+      const rowH = Math.ceil(Math.max(th, textH, 28) + GT_PAD_Y * 2);
+      nodes.push({
+        id: s.id, kind: 'screen', group: def.id, table: true,
+        x: columns[0].x + (columns[0].w - tw) / 2, y: y + (rowH - th) / 2, w: tw, h: th,
+      });
+      if (s.status && !SCREEN_STATUSES[s.status]) warnings.push(`gallery: screens.${s.id}.status が未知です: ${s.status}`);
+      rows.push({ id: s.id, section: def.id, y, h: rowH, title: s.title || '', purpose: s.purpose || '', role: s.role || '', status: s.status || null });
+      y += rowH;
+    });
+  });
+  const table = { x: 0, y: 0, w: tableW, h: y, headerH: GT_HEADER_H, padX: GT_PAD_X, padY: GT_PAD_Y, columns, sections, rows, statuses: SCREEN_STATUSES };
+  const bounds = computeBounds(nodes, [table], []);
+  // 表は縦に長いので、全体表示は表の幅に合わせて上端から見せる（fit: "width"）。文字が読める等倍まで拡大してよい
+  return { nodes, groups: [], edges: [], table, fit: 'width', maxK: 1, bounds };
 }
 
 function computeBounds(nodes, groups, edges) {
@@ -726,12 +822,18 @@ function curveSides(a, b) {
  * 同じノードの同じ側に複数の辺が付くときは、相手ノードの位置順に側面の中央 50% へ散らす
  * （往復の辺 S01⇄S02 が重ならず平行に並ぶ）。route は [始点, 制御点1, 制御点2, 終点]。
  */
-function routeCurves(edgesIn, rectOf) {
+function routeCurves(edgesIn, rectOf, opts) {
+  const unit = (opts && opts.unit) || ELK_UNIT;
+  const horizontalOnly = !!(opts && opts.horizontal);
   const plans = edgesIn.map((e, i) => {
     const a = rectOf.get(e.from), b = rectOf.get(e.to);
     if (!a || !b) return null;
     if (e.from === e.to) return { i, e, a, b, self: true, sides: ['top', 'right'] };
-    return { i, e, a, b, sides: curveSides(a, b) };
+    // horizontal: 列に並べた図（dfd の arrange: "steps"）は縦に離れていても左右から出入りさせる
+    const sides = horizontalOnly
+      ? ((b.x + b.w / 2) >= (a.x + a.w / 2) ? ['right', 'left'] : ['left', 'right'])
+      : curveSides(a, b);
+    return { i, e, a, b, sides };
   });
   const attach = new Map(); // `${id}:${side}` -> [{plan, end, key}]
   plans.forEach(p => {
@@ -764,7 +866,7 @@ function routeCurves(edgesIn, rectOf) {
     const [na, nb] = [SIDE_NORMAL[p.sides[0]], SIDE_NORMAL[p.sides[1]]];
     const horizontal = p.sides[0] === 'left' || p.sides[0] === 'right';
     const dist = p.self ? 0 : (horizontal ? Math.abs(t[0] - s[0]) : Math.abs(t[1] - s[1]));
-    const c = Math.max(90 * ELK_UNIT, dist * 0.42);
+    const c = Math.max(90 * unit, dist * 0.42);
     const route = [s, [s[0] + na[0] * c, s[1] + na[1] * c], [t[0] + nb[0] * c, t[1] + nb[1] * c], t];
     const e = p.e;
     return {
@@ -779,6 +881,151 @@ function bezierPoint(r, t) {
   const u = 1 - t;
   const f = (i) => u * u * u * r[0][i] + 3 * u * u * t * r[1][i] + 3 * u * t * t * r[2][i] + t * t * t * r[3][i];
   return [f(0), f(1)];
+}
+
+// arrange: "groups" の間隔（参照 px。ワールドでは ELK_UNIT 倍）
+const ARRANGE_GAP = { col: 300, row: 200, cell: 90, hub: 420, framePad: 60, frameTop: 70 };
+const ARRANGE_RANK_IGNORE = new Set(['weak', 'nav', 'rel']);
+
+/**
+ * arrange: "groups"（グループ行＋ハブ列の格子配置）。ELK を使わず決定的に置く。
+ * 60 画面規模のハブ型（メニューから多機能へ分かれ、機能内に戻り・エラーの循環がある）を 1 回の
+ * ELK layered で解くと、循環で層が入れ替わり縦長の塊になって読めないため。
+ * - hubGroup の要素は左端に横 1 列（全体の高さの中央）、他のグループは order 順に 1 行ずつ
+ * - 行内の列 = 同じグループ内の「前向きの辺」だけで測った最長経路の段数。前向きでない辺
+ *   （weak / nav / rel、既定で非表示の type、記述順で後ろ → 前）は使わない
+ * - 列の x は全行で揃える。同じ行・同じ段の要素は記述順に縦に積む
+ * items は attachTo で後置きするものを除いた要素（記述順）。戻り値 { posOf, groups }
+ */
+function arrangeFlowByGroups(model, flow, items, edges) {
+  const U = ELK_UNIT;
+  const G = Object.fromEntries(Object.entries(ARRANGE_GAP).map(([k, v]) => [k, v * U]));
+  const hidden = new Set((flow.toggles || []).filter(t => t && t.default === false).map(t => t.type));
+  const groupsIn = [...(model.groups || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const groupOf = new Map();
+  (model.screens || []).forEach(s => groupOf.set(s.id, s.group));
+  (flow.nodes || []).forEach(n => groupOf.set(n.id, n.group));
+  const known = new Set(groupsIn.map(g => g.id));
+  const gid = id => (known.has(groupOf.get(id)) ? groupOf.get(id) : '__unassigned__');
+  const orderIdx = new Map(items.map((it, i) => [it.id, i]));
+
+  // 段数（最長経路）。前向きの辺だけを使うので DAG になり、記述順に 1 回なめれば求まる
+  const rank = new Map(items.map(it => [it.id, 0]));
+  const forward = edges.filter(e => orderIdx.has(e.from) && orderIdx.has(e.to)
+    && gid(e.from) === gid(e.to) && orderIdx.get(e.from) < orderIdx.get(e.to)
+    && !ARRANGE_RANK_IGNORE.has(e.type) && !hidden.has(e.type));
+  const outOf = new Map();
+  forward.forEach(e => { if (!outOf.has(e.from)) outOf.set(e.from, []); outOf.get(e.from).push(e.to); });
+  items.forEach(it => (outOf.get(it.id) || []).forEach(to => rank.set(to, Math.max(rank.get(to), rank.get(it.id) + 1))));
+
+  const rowIds = groupsIn.map(g => g.id).filter(id => id !== flow.hubGroup);
+  if (items.some(it => gid(it.id) === '__unassigned__')) rowIds.push('__unassigned__');
+  const labelOf = new Map(groupsIn.map(g => [g.id, g.label]));
+  labelOf.set('__unassigned__', '(未分類)');
+
+  // セル（group × 段）ごとに記述順で積む
+  const cells = new Map(); // gid -> Map(rank -> items[])
+  items.forEach(it => {
+    const g = gid(it.id);
+    if (!cells.has(g)) cells.set(g, new Map());
+    const row = cells.get(g), r = rank.get(it.id);
+    if (!row.has(r)) row.set(r, []);
+    row.get(r).push(it);
+  });
+  const stackH = list => list.reduce((s, it) => s + it.h, 0) + G.cell * (list.length - 1);
+  const stackW = list => Math.max(...list.map(it => it.w));
+
+  // 格子の列幅（全行で共通）
+  const colW = [];
+  rowIds.forEach(g => (cells.get(g) || new Map()).forEach((list, r) => { colW[r] = Math.max(colW[r] || 0, stackW(list)); }));
+  const colX = [];
+  let cx = 0;
+  for (let r = 0; r < colW.length; r++) { colX[r] = cx; cx += (colW[r] || 0) + G.col; }
+
+  // グループのブロック（枠の内側を原点とした寸法）
+  const blocks = rowIds.filter(g => cells.has(g)).map(g => {
+    const row = cells.get(g);
+    let rowH = 0, maxX = 0;
+    row.forEach((list, r) => { rowH = Math.max(rowH, stackH(list)); maxX = Math.max(maxX, colX[r] + colW[r]); });
+    return { g, row, w: maxX + G.framePad * 2, h: G.frameTop + rowH + G.framePad };
+  });
+
+  // ハブ列の寸法
+  const hub = flow.hubGroup && cells.get(flow.hubGroup);
+  const hubRanks = hub ? [...hub.keys()].sort((a, b) => a - b) : [];
+  const hubWidths = hubRanks.map(r => stackW(hub.get(r)));
+  const hubW = hub ? hubWidths.reduce((s, w) => s + w, 0) + G.col * (hubRanks.length - 1) : 0;
+  const hubH = hub ? Math.max(...hubRanks.map(r => stackH(hub.get(r)))) : 0;
+
+  // ブロックを記述順のまま K 本の縦の段に分ける（各段の高さの最大を小さくする貪欲分割）。
+  // K は全体表示の倍率が最大になるものを選ぶ（表示領域は横長なので縦 1 本では小さくなりすぎる）
+  const colGapBlocks = G.row;
+  const splitInto = K => {
+    const total = blocks.reduce((s, b) => s + b.h + G.row, 0);
+    const target = total / K;
+    const cols = [[]];
+    let acc = 0;
+    blocks.forEach(b => {
+      if (cols[cols.length - 1].length && acc + b.h / 2 > target && cols.length < K) { cols.push([]); acc = 0; }
+      cols[cols.length - 1].push(b);
+      acc += b.h + G.row;
+    });
+    return cols;
+  };
+  let best = null;
+  for (let K = 1; K <= Math.max(blocks.length, 1); K++) {
+    const cols = splitInto(K);
+    const widths = cols.map(c => Math.max(0, ...c.map(b => b.w)));
+    const gridW = widths.reduce((s, w) => s + w, 0) + (cols.length - 1) * colGapBlocks;
+    const gridH = Math.max(0, ...cols.map(c => c.reduce((s, b) => s + b.h, 0) + G.row * (c.length - 1)));
+    const w = gridW + (hub ? hubW + G.hub + G.framePad * 2 : 0), h = Math.max(gridH, hubH);
+    const z = fitZoom({ w, h });
+    if (!best || z > best.z * 1.0001) best = { z, cols, widths };
+  }
+
+  const posOf = new Map();
+  const groups = [];
+  let totalH = 0, ox = 0;
+  (best ? best.cols : []).forEach((col, ci) => {
+    if (ci > 0) ox += best.widths[ci - 1] + colGapBlocks;
+    let y = 0;
+    col.forEach(b => {
+      const top = y + G.frameTop;
+      b.row.forEach((list, r) => {
+        let yy = top;
+        list.forEach(it => {
+          posOf.set(it.id, { id: it.id, x: ox + colX[r] + (colW[r] - it.w) / 2, y: yy });
+          yy += it.h + G.cell;
+        });
+      });
+      groups.push({ id: b.g, label: labelOf.get(b.g), x: ox - G.framePad, y, w: b.w, h: b.h });
+      y += b.h + G.row;
+    });
+    totalH = Math.max(totalH, y - G.row);
+  });
+
+  // ハブ列: 段数順に左へ並べ、格子全体の高さの中央に置く
+  if (hub) {
+    const ranks = hubRanks, widths = hubWidths;
+    let hx = -G.framePad - G.hub - hubW;
+    let hubTop = Infinity, hubBottom = -Infinity;
+    ranks.forEach((r, i) => {
+      const list = hub.get(r);
+      let yy = (totalH - stackH(list)) / 2;
+      list.forEach(it => {
+        posOf.set(it.id, { id: it.id, x: hx + (widths[i] - it.w) / 2, y: yy });
+        hubTop = Math.min(hubTop, yy); hubBottom = Math.max(hubBottom, yy + it.h);
+        yy += it.h + G.cell;
+      });
+      hx += widths[i] + G.col;
+    });
+    groups.push({
+      id: flow.hubGroup, label: labelOf.get(flow.hubGroup),
+      x: -G.framePad - G.hub - hubW - G.framePad, y: hubTop - G.frameTop,
+      w: hubW + G.framePad * 2, h: hubBottom - hubTop + G.frameTop + G.framePad,
+    });
+  }
+  return { posOf, groups };
 }
 
 async function layoutFlowElk(model, warnings) {
@@ -819,14 +1066,20 @@ async function layoutFlowElk(model, warnings) {
   // 入れ替え、主な流れ（左→右）が読めなくなるため。配置後に他の辺と同様に描く。
   const elkEdges = edges.filter(e => !attached.has(e.from) && !attached.has(e.to) && e.type !== 'weak');
 
-  const graph = {
-    id: 'root',
-    layoutOptions: elkFlowOptions(edgeStyle, flow.layoutOptions),
-    children: elkItems.map(it => ({ id: it.id, width: it.w, height: it.h })),
-    edges: elkEdges.map((e, i) => ({ id: `e${i}`, sources: [e.from], targets: [e.to] })),
-  };
-  const result = await runElk(graph);
-  const posOf = new Map(result.children.map(c => [c.id, c]));
+  const byGroups = flow.arrange === 'groups';
+  let result = { children: [], edges: [] }, posOf, outGroups = [];
+  if (byGroups) {
+    ({ posOf, groups: outGroups } = arrangeFlowByGroups(model, flow, elkItems, edges));
+  } else {
+    const graph = {
+      id: 'root',
+      layoutOptions: elkFlowOptions(edgeStyle, flow.layoutOptions),
+      children: elkItems.map(it => ({ id: it.id, width: it.w, height: it.h })),
+      edges: elkEdges.map((e, i) => ({ id: `e${i}`, sources: [e.from], targets: [e.to] })),
+    };
+    result = await runElk(graph);
+    posOf = new Map(result.children.map(c => [c.id, c]));
+  }
 
   const nodes = items.map(it => {
     const p = posOf.get(it.id) || { x: 0, y: 0 };
@@ -866,7 +1119,8 @@ async function layoutFlowElk(model, warnings) {
       };
     });
     // nudge したノードの辺は ELK の経路が合わなくなるため、pin と同様に単純ルートへ引き直す
-    const moved = new Set(items.filter(it => it.nudge || attached.has(it.id)).map(it => it.id));
+    // （arrange: "groups" は ELK の経路が無いので全辺を単純ルートにする）
+    const moved = new Set(items.filter(it => byGroups || it.nudge || attached.has(it.id)).map(it => it.id));
     outEdges = outEdges.map(e => {
       if (!moved.has(e.from) && !moved.has(e.to)) return e;
       const route = simpleOrthogonalRoute(rectOf.get(e.from), rectOf.get(e.to));
@@ -878,11 +1132,11 @@ async function layoutFlowElk(model, warnings) {
   const overlaps = countOverlaps(new Map(nodes.map(n => [n.id, n])));
   if (overlaps > 0) warnings.push(`flow: ノードの重なりが ${overlaps} 件あります（nudge / attachTo / pin の値を見直してください）`);
 
-  const bounds = computeBounds(nodes, [], outEdges);
+  const bounds = computeBounds(nodes, outGroups, outEdges);
   return {
     label: flow.label, desc: flow.desc, legend: flow.legend, toggles: flow.toggles, steps: flow.steps,
     layout: 'elk', edgeStyle, unit: U,
-    bounds, groups: [], nodes, edges: outEdges,
+    bounds, groups: outGroups, nodes, edges: outEdges,
   };
 }
 
@@ -905,6 +1159,173 @@ function applyPins(nodes, edges, posMap, warnings, modeName) {
     const route = simpleOrthogonalRoute(a, b);
     return { ...e, route, labelAt: e.label ? midpointAlongRoute(route) : undefined };
   });
+}
+
+// ---------- dfd（arrange: "steps"。ステップごとのブロックに分けて描く） ----------
+// 共有データストア（受注など）が多数のプロセスとつながる DFD を 1 枚で解くと、長い辺が図全体を
+// 横切って交差が 50 を超え読めなかった。DFD の慣習（同じデータストア・外部実体を複数箇所に描く
+// 重複記号）に倣い、ステップごとに「そのステップの辺と両端のノード」だけで小さな図を作る。
+// 複数ステップに出るノードはブロックごとに複製し、id は `<元の id>@<ステップ番号>` にする
+// （baseId に元の id を持つ）。ブロックは記述順に格子へ詰め、列数は全体表示の倍率が最大のものを選ぶ。
+const DFD_STEP_GAP = { col: 120, row: 110, pad: 30, top: 56 };
+const DFD_COL_NODE_GAP = 34;
+
+/**
+ * ステップ 1 つ分の小さな DFD を 3 列（外部実体 | プロセス | データストア）に置く。
+ * 列の中の並びは隣の列の重心で数回並べ替えて交差を減らし、各ノードは隣接ノードの重心の高さを
+ * 目標に、重ならないよう上から詰める。辺は左右から出入りする曲線、ラベルは曲線上で他のラベル・
+ * ノードと重ならない位置（t = 0.5 付近から順に試す）に置く。
+ */
+function layoutDfdColumns(sub) {
+  const colOf = n => (n.variant === 'ext' ? 0 : n.variant === 'store' ? 2 : 1);
+  const present = [0, 1, 2].filter(c => sub.nodes.some(n => colOf(n) === c));
+  const cols = present.map(c => sub.nodes.filter(n => colOf(n) === c));
+  const colIdx = new Map();
+  cols.forEach((list, ci) => list.forEach(n => colIdx.set(n.id, ci)));
+  const adj = new Map(sub.nodes.map(n => [n.id, new Set()]));
+  sub.edges.forEach(e => { if (adj.has(e.from) && adj.has(e.to) && e.from !== e.to) { adj.get(e.from).add(e.to); adj.get(e.to).add(e.from); } });
+
+  // 列間は最長ラベルが収まる幅
+  const maxLabelW = Math.max(0, ...sub.edges.map(e => (e.label ? estimateTextWidth(e.label, 11) + 18 : 0)));
+  const gapX = Math.round(Math.min(360, Math.max(200, maxLabelW + 90)));
+
+  // 並び順: 隣接ノードの位置（列内の順位）の重心で数回並べ替える
+  const pos = new Map();
+  const reindex = () => cols.forEach(list => list.forEach((n, i) => pos.set(n.id, i)));
+  reindex();
+  for (let iter = 0; iter < 6; iter++) {
+    const order = iter % 2 === 0 ? cols.map((_, i) => i) : cols.map((_, i) => cols.length - 1 - i);
+    order.forEach(ci => {
+      const bary = n => {
+        const ns = [...adj.get(n.id)].filter(id => colIdx.get(id) !== ci);
+        return ns.length ? ns.reduce((s, id) => s + pos.get(id), 0) / ns.length : pos.get(n.id);
+      };
+      cols[ci] = cols[ci].map((n, i) => ({ n, k: bary(n), i })).sort((a, b) => (a.k - b.k) || (a.i - b.i)).map(x => x.n);
+      reindex();
+    });
+  }
+
+  // 高さ: 最も長い列を基準に等間隔で置き、他の列は隣接ノードの重心の高さを目標に詰める
+  const pitch = DFD_H + DFD_COL_NODE_GAP;
+  const y = new Map();
+  const longest = cols.reduce((bi, list, i) => (list.length > cols[bi].length ? i : bi), 0);
+  cols[longest].forEach((n, i) => y.set(n.id, i * pitch));
+  const placeCol = ci => {
+    const want = cols[ci].map(n => {
+      const ns = [...adj.get(n.id)].filter(id => y.has(id) && colIdx.get(id) !== ci);
+      return ns.length ? ns.reduce((s, id) => s + y.get(id), 0) / ns.length : 0;
+    });
+    // 目標の高さを保ちつつ重なりを解消（上から詰めてから、はみ出しを下から戻す）
+    const ys = [];
+    want.forEach((w, i) => { ys[i] = i === 0 ? w : Math.max(w, ys[i - 1] + pitch); });
+    const shift = Math.max(0, (ys[ys.length - 1] - want[want.length - 1]) / 2);
+    for (let i = ys.length - 1; i >= 0; i--) {
+      ys[i] -= shift;
+      if (i < ys.length - 1) ys[i] = Math.min(ys[i], ys[i + 1] - pitch);
+    }
+    cols[ci].forEach((n, i) => y.set(n.id, ys[i]));
+  };
+  const others = cols.map((_, i) => i).filter(i => i !== longest).sort((a, b) => Math.abs(a - longest) - Math.abs(b - longest));
+  others.forEach(placeCol);
+
+  const nodes = [];
+  cols.forEach((list, ci) => list.forEach(n => {
+    const node = { ...n, kind: 'dfd', x: ci * (DFD_W + gapX), y: y.get(n.id), w: DFD_W, h: DFD_H };
+    delete node.pin;
+    nodes.push(node);
+  }));
+  const rectOf = new Map(nodes.map(n => [n.id, n]));
+  const curves = routeCurves(sub.edges, rectOf, { unit: 0.5, horizontal: true });
+
+  // ラベル位置: 曲線上で他のラベル・ノードに重ならない t を選ぶ（ステップを選んで寄ったときの倍率を想定し、やや大きめに見積もる）
+  const placed = [];
+  const hit = (r, s) => r.x < s.x + s.w && r.x + r.w > s.x && r.y < s.y + s.h && r.y + r.h > s.y;
+  curves.forEach(c => {
+    if (!c.label) return;
+    const w = (estimateTextWidth(c.label, 11) + 18) * 1.25, h = 20 * 1.25;
+    const ts = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8];
+    let chosen = null;
+    for (const t of ts) {
+      const p = bezierPoint(c.route, t);
+      const r = { x: p[0] - w / 2, y: p[1] - h / 2, w, h };
+      if (!placed.some(s => hit(r, s)) && !nodes.some(n => hit(r, n))) { chosen = r; c.labelAt = p; break; }
+    }
+    if (!chosen) { const p = bezierPoint(c.route, 0.5); chosen = { x: p[0] - w / 2, y: p[1] - h / 2, w, h }; c.labelAt = p; }
+    placed.push(chosen);
+  });
+  // 枠はノードとラベルで決める（ベジェの制御点は曲線の外に出るので含めない）
+  const boxes = nodes.concat(placed);
+  const x0 = Math.min(...boxes.map(b => b.x)), y0 = Math.min(...boxes.map(b => b.y));
+  const x1 = Math.max(...boxes.map(b => b.x + b.w)), y1 = Math.max(...boxes.map(b => b.y + b.h));
+  return { nodes, edges: curves, bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } };
+}
+async function layoutDfdBySteps(mode, warnings) {
+  const nodesIn = Array.isArray(mode.nodes) ? mode.nodes : [];
+  const edgesIn = Array.isArray(mode.edges) ? mode.edges : [];
+  const steps = Array.isArray(mode.steps) ? mode.steps : [];
+  const nodeById = new Map(nodesIn.map(n => [n.id, n]));
+  const stepNums = new Set(steps.map(s => s.n));
+
+  const parts = steps.map(s => ({ key: s.n, label: `${s.n}. ${s.title || ''}`, edges: edgesIn.filter(e => e.step === s.n) }));
+  const rest = edgesIn.filter(e => !stepNums.has(e.step));
+  const used = new Set(edgesIn.flatMap(e => [e.from, e.to]));
+  const isolated = nodesIn.filter(n => !used.has(n.id));
+  if (rest.length || isolated.length) {
+    if (rest.length) warnings.push(`dfd: step の無い辺が ${rest.length} 本あります（「ステップなし」のブロックに描きます）`);
+    parts.push({ key: null, label: 'ステップなし', edges: rest, extraNodes: isolated });
+  }
+
+  const blocks = [];
+  for (const part of parts) {
+    const suffix = part.key == null ? '@-' : `@${part.key}`;
+    const ids = [];
+    part.edges.forEach(e => [e.from, e.to].forEach(id => { if (nodeById.has(id) && !ids.includes(id)) ids.push(id); }));
+    (part.extraNodes || []).forEach(n => ids.push(n.id));
+    if (ids.length === 0) continue;
+    // 記述順（nodes[] の順）で ELK に渡す
+    ids.sort((a, b) => nodesIn.indexOf(nodeById.get(a)) - nodesIn.indexOf(nodeById.get(b)));
+    const sub = {
+      nodes: ids.map(id => ({ ...nodeById.get(id), id: id + suffix, baseId: id })),
+      edges: part.edges.filter(e => nodeById.has(e.from) && nodeById.has(e.to)).map(e => ({ ...e, from: e.from + suffix, to: e.to + suffix })),
+    };
+    const r = layoutDfdColumns(sub);
+    const b = r.bounds;
+    blocks.push({ part, r, w: b.w + DFD_STEP_GAP.pad * 2, h: b.h + DFD_STEP_GAP.top + DFD_STEP_GAP.pad });
+  }
+
+  // 列数を総当たりし、全体表示の倍率が最大になるものを選ぶ
+  let best = null;
+  for (let cols = 1; cols <= Math.max(1, blocks.length); cols++) {
+    const colW = [], rowH = [];
+    blocks.forEach((b, i) => {
+      const c = i % cols, r = Math.floor(i / cols);
+      colW[c] = Math.max(colW[c] || 0, b.w); rowH[r] = Math.max(rowH[r] || 0, b.h);
+    });
+    const w = colW.reduce((s, v) => s + v, 0) + DFD_STEP_GAP.col * (colW.length - 1);
+    const h = rowH.reduce((s, v) => s + v, 0) + DFD_STEP_GAP.row * (rowH.length - 1);
+    const z = fitZoom({ w, h });
+    if (!best || z > best.z * 1.0001) best = { z, cols, colW, rowH };
+  }
+
+  const nodes = [], edges = [], groups = [];
+  blocks.forEach((b, i) => {
+    const c = i % best.cols, r = Math.floor(i / best.cols);
+    const gx = best.colW.slice(0, c).reduce((s, v) => s + v + DFD_STEP_GAP.col, 0);
+    const gy = best.rowH.slice(0, r).reduce((s, v) => s + v + DFD_STEP_GAP.row, 0);
+    const dx = gx + DFD_STEP_GAP.pad - b.r.bounds.x, dy = gy + DFD_STEP_GAP.top - b.r.bounds.y;
+    b.r.nodes.forEach(n => nodes.push({ ...n, x: n.x + dx, y: n.y + dy }));
+    b.r.edges.forEach(e => edges.push({
+      ...e,
+      route: e.route && e.route.map(([x, y]) => [x + dx, y + dy]),
+      labelAt: e.labelAt && [e.labelAt[0] + dx, e.labelAt[1] + dy],
+    }));
+    groups.push({ id: `step:${b.part.key == null ? '-' : b.part.key}`, label: b.part.label, step: b.part.key, x: gx, y: gy, w: b.w, h: b.h });
+  });
+
+  return {
+    label: mode.label, desc: mode.desc, legend: mode.legend, steps: mode.steps, arrange: 'steps',
+    bounds: computeBounds(nodes, groups, []), groups, nodes, edges,
+  };
 }
 
 // ---------- concept / dfd（layered vs stress を比較） ----------
@@ -1011,19 +1432,24 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
 }
 
 // ---------- biz（スイムレーン。ELK 不要・決定的） ----------
-// レーン×フェーズの固定グリッドへ配置したい（ELK の自動配置だと列がフェーズ境界とずれる）ため、
-// ELK は使わず自前で決定的に組む。列（フェーズ内での左右位置）はフェーズごとに独立して、
-// type: "weak" を除いた辺で DFS 逆辺検出 → 残った DAG 上を Kahn 法で最長パスランク付けして求める。
-// 同じセル（レーン×フェーズ×列）に複数ノードがあれば縦に積む。
-const BIZ_HEADER_W = 190;
-const BIZ_PHASE_H = 44;
-const BIZ_LANE_PAD_Y = 20;
-const BIZ_ROW_GAP = 28;
-const BIZ_BLOCK_PAD_X = 32;
-const BIZ_LANE_MIN_H = 110;
-const BIZ_GAP_MIN = 64, BIZ_GAP_MAX = 220, BIZ_GAP_LABEL_PAD = 40;
-const BIZ_BLOCK_GAP_X = 80, BIZ_BLOCK_GAP_Y = 64;
-const BIZ_FIT_W = 1480, BIZ_FIT_H = 700;
+// 横軸がアクター（lanes[] の列。左→右）、縦軸が業務内容（phases[] の行。上→下）の 1 枚の表に置く。
+// ELK の自動配置だとノードが列・行の境界とずれるため、ELK は使わず自前で決定的に組む。
+// 流れは上→下。行（フェーズ）の中の段は、type: "weak" を除いた辺で DFS 逆辺検出 → 残った DAG 上を
+// Kahn 法で最長パスランク付けして求める。同じセル（列×フェーズ×段）に複数ノードがあれば横に並べる。
+const BIZ_PHASE_HEADER_W = 170;   // 左端のフェーズ見出し欄
+const BIZ_LANE_HEADER_H = 72;     // 上端のアクター見出し欄
+const BIZ_LANE_PAD_X = 44;        // 列の左右の余白（列の端の縦通路をここに通す）
+const BIZ_LANE_MIN_W = 280;
+const BIZ_CELL_GAP_X = 48;        // 同じセルに横に並べるノードの間隔
+const BIZ_PHASE_PAD_Y = 36;       // 行（フェーズ）の上下の余白
+const BIZ_RANK_GAP_MIN = 56, BIZ_RANK_GAP_LABEL = 88; // 段の間隔（その段から出る辺にラベルがあれば広く取る）
+const BIZ_EMPTY_PHASE_H = 110;
+const BIZ_CORRIDOR_INSET = 12, BIZ_CHANNEL_STEP = 10;
+const BIZ_ANCHOR_OFFSETS = [0, 14, -14];
+const BIZ_OVERLAP_PENALTY = 100; // 既に引いた辺と同じ線上を 1px 重なるごとの減点（ルート長 100px 相当）
+// 既に引いた辺と BIZ_NEAR_DIST 未満の間隔で 1px 並走するごとの減点。差し戻しの破線が順方向の実線に
+// 沿って走ると、どちらの線・ラベルか見分けにくいため
+const BIZ_NEAR_DIST = 24, BIZ_NEAR_PENALTY = 30;
 const BIZ_DECISION_LABEL_MIN_DIST = 14;
 const BIZ_NODE_SIZE = {
   task: { w: 220, h: 76 },
@@ -1053,8 +1479,8 @@ function detectBizBackEdges(nodeIds, edgeList) {
   return back;
 }
 
-/** 後退辺を除いた DAG 上での最長パス順位（列番号。0 起点）を Kahn 法で求める。 */
-function computeBizColumnRanks(nodeIds, forwardEdges) {
+/** 後退辺を除いた DAG 上での最長パス順位（段番号。0 起点）を Kahn 法で求める。 */
+function computeBizRanks(nodeIds, forwardEdges) {
   const indeg = new Map(nodeIds.map(id => [id, 0]));
   const adj = new Map(nodeIds.map(id => [id, []]));
   forwardEdges.forEach(e => { adj.get(e.from).push(e.to); indeg.set(e.to, indeg.get(e.to) + 1); });
@@ -1092,82 +1518,107 @@ function countBizRouteHits(route, rects) {
   return n;
 }
 
-/**
- * ノード a→b 間の直交ルート候補（CONTRACT §2 の a〜d）を作る。channelUse / corridorUse は
- * 「同じチャンネル x（コリドー y）を使う辺が既に何本あるか」を数える共有カウンター。候補のうち
- * 実際に採用されたものだけが .apply() でカウンターを進める（並行するチャンネルを 10px ずつずらす）。
- */
-function buildBizRouteCandidates(a, b, metaA, metaB, channelUse, corridorUse) {
-  const aC = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
-  const bC = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-  const left = s => rectBoundary(s, 'left'), right = s => rectBoundary(s, 'right');
-  const top = s => rectBoundary(s, 'top'), bottom = s => rectBoundary(s, 'bottom');
-  const candidates = [];
-  const rightward = bC.x >= aC.x;
-  const dy = bC.y - aC.y;
-
-  function takeChannel(xBase) {
-    const key = Math.round(xBase / 6);
-    const n = channelUse.get(key) || 0;
-    return { value: xBase + n * 10, apply: () => channelUse.set(key, n + 1) };
-  }
-  function takeCorridor(yBase, dir) {
-    const key = `${dir}:${Math.round(yBase / 6)}`;
-    const n = corridorUse.get(key) || 0;
-    return { value: yBase + dir * n * 10, apply: () => corridorUse.set(key, n + 1) };
-  }
-
-  if (rightward && Math.abs(dy) < 2) {
-    // a) 同じ高さ・右方向: 直線
-    const p1 = right(a), p2 = left(b);
-    candidates.push({ route: dedupePoints([[p1.x, p1.y], [p2.x, p2.y]]), apply: () => {} });
-  }
-  if (rightward) {
-    const p1 = right(a), p2 = left(b);
-    // b) 右側面 → 縦チャンネル（自列の右端 / 相手列の左端の 2 通り） → 左側面
-    // チャンネル位置は列の隙間ごとの幅（v2: metaA/metaB が持つ per-gap 幅）から決める
-    const gapA = metaA.rightGapW != null ? metaA.rightGapW : BIZ_GAP_MIN;
-    const gapB = metaB.leftGapW != null ? metaB.leftGapW : BIZ_GAP_MIN;
-    [metaA.colRight + gapA / 2, metaB.colLeft - gapB / 2].forEach(chanXBase => {
-      const ch = takeChannel(chanXBase);
-      const chanX = ch.value;
-      candidates.push({
-        route: dedupePoints([[p1.x, p1.y], [chanX, p1.y], [chanX, p2.y], [p2.x, p2.y]]),
-        apply: ch.apply,
-      });
-    });
-    // c) 縦優先で出て、対象の高さまで進んでから左側面へ入る
-    const exit = dy >= 0 ? bottom(a) : top(a);
-    candidates.push({
-      route: dedupePoints([[exit.x, exit.y], [exit.x, p2.y], [p2.x, p2.y]]),
-      apply: () => {},
-    });
-  }
-  // d) レーン外周のコリドー経由（後退・同列・左方向、および a〜c で重なりが残るときのフォールバック）。
-  // レーン上下の余白（LANE_PAD_Y=28）はコリドーのオフセット（10px）より広いため、ノードは常に
-  // 自分のレーン内でコリドーより内側にある（下コリドーより上・上コリドーより下）。
-  {
-    const bottomY = Math.max(metaA.laneY + metaA.laneH, metaB.laneY + metaB.laneH) - 10;
-    const cor = takeCorridor(bottomY, 1);
-    const p1 = bottom(a), p2 = bottom(b);
-    candidates.push({
-      route: dedupePoints([[p1.x, p1.y], [p1.x, cor.value], [p2.x, cor.value], [p2.x, p2.y]]),
-      apply: cor.apply,
-    });
-  }
-  {
-    const topY = Math.min(metaA.laneY, metaB.laneY) + 10;
-    const cor = takeCorridor(topY, -1);
-    const p1 = top(a), p2 = top(b);
-    candidates.push({
-      route: dedupePoints([[p1.x, p1.y], [p1.x, cor.value], [p2.x, cor.value], [p2.x, p2.y]]),
-      apply: cor.apply,
-    });
-  }
-  return candidates;
+function routeLength(route) {
+  let total = 0;
+  for (let i = 0; i < route.length - 1; i++) total += Math.hypot(route[i + 1][0] - route[i][0], route[i + 1][1] - route[i][1]);
+  return total;
 }
 
-/** 分岐の辺ラベルは分岐の出口に近い最初の線分の中点に置く（線分が短すぎれば null） */
+/**
+ * route が既に引いた辺（drawn: [{to, route}]）と同じ線上で重なる長さ（overlap）と、
+ * 重ならないが BIZ_NEAR_DIST 未満の間隔で並走する長さ（near）の合計。
+ * 同じノードへ入る辺どうしの最後の線分（矢じりの手前で合流する部分）は数えない。
+ */
+function routeOverlapLength(route, to, drawn) {
+  let overlap = 0, near = 0;
+  for (let i = 0; i < route.length - 1; i++) {
+    const [p, q] = [route[i], route[i + 1]];
+    const horizontal = Math.abs(p[1] - q[1]) < 1;
+    for (const d of drawn) {
+      const r = d.route;
+      for (let j = 0; j < r.length - 1; j++) {
+        if (d.to === to && i === route.length - 2 && j === r.length - 2) continue;
+        const [s, t] = [r[j], r[j + 1]];
+        if (horizontal !== (Math.abs(s[1] - t[1]) < 1)) continue;
+        const k = horizontal ? 1 : 0, m = horizontal ? 0 : 1;
+        const dist = Math.abs(p[k] - s[k]);
+        if (dist >= BIZ_NEAR_DIST) continue;
+        const lo = Math.max(Math.min(p[m], q[m]), Math.min(s[m], t[m]));
+        const hi = Math.min(Math.max(p[m], q[m]), Math.max(s[m], t[m]));
+        if (hi - lo <= 2) continue;
+        if (dist < 3) overlap += hi - lo; else near += hi - lo;
+      }
+    }
+  }
+  return { overlap, near };
+}
+
+/** ルートの最初の線分の向きから、始点ノードのどの辺から出たかを返す */
+function exitSideOf(route) {
+  const [a, b] = route;
+  if (Math.abs(a[0] - b[0]) < 1) return b[1] > a[1] ? 'bottom' : 'top';
+  return b[0] > a[0] ? 'right' : 'left';
+}
+
+/**
+ * ノード a→b 間の直交ルート候補を作る。hUse / vUse は「同じ横通路 y（縦通路 x）を使う辺が
+ * 既に何本あるか」を数える共有カウンター。採用された候補だけが .apply() でカウンターを進める
+ * （並行する通路を 10px ずつずらす）。
+ * - b が下の段: 真下へ直線 / 段の間の横通路経由 / 横に出て b の真上から下へ（L 字）
+ * - b が上の段: 上端から出て b の段の下の横通路を通り b の下端へ（late: 同じ隙間を通る順方向の辺と
+ *   並んで紛らわしいため、列の端の縦通路より後回し）
+ * - 同じ段: 側面どうしを直線
+ * - 常に: 列の左右端の縦通路経由（戻り・フォールバック）
+ */
+function buildBizRouteCandidates(a, b, metaA, metaB, hUse, vUse) {
+  const aC = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
+  const bC = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+  const side = (r, s) => rectBoundary(r, s);
+  const candidates = [];
+  function take(map, kind, base, dir) {
+    const key = `${kind}:${Math.round(base / 6)}`;
+    const n = map.get(key) || 0;
+    return { value: base + dir * n * BIZ_CHANNEL_STEP, apply: () => map.set(key, n + 1) };
+  }
+  const noop = () => {};
+
+  if (b.y >= a.y + a.h - 1) {
+    const pa = side(a, 'bottom'), pb = side(b, 'top');
+    if (Math.abs(aC.x - bC.x) < 2) candidates.push({ route: [[pa.x, pa.y], [pb.x, pb.y]], apply: noop });
+    [metaA.rankBottom + metaA.gapBelow / 2, metaB.rankTop - metaB.gapAbove / 2].forEach(yBase => {
+      const ch = take(hUse, 'h', yBase, 1);
+      candidates.push({ route: dedupePoints([[pa.x, pa.y], [pa.x, ch.value], [pb.x, ch.value], [pb.x, pb.y]]), apply: ch.apply });
+    });
+    if (Math.abs(aC.x - bC.x) >= 2) {
+      const s = side(a, bC.x > aC.x ? 'right' : 'left');
+      candidates.push({ route: dedupePoints([[s.x, s.y], [pb.x, s.y], [pb.x, pb.y]]), apply: noop });
+    }
+  } else if (b.y + b.h <= a.y + 1) {
+    const pa = side(a, 'top'), pb = side(b, 'bottom');
+    [0, 24, -24].forEach(dx => {
+      const ch = take(hUse, 'h', metaB.rankBottom + metaB.gapBelow / 2, -1);
+      candidates.push({ route: dedupePoints([[pa.x + dx, pa.y], [pa.x + dx, ch.value], [pb.x + dx, ch.value], [pb.x + dx, pb.y]]), apply: ch.apply, late: true });
+    });
+  } else if (Math.abs(aC.y - bC.y) < 2) {
+    const right = bC.x > aC.x;
+    const p1 = side(a, right ? 'right' : 'left'), p2 = side(b, right ? 'left' : 'right');
+    candidates.push({ route: [[p1.x, p1.y], [p2.x, p2.y]], apply: noop });
+  }
+  // 側面の出入口は中央と上下にずらした位置の 3 通り（中央を他の辺が使っていると線が重なるため）
+  BIZ_ANCHOR_OFFSETS.forEach(dy => {
+    const co = take(vUse, 'r', Math.max(metaA.laneRight, metaB.laneRight) - BIZ_CORRIDOR_INSET, -1);
+    const p1 = side(a, 'right'), p2 = side(b, 'right');
+    candidates.push({ route: dedupePoints([[p1.x, p1.y + dy], [co.value, p1.y + dy], [co.value, p2.y + dy], [p2.x, p2.y + dy]]), apply: co.apply });
+  });
+  BIZ_ANCHOR_OFFSETS.forEach(dy => {
+    const co = take(vUse, 'l', Math.min(metaA.laneLeft, metaB.laneLeft) + BIZ_CORRIDOR_INSET, 1);
+    const p1 = side(a, 'left'), p2 = side(b, 'left');
+    candidates.push({ route: dedupePoints([[p1.x, p1.y + dy], [co.value, p1.y + dy], [co.value, p2.y + dy], [p2.x, p2.y + dy]]), apply: co.apply });
+  });
+  return candidates.filter(c => c.route.length >= 2);
+}
+
+/** 分岐の辺ラベルは最初の線分の上、分岐の出口の近くに置く（線分が短すぎれば null） */
 function decisionLabelAt(route, label) {
   if (!route || route.length < 2) return null;
   const [a, b] = route;
@@ -1175,78 +1626,84 @@ function decisionLabelAt(route, label) {
   const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const need = horizontal ? estimateTextWidth(label, 11) + 18 + 8 : 28;
   if (len < need) return null;
-  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const d = Math.min(len / 2, need / 2 + 16);
+  return [a[0] + (b[0] - a[0]) * d / len, a[1] + (b[1] - a[1]) * d / len];
 }
 
 /**
- * 全辺のルートを決める。ノード矩形（1px 縮小・自分自身を除く）との交差が無い候補を優先する。
- * nodeVariantById: id -> variant。分岐（decision）から出る辺は、ラベルがノード外周から
- * BIZ_DECISION_LABEL_MIN_DIST(14px) 以上離れるよう labelOnRoute に避けたい矩形として渡す。
+ * 全辺のルートを決める。候補は「ノード矩形（1px 縮小・自分自身を除く）との交差数」→「分岐で既に
+ * 使った出口か」→「既に引いた辺と重なる・並走する長さ」→「後回しの候補か」→「ルート長」の順で比べる。分岐から出る辺が行き先ごとに違う辺
+ * （上下左右）から出るようにするため、主な流れ（flow）の辺を先にルーティングし、差し戻し（weak）は
+ * 後から空いている出口を使う。ラベルは既に置いたラベルと重ねない。
  */
-function routeBizEdges(edgesIn, nodeRectById, nodeMetaById, nodeVariantById, warnings) {
+function routeBizEdges(edgesIn, nodeRectById, nodeMetaById, nodeVariantById) {
   const rectsAll = [...nodeRectById.entries()].map(([id, r]) => ({ id, x: r.x, y: r.y, w: r.w, h: r.h }));
-  const channelUse = new Map();
-  const corridorUse = new Map();
-  const out = [];
-  // 分岐から出る 2 本目以降の辺は、1 本目（右へ出る）と出口を分けるため縦優先のルートを先に試す。
-  // 同じ出口から分かれると、どちらが「はい」「いいえ」か読み取れないため。
-  const outIndex = new Map();
-  edgesIn.forEach(e => {
+  const hUse = new Map();
+  const vUse = new Map();
+  const usedExits = new Map(); // decision id -> Set(side)
+  const placed = [];
+  const drawn = [];
+  const out = new Array(edgesIn.length);
+  const order = edgesIn.map((e, i) => i).sort((i, j) => (edgesIn[i].type === 'weak') - (edgesIn[j].type === 'weak') || i - j);
+  order.forEach(idx => {
+    const e = edgesIn[idx];
     const a = nodeRectById.get(e.from), b = nodeRectById.get(e.to);
     const metaA = nodeMetaById.get(e.from), metaB = nodeMetaById.get(e.to);
-    if (!a || !b || !metaA || !metaB) return; // validate.js が既にエラー化する想定
-    const decisionOpts = (nodeVariantById && nodeVariantById.get(e.from) === 'decision')
-      ? { avoidRect: a, minDist: BIZ_DECISION_LABEL_MIN_DIST } : undefined;
+    const isDecision = nodeVariantById.get(e.from) === 'decision';
+    const labelOpts = { placed, endClearance: LABEL_ARROW_CLEARANCE, ...(isDecision ? { avoidRect: a, minDist: BIZ_DECISION_LABEL_MIN_DIST } : {}) };
     if (e.from === e.to) {
-      const t = rectBoundary(a, 'top');
-      const route = dedupePoints([[t.x - 20, t.y], [t.x - 20, t.y - 30], [t.x + 20, t.y - 30], [t.x + 20, t.y]]);
-      out.push({ from: e.from, to: e.to, label: e.label, type: e.type, route, labelAt: e.label ? labelOnRoute(route, e.label, rectsAll, decisionOpts) : undefined });
+      const t = rectBoundary(a, 'right');
+      const route = dedupePoints([[t.x, t.y - 20], [t.x + 30, t.y - 20], [t.x + 30, t.y + 20], [t.x, t.y + 20]]);
+      out[idx] = { from: e.from, to: e.to, label: e.label, type: e.type, route, labelAt: e.label ? labelOnRoute(route, e.label, rectsAll, labelOpts) : undefined };
       return;
     }
     const excl = shrinkRectsExcluding(rectsAll, [e.from, e.to]);
-    let candidates = buildBizRouteCandidates(a, b, metaA, metaB, channelUse, corridorUse);
-    const isDecision = nodeVariantById && nodeVariantById.get(e.from) === 'decision';
-    const k = outIndex.get(e.from) || 0;
-    outIndex.set(e.from, k + 1);
-    if (isDecision && k >= 1) {
-      const startsVertical = c => c.route.length >= 2 && Math.abs(c.route[0][0] - c.route[1][0]) < 1;
-      candidates = [...candidates.filter(startsVertical), ...candidates.filter(c => !startsVertical(c))];
-    }
+    const exits = usedExits.get(e.from) || new Set();
     let best = null;
-    for (const c of candidates) {
+    buildBizRouteCandidates(a, b, metaA, metaB, hUse, vUse).forEach((c, ci) => {
       const hits = countBizRouteHits(c.route, excl);
-      if (!best || hits < best.hits) best = { ...c, hits };
-      if (hits === 0) break;
-    }
-    best.apply();
-    out.push({
-      from: e.from, to: e.to, label: e.label, type: e.type,
-      route: best.route,
-      labelAt: !e.label ? undefined
-        : (isDecision && decisionLabelAt(best.route, e.label)) || labelOnRoute(best.route, e.label, rectsAll, decisionOpts),
+      const reused = isDecision && exits.has(exitSideOf(c.route));
+      const { overlap, near } = routeOverlapLength(c.route, e.to, drawn);
+      const score = hits * 1e6 + (reused ? 1e5 : 0) + overlap * BIZ_OVERLAP_PENALTY + near * BIZ_NEAR_PENALTY
+        + (c.late ? 2000 : 0) + routeLength(c.route) + ci;
+      if (!best || score < best.score) best = { ...c, score };
     });
+    best.apply();
+    drawn.push({ to: e.to, route: best.route });
+    if (isDecision) { exits.add(exitSideOf(best.route)); usedExits.set(e.from, exits); }
+    let labelAt;
+    if (e.label) {
+      const d = isDecision ? decisionLabelAt(best.route, e.label) : null;
+      const lw = estimateTextWidth(e.label, 11) + 18, lh = 20;
+      const collides = d && placed.some(r => d[0] - lw / 2 - 4 < r.x + r.w && d[0] + lw / 2 + 4 > r.x && d[1] - lh / 2 - 4 < r.y + r.h && d[1] + lh / 2 + 4 > r.y);
+      if (d && !collides) {
+        labelAt = d;
+        placed.push({ x: d[0] - lw / 2, y: d[1] - lh / 2, w: lw, h: lh });
+      } else {
+        labelAt = labelOnRoute(best.route, e.label, rectsAll, labelOpts);
+      }
+    }
+    out[idx] = { from: e.from, to: e.to, label: e.label, type: e.type, route: best.route, labelAt };
   });
   return out;
 }
 
 /**
- * biz レイアウト v2: フェーズを「独立したスイムレーンのブロック」にして格子詰めする
- * （biz-contract-v2.md）。v1（フェーズを 1 行に横並び）は実データで幅 8453px・倍率 23% まで
- * 落ち込み文字が読めなくなったため、フェーズ単位のブロック（そのフェーズでノードを持つ
- * レーンだけを積んだ自己完結レイアウト）に分割し、ブロックを 1480x700 の想定領域に最も
- * 大きくフィットする列数で格子状に折り返す。フェーズが無い入力は全ノードを 1 ブロック
- * （id "_all"・見出し帯高さ 0）として同じパイプラインに通す（cols は自明に 1）。
- * 辺のルーティング候補（buildBizRouteCandidates）・ラベル配置（labelOnRoute）は v1 のまま
- * （ブロック内で完結する前提。フェーズをまたぐ辺は validate.js が警告する）。
+ * biz レイアウト v3: アクター（lanes）を列、業務内容（phases）を行にした 1 枚のスイムレーン表。
+ * v2（フェーズごとに独立したブロックを格子詰め）は同じアクターのレーンがブロックごとに分かれ、
+ * 誰の作業かを縦に追えなかったため、列を全フェーズで共通にした。
+ * - 列幅: そのアクターのセル（フェーズ×段）のうち最も幅の広いもの＋左右の余白（最小 280）。
+ *   ノードの無いアクターも列として出す（表の見出しを揃えるため）。
+ * - 行の高さ: そのフェーズの段の高さと段の間隔の合計＋上下の余白。ノードの無いフェーズは 110。
+ * - phases が無い入力は、全ノードを見出しの無い 1 行（id "_all"）として同じ手順で並べる。
  */
 function layoutBiz(biz, warnings) {
   const lanes = Array.isArray(biz.lanes) ? biz.lanes : [];
   const phasesIn = Array.isArray(biz.phases) ? biz.phases : [];
   const nodesIn = Array.isArray(biz.nodes) ? biz.nodes : [];
   const edgesIn = Array.isArray(biz.edges) ? biz.edges : [];
-  if (lanes.length === 0) {
-    return { label: biz.label, desc: biz.desc, legend: biz.legend, bounds: { x: 0, y: 0, w: 0, h: 0 }, groups: [], phases: [], nodes: [], edges: [] };
-  }
+  const empty = { label: biz.label, desc: biz.desc, legend: biz.legend, bounds: { x: 0, y: 0, w: 0, h: 0 }, groups: [], phases: [], nodes: [], edges: [] };
+  if (lanes.length === 0) return empty;
   const hasPhases = phasesIn.length > 0;
   const laneIds = lanes.map(l => l.id);
   const validLaneIds = new Set(laneIds);
@@ -1256,194 +1713,102 @@ function layoutBiz(biz, warnings) {
   if (usableNodes.length < nodesIn.length) {
     warnings.push(`biz: lane / phase を解決できないノードが ${nodesIn.length - usableNodes.length} 件あります（表示から除外しました）`);
   }
-  if (usableNodes.length === 0) {
-    return { label: biz.label, desc: biz.desc, legend: biz.legend, bounds: { x: 0, y: 0, w: 0, h: 0 }, groups: [], phases: [], nodes: [], edges: [] };
-  }
+  if (usableNodes.length === 0) return empty;
   const usableById = new Map(usableNodes.map(n => [n.id, n]));
-  const blockOf = n => (hasPhases ? n.phase : '_all');
   const nodeVariantById = new Map(usableNodes.map(n => [n.id, n.variant]));
   const sizeById = new Map(usableNodes.map(n => [n.id, bizNodeSize(n.variant)]));
+  const cellWidth = ids => ids.reduce((s, id, i) => s + sizeById.get(id).w + (i > 0 ? BIZ_CELL_GAP_X : 0), 0);
 
-  // ---- ブロック（フェーズ 1 つ、または phases 無しなら全体で 1 つ）ごとに block-local 座標で組む ----
-  const blockDefs = hasPhases ? phasesIn.map(p => ({ id: p.id, label: p.label })) : [{ id: '_all', label: '' }];
-  const blocks = blockDefs.map(def => {
-    const memberIds = usableNodes.filter(n => blockOf(n) === def.id).map(n => n.id);
-    if (memberIds.length === 0) return null;
+  // ---- フェーズ（行）ごとに段とセル（アクター×段）を求める ----
+  const phaseDefs = hasPhases ? phasesIn.map(p => ({ id: p.id, label: p.label })) : [{ id: '_all', label: '' }];
+  const phaseData = phaseDefs.map(def => {
+    const memberIds = usableNodes.filter(n => (hasPhases ? n.phase : '_all') === def.id).map(n => n.id);
     const memberSet = new Set(memberIds);
-
-    // 列（後退辺を除いた DAG 上の最長パス順位。type: "weak" は列決定に使わない）
     const relevantEdges = edgesIn.filter(e => e && e.type !== 'weak' && memberSet.has(e.from) && memberSet.has(e.to));
     const backIdx = detectBizBackEdges(memberIds, relevantEdges);
-    const forward = relevantEdges.filter((e, i) => !backIdx.has(i));
-    const columnOf = computeBizColumnRanks(memberIds, forward);
-    const nCols = Math.max(1, ...memberIds.map(id => (columnOf.get(id) || 0) + 1));
-
-    // 列幅（レーン横断で最大）
-    const colWidth = new Map();
+    const rankOf = computeBizRanks(memberIds, relevantEdges.filter((e, i) => !backIdx.has(i)));
+    const nRanks = memberIds.length ? Math.max(...memberIds.map(id => rankOf.get(id) + 1)) : 0;
+    const cells = new Map(); // `${lane}|${rank}` -> [id,...]（model 順に左から）
     memberIds.forEach(id => {
-      const col = columnOf.get(id) || 0;
-      colWidth.set(col, Math.max(colWidth.get(col) || 0, sizeById.get(id).w));
+      const key = `${usableById.get(id).lane}|${rankOf.get(id)}`;
+      if (!cells.has(key)) cells.set(key, []);
+      cells.get(key).push(id);
     });
-    // 隙間ごとの幅: 列 c のノードから出る辺のラベル最大幅 + 40（64〜220 にクランプ。ラベルが
-    // 無ければ 64 になる = clamp(0+40,64,220)）
-    const gapWidths = [];
-    for (let c = 0; c < nCols - 1; c++) {
-      const fromSet = new Set(memberIds.filter(id => (columnOf.get(id) || 0) === c));
-      const maxLabelW = Math.max(0, ...edgesIn.filter(e => e && e.label && fromSet.has(e.from)).map(e => estimateTextWidth(e.label, 11) + 18));
-      gapWidths.push(Math.max(BIZ_GAP_MIN, Math.min(BIZ_GAP_MAX, maxLabelW + BIZ_GAP_LABEL_PAD)));
+    return { def, memberIds, rankOf, nRanks, cells };
+  });
+
+  // ---- 列（アクター）の幅と x ----
+  const laneW = new Map(laneIds.map(id => [id, BIZ_LANE_MIN_W]));
+  phaseData.forEach(pd => pd.cells.forEach((ids, key) => {
+    const lid = key.slice(0, key.indexOf('|'));
+    laneW.set(lid, Math.max(laneW.get(lid), cellWidth(ids) + 2 * BIZ_LANE_PAD_X));
+  }));
+  const phaseHeaderW = hasPhases ? BIZ_PHASE_HEADER_W : 0;
+  const laneX = new Map();
+  let totalW = phaseHeaderW;
+  laneIds.forEach(id => { laneX.set(id, totalW); totalW += laneW.get(id); });
+
+  // ---- 行（フェーズ）の y と、段ごとのノード座標 ----
+  const nodes = [];
+  const nodeRectById = new Map();
+  const nodeMetaById = new Map();
+  const phasesOut = [];
+  let curY = BIZ_LANE_HEADER_H;
+  phaseData.forEach((pd, pi) => {
+    const top = curY;
+    if (pd.nRanks === 0) {
+      phasesOut.push({ id: pd.def.id, label: pd.def.label, x: 0, y: top, w: totalW, h: BIZ_EMPTY_PHASE_H, headerW: phaseHeaderW, index: pi });
+      curY += BIZ_EMPTY_PHASE_H;
+      return;
     }
-    // 列の開始 x（ブロック左右の内側余白 32）
-    const colStartX = new Map();
-    // レーン見出し欄（BIZ_HEADER_W）の右から始める（見出しの上にノードを置かない）
-    let x = BIZ_HEADER_W + BIZ_BLOCK_PAD_X;
-    for (let c = 0; c < nCols; c++) {
-      colStartX.set(c, x);
-      x += (colWidth.get(c) || 0);
-      if (c < nCols - 1) x += gapWidths[c];
+    const rankH = [], gapAfter = [], rankTop = [];
+    for (let r = 0; r < pd.nRanks; r++) {
+      const ids = pd.memberIds.filter(id => pd.rankOf.get(id) === r);
+      rankH[r] = Math.max(0, ...ids.map(id => sizeById.get(id).h));
+      if (r < pd.nRanks - 1) {
+        const fromSet = new Set(ids);
+        gapAfter[r] = edgesIn.some(e => e && e.label && fromSet.has(e.from)) ? BIZ_RANK_GAP_LABEL : BIZ_RANK_GAP_MIN;
+      }
     }
-    const blockW = x + BIZ_BLOCK_PAD_X;
+    let y = top + BIZ_PHASE_PAD_Y;
+    for (let r = 0; r < pd.nRanks; r++) { rankTop[r] = y; y += rankH[r] + (r < pd.nRanks - 1 ? gapAfter[r] : 0); }
+    const h = y + BIZ_PHASE_PAD_Y - top;
 
-    // このブロックで使うレーン（lanes[] の順で、ノードを持つものだけ。空レーンは出さない）
-    const usedLaneIds = laneIds.filter(lid => memberIds.some(id => usableById.get(id).lane === lid));
-
-    // セル（レーン×列）ごとのノード（model 順で積む）
-    const cellMembers = new Map(); // `${lane}|${col}` -> [id,...]
-    memberIds.forEach(id => {
-      const col = columnOf.get(id) || 0;
-      const key = `${usableById.get(id).lane}|${col}`;
-      if (!cellMembers.has(key)) cellMembers.set(key, []);
-      cellMembers.get(key).push(id);
-    });
-
-    // レーン高さ = 2×LANE_PAD_Y(20) + セル内の積み高さの最大、最小 110
-    const laneInnerH = new Map(usedLaneIds.map(id => [id, 0]));
-    cellMembers.forEach((ids, key) => {
-      const laneId = key.slice(0, key.indexOf('|'));
-      let h = 0;
-      ids.forEach((id, i) => { h += sizeById.get(id).h + (i > 0 ? BIZ_ROW_GAP : 0); });
-      laneInnerH.set(laneId, Math.max(laneInnerH.get(laneId) || 0, h));
-    });
-    const laneHeight = new Map(usedLaneIds.map(id => [id, Math.max(BIZ_LANE_MIN_H, laneInnerH.get(id) + 2 * BIZ_LANE_PAD_Y)]));
-
-    // レーンの y 位置（見出し帯: phases があれば 44、無ければ 0）
-    const headerH = hasPhases ? BIZ_PHASE_H : 0;
-    const laneY = new Map();
-    let curY = headerH;
-    usedLaneIds.forEach(id => { laneY.set(id, curY); curY += laneHeight.get(id); });
-    const blockH = curY;
-
-    // ノード座標の確定（block-local）
-    const localNodes = [];
-    const localMeta = new Map();
-    cellMembers.forEach((ids, key) => {
+    pd.cells.forEach((ids, key) => {
       const sep = key.indexOf('|');
-      const laneId = key.slice(0, sep);
-      const col = Number(key.slice(sep + 1));
-      const colX = colStartX.get(col);
-      const colW = colWidth.get(col) || 0;
-      let stackH = 0;
-      ids.forEach((id, i) => { stackH += sizeById.get(id).h + (i > 0 ? BIZ_ROW_GAP : 0); });
-      const ly = laneY.get(laneId), lh = laneHeight.get(laneId);
-      let y = ly + BIZ_LANE_PAD_Y + Math.max(0, (lh - 2 * BIZ_LANE_PAD_Y - stackH) / 2);
+      const lane = key.slice(0, sep), r = Number(key.slice(sep + 1));
+      const lx = laneX.get(lane), lw = laneW.get(lane);
+      let nx = lx + (lw - cellWidth(ids)) / 2;
       ids.forEach(id => {
         const n = usableById.get(id);
         const size = sizeById.get(id);
-        const xPos = colX + (colW - size.w) / 2;
-        localNodes.push({
+        const rect = { x: nx, y: rankTop[r] + (rankH[r] - size.h) / 2, w: size.w, h: size.h };
+        nodeRectById.set(id, rect);
+        nodeMetaById.set(id, {
+          laneLeft: lx, laneRight: lx + lw,
+          rankTop: rankTop[r], rankBottom: rankTop[r] + rankH[r],
+          gapAbove: r > 0 ? gapAfter[r - 1] : BIZ_PHASE_PAD_Y,
+          gapBelow: r < pd.nRanks - 1 ? gapAfter[r] : BIZ_PHASE_PAD_Y,
+        });
+        nodes.push({
           id, kind: 'biz', variant: n.variant, lane: n.lane, phase: hasPhases ? n.phase : undefined,
           label: n.label, sub: n.sub, screen: n.screen, spec: n.spec, info: n.info,
-          rect: { x: xPos, y, w: size.w, h: size.h },
+          x: rect.x, y: rect.y, w: rect.w, h: rect.h,
         });
-        localMeta.set(id, {
-          laneY: ly, laneH: lh, colLeft: colX, colRight: colX + colW,
-          rightGapW: gapWidths[col] !== undefined ? gapWidths[col] : BIZ_GAP_MIN,
-          leftGapW: col > 0 ? gapWidths[col - 1] : BIZ_GAP_MIN,
-        });
-        y += size.h + BIZ_ROW_GAP;
+        nx += size.w + BIZ_CELL_GAP_X;
       });
     });
-
-    const localGroups = usedLaneIds.map((lid, i) => {
-      const l = lanes.find(x2 => x2.id === lid);
-      return {
-        id: `${def.id}:${lid}`, lane: lid, phase: hasPhases ? def.id : undefined,
-        label: l.label, sub: l.sub, style: 'swimlane',
-        rect: { x: 0, y: laneY.get(lid), w: blockW, h: laneHeight.get(lid) },
-        headerW: BIZ_HEADER_W, index: i,
-      };
-    });
-
-    return { id: def.id, label: def.label, w: blockW, h: blockH, headerH, nodes: localNodes, groups: localGroups, meta: localMeta };
-  }).filter(Boolean);
-
-  if (blocks.length === 0) {
-    return { label: biz.label, desc: biz.desc, legend: biz.legend, bounds: { x: 0, y: 0, w: 0, h: 0 }, groups: [], phases: [], nodes: [], edges: [] };
-  }
-
-  // ---- ブロックの格子詰め: 記述順に left→right、cols 個で折り返す。行の高さは行内最大、
-  // 列の幅は列内最大ではなく各ブロックの実幅で左詰め。ブロック間の隙間 横 80・縦 64。
-  // cols は 1〜ブロック数を総当たりし、想定表示領域 1480x700 に対する倍率が最大のものを採用。
-  function packWithCols(cols) {
-    const origins = new Map();
-    let y = 0, maxRowW = 0;
-    for (let i = 0; i < blocks.length; i += cols) {
-      const row = blocks.slice(i, i + cols);
-      let x = 0, rowH = 0;
-      row.forEach(b => {
-        origins.set(b.id, { x, y });
-        x += b.w + BIZ_BLOCK_GAP_X;
-        rowH = Math.max(rowH, b.h);
-      });
-      maxRowW = Math.max(maxRowW, x - BIZ_BLOCK_GAP_X);
-      y += rowH + BIZ_BLOCK_GAP_Y;
-    }
-    const totalH = Math.max(1, y - BIZ_BLOCK_GAP_Y);
-    const totalW = Math.max(1, maxRowW);
-    return { origins, w: totalW, h: totalH, fit: Math.min(BIZ_FIT_W / totalW, BIZ_FIT_H / totalH) };
-  }
-  let bestPack = null, bestCols = 1;
-  for (let cols = 1; cols <= blocks.length; cols++) {
-    const p = packWithCols(cols);
-    if (!bestPack || p.fit > bestPack.fit + 1e-9) { bestPack = p; bestCols = cols; }
-  }
-  void bestCols;
-
-  // ---- ブロックのグローバル座標へ変換 ----
-  const nodes = [];
-  const groups = [];
-  const phasesOut = [];
-  const nodeRectById = new Map();
-  const nodeMetaById = new Map();
-  blocks.forEach(b => {
-    const origin = bestPack.origins.get(b.id);
-    b.nodes.forEach(n => {
-      const rect = { x: n.rect.x + origin.x, y: n.rect.y + origin.y, w: n.rect.w, h: n.rect.h };
-      nodeRectById.set(n.id, rect);
-      nodes.push({
-        id: n.id, kind: n.kind, variant: n.variant, lane: n.lane, phase: n.phase,
-        label: n.label, sub: n.sub, screen: n.screen, spec: n.spec, info: n.info,
-        x: rect.x, y: rect.y, w: rect.w, h: rect.h,
-      });
-    });
-    b.meta.forEach((m, id) => {
-      nodeMetaById.set(id, {
-        laneY: m.laneY + origin.y, laneH: m.laneH,
-        colLeft: m.colLeft + origin.x, colRight: m.colRight + origin.x,
-        rightGapW: m.rightGapW, leftGapW: m.leftGapW,
-      });
-    });
-    b.groups.forEach(g => {
-      groups.push({
-        id: g.id, lane: g.lane, phase: g.phase, label: g.label, sub: g.sub, style: g.style,
-        x: g.rect.x + origin.x, y: g.rect.y + origin.y, w: g.rect.w, h: g.rect.h,
-        headerW: g.headerW, index: g.index,
-      });
-    });
-    phasesOut.push({
-      id: b.id, label: b.label, x: origin.x, y: origin.y, w: b.w, h: b.headerH,
-      block: { x: origin.x, y: origin.y, w: b.w, h: b.h },
-    });
+    phasesOut.push({ id: pd.def.id, label: pd.def.label, x: 0, y: top, w: totalW, h, headerW: phaseHeaderW, index: pi });
+    curY += h;
   });
+  const totalH = curY;
+
+  // アクターの列（見出しは上端 BIZ_LANE_HEADER_H。表の全高にわたる）
+  const groups = lanes.map((l, i) => ({
+    id: l.id, lane: l.id, label: l.label, sub: l.sub, style: 'swimlane',
+    x: laneX.get(l.id), y: 0, w: laneW.get(l.id), h: totalH, headerH: BIZ_LANE_HEADER_H, index: i,
+  }));
+
   // 元の nodes（model 順）を保つ
   const nodeOrderIdx = new Map(nodesIn.map((n, i) => [n.id, i]));
   nodes.sort((a, b) => nodeOrderIdx.get(a.id) - nodeOrderIdx.get(b.id));
@@ -1452,10 +1817,11 @@ function layoutBiz(biz, warnings) {
   if (validEdges.length < edgesIn.length) {
     warnings.push(`biz: from/to を解決できない辺が ${edgesIn.length - validEdges.length} 件あります（描画から除外しました）`);
   }
-  const edges = routeBizEdges(validEdges, nodeRectById, nodeMetaById, nodeVariantById, warnings);
+  const edges = routeBizEdges(validEdges, nodeRectById, nodeMetaById, nodeVariantById);
 
+  // phases が無い入力は行の見出し・帯を描かない（列だけの表にする）
   const phases = hasPhases ? phasesOut : [];
-  const bounds = computeBounds(nodes, [...groups, ...phasesOut.map(p => p.block)], edges);
+  const bounds = computeBounds(nodes, [...groups, ...phasesOut], edges);
   return { label: biz.label, desc: biz.desc, legend: biz.legend, bounds, groups, phases, nodes, edges };
 }
 
@@ -1558,8 +1924,10 @@ async function computeLayout(model) {
 
   if (modesIn.gallery !== undefined || (model.screens || []).length > 0) {
     t = Date.now();
-    modes.gallery = layoutGallery(model, warnings);
-    modes.gallery.label = (modesIn.gallery && modesIn.gallery.label) || '画面イメージ';
+    modes.gallery = modesIn.gallery && modesIn.gallery.arrange === 'table'
+      ? layoutGalleryTable(model, warnings)
+      : layoutGallery(model, warnings);
+    modes.gallery.label = (modesIn.gallery && modesIn.gallery.label) || '機能一覧';
     modes.gallery.desc = modesIn.gallery && modesIn.gallery.desc;
     timings.gallery = Date.now() - t;
   }
@@ -1587,7 +1955,9 @@ async function computeLayout(model) {
   }
   if (modesIn.dfd) {
     t = Date.now();
-    modes.dfd = await layoutFreeDiagram('dfd', modesIn.dfd, 'dfd', { w: DFD_W, h: DFD_H }, warnings);
+    modes.dfd = modesIn.dfd.arrange === 'steps'
+      ? await layoutDfdBySteps(modesIn.dfd, warnings)
+      : await layoutFreeDiagram('dfd', modesIn.dfd, 'dfd', { w: DFD_W, h: DFD_H }, warnings);
     if (modesIn.dfd.steps) modes.dfd.steps = modesIn.dfd.steps;
     timings.dfd = Date.now() - t;
   }
@@ -1645,7 +2015,7 @@ if (require.main === module) {
         console.log(`[layout] ${k}: ${v._algorithm} を採用（fitZoom ${(v._fitZoom * 100).toFixed(0)}%・交差 ${v._crossings}・重なり ${v._overlaps}`
           + (o ? `、比較対象 ${o.algorithm}: fitZoom ${(o.fitZoom * 100).toFixed(0)}%・交差 ${o.crossings}・重なり ${o.overlaps}）` : '）'));
       } else if (k === 'biz') {
-        console.log(`[layout] biz: レーン ${v.groups.length}・フェーズ ${v.phases.length}・ノード ${v.nodes.length}・辺 ${v.edges.length}（bounds ${Math.round(v.bounds.w)}x${Math.round(v.bounds.h)}）`);
+        console.log(`[layout] biz: アクター ${v.groups.length}・フェーズ ${v.phases.length}・ノード ${v.nodes.length}・辺 ${v.edges.length}（bounds ${Math.round(v.bounds.w)}x${Math.round(v.bounds.h)}）`);
       }
     });
     console.log(`[layout] 書き出し: ${path.join(outDir, '.layout.json')}`);

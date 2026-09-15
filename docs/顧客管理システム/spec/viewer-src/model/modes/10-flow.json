@@ -1,0 +1,77 @@
+{
+  "modes": {
+    "flow": {
+      "label": "画面遷移図",
+      "desc": "ログイン → ホームを入口に、上部ナビで各機能へ分かれるハブ型。戻る遷移と、検索結果・活動・ケースから機能をまたいで関連レコードを開く遷移は既定で非表示（凡例のチェックで表示）。",
+      "layout": "elk",
+      "arrange": "groups",
+      "hubGroup": "g_hub",
+      "nodes": [
+        { "id": "START", "kind": "pill", "label": "ブラウザで開く", "sub": "Chrome／Edge", "group": "g_hub", "attachTo": "S01" }
+      ],
+      "edges": [
+        { "from": "START", "to": "S01", "type": "start" },
+        { "from": "S01", "to": "S02", "type": "user", "label": "ログイン" },
+        { "from": "S02", "to": "S20", "type": "user", "label": "検索" },
+        { "from": "S02", "to": "S03", "type": "user", "label": "リード" },
+        { "from": "S02", "to": "S06", "type": "user", "label": "取引先" },
+        { "from": "S02", "to": "S09", "type": "user", "label": "商談" },
+        { "from": "S02", "to": "S12", "type": "user", "label": "活動" },
+        { "from": "S02", "to": "S13", "type": "user", "label": "ケース" },
+        { "from": "S02", "to": "S15", "type": "user", "label": "レポート" },
+        { "from": "S02", "to": "S17", "type": "user", "label": "歯車（管理者）" },
+        { "from": "S02", "to": "S19", "type": "user", "label": "歯車（管理者）" },
+
+        { "from": "S20", "to": "S04", "type": "rel", "label": "リードを選択" },
+        { "from": "S20", "to": "S07", "type": "rel", "label": "取引先を選択" },
+        { "from": "S20", "to": "S08", "type": "rel", "label": "責任者を選択" },
+        { "from": "S20", "to": "S10", "type": "rel", "label": "商談を選択" },
+        { "from": "S20", "to": "S14", "type": "rel", "label": "ケースを選択" },
+
+        { "from": "S03", "to": "S04", "type": "user", "label": "行を選択" },
+        { "from": "S04", "to": "S05", "type": "user", "label": "取引開始" },
+        { "from": "S04", "to": "S03", "type": "weak", "label": "一覧へ" },
+        { "from": "S05", "to": "S07", "type": "system", "label": "作成した取引先" },
+        { "from": "S05", "to": "S10", "type": "system", "label": "作成した商談" },
+
+        { "from": "S06", "to": "S07", "type": "user", "label": "行を選択" },
+        { "from": "S07", "to": "S08", "type": "user", "label": "責任者を選択" },
+        { "from": "S07", "to": "S10", "type": "user", "label": "商談を選択" },
+        { "from": "S07", "to": "S14", "type": "user", "label": "ケースを選択" },
+        { "from": "S08", "to": "S07", "type": "weak", "label": "取引先へ" },
+
+        { "from": "S09", "to": "S10", "type": "user", "label": "カードを選択" },
+        { "from": "S10", "to": "S11", "type": "user", "label": "見積を作成" },
+        { "from": "S10", "to": "S07", "type": "weak", "label": "取引先へ" },
+        { "from": "S11", "to": "S10", "type": "weak", "label": "商談へ戻る" },
+
+        { "from": "S12", "to": "S04", "type": "rel", "label": "関連先（リード）" },
+        { "from": "S12", "to": "S07", "type": "rel", "label": "関連先（取引先）" },
+        { "from": "S12", "to": "S10", "type": "rel", "label": "関連先（商談）" },
+
+        { "from": "S13", "to": "S14", "type": "user", "label": "行を選択" },
+        { "from": "S14", "to": "S07", "type": "rel", "label": "取引先を開く" },
+        { "from": "S14", "to": "S13", "type": "weak", "label": "一覧へ" },
+
+        { "from": "S15", "to": "S16", "type": "user", "label": "レポートを選択" },
+        { "from": "S16", "to": "S15", "type": "weak", "label": "一覧へ" },
+
+        { "from": "S17", "to": "S18", "type": "user", "label": "ロール・権限" },
+        { "from": "S18", "to": "S17", "type": "weak", "label": "ユーザーへ" },
+        { "from": "S19", "to": "S03", "type": "system", "label": "完了（リード）" },
+        { "from": "S19", "to": "S06", "type": "system", "label": "完了（取引先）" }
+      ],
+      "legend": [
+        { "type": "start", "label": "起動" },
+        { "type": "user", "label": "利用者の操作による遷移" },
+        { "type": "system", "label": "処理完了後の自動遷移" },
+        { "type": "rel", "label": "関連レコードを開く（機能をまたぐ・検索結果から）" },
+        { "type": "weak", "label": "戻る遷移" }
+      ],
+      "toggles": [
+        { "type": "weak", "label": "戻る遷移を表示", "default": false },
+        { "type": "rel", "label": "機能をまたぐ遷移を表示", "default": false }
+      ]
+    }
+  }
+}

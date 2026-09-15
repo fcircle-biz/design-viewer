@@ -1,0 +1,137 @@
+{
+  "modes": {
+    "biz": {
+      "label": "業務フロー",
+      "desc": "問い合わせからリード登録・取引開始、見積・受注、受注データの出力、受注後の問い合わせ対応までの流れ。",
+      "lanes": [
+        { "id": "L_CUST", "label": "顧客", "sub": "見込み客・取引先の担当者" },
+        { "id": "L_SALES", "label": "営業担当" },
+        { "id": "L_MGR", "label": "営業マネージャー" },
+        { "id": "L_SYS", "label": "顧客管理システム", "sub": "自動処理・夜間バッチ" },
+        { "id": "L_SUP", "label": "サポート担当", "sub": "一次・二次サポート" },
+        { "id": "L_ACC", "label": "会計システム" }
+      ],
+      "phases": [
+        { "id": "PH1", "label": "① 問い合わせをリードにする" },
+        { "id": "PH2", "label": "② リードを評価し取引開始する" },
+        { "id": "PH3", "label": "③ 見積を作成・承認する" },
+        { "id": "PH4", "label": "④ 受注・失注を確定する" },
+        { "id": "PH5", "label": "⑤ 問い合わせを受け付ける" },
+        { "id": "PH6", "label": "⑥ 問い合わせを解決する" }
+      ],
+      "nodes": [
+        { "id": "B01", "variant": "start", "lane": "L_CUST", "phase": "PH1", "label": "Web フォームで問い合わせる", "sub": "自社サイト" },
+        { "id": "B02", "variant": "system", "lane": "L_SYS", "phase": "PH1", "label": "リードを登録する", "sub": "ソース Web・状況 新規", "screen": "S03",
+          "spec": ["業務ルール（リード）: Web 問い合わせフォームから登録されたリードは、リードソース「Web」、状況「新規」で作成する。"] },
+        { "id": "B03", "variant": "decision", "lane": "L_SYS", "phase": "PH1", "label": "割り当てルールに該当？", "sub": "担当地域（都道府県）",
+          "spec": ["業務ルール（リード）: 担当地域（都道府県）に応じた割り当てルールで所有者を決める。該当するルールが無ければ「未割り当て」キューに入る。"],
+          "info": ["割り当てルールを保存するテーブル・設定画面は仕様書に記載が無い（未確定）。"] },
+        { "id": "B04", "variant": "task", "lane": "L_MGR", "phase": "PH1", "label": "未割り当てキューから担当を決める", "screen": "S03",
+          "info": ["仕様書では、未割り当てキューのリードを誰が割り当てるかは明記されていない。所有者を変更できる営業マネージャーを想定（未確定）。"] },
+        { "id": "B05", "variant": "system", "lane": "L_SYS", "phase": "PH1", "label": "所有者を設定し通知メールを送る",
+          "spec": ["外部連携（メールサーバー）: 担当割り当て・承認依頼・ケース更新の通知メールを送る。"] },
+
+        { "id": "B06", "variant": "task", "lane": "L_SALES", "phase": "PH2", "label": "連絡して状況を対応中にする", "screen": "S04",
+          "spec": ["業務ルール（リード）: メールアドレスが既存のリード・取引先責任者と一致する場合は、重複の候補として詳細画面に警告を表示する（登録は止めない）。"] },
+        { "id": "B07", "variant": "decision", "lane": "L_SALES", "phase": "PH2", "label": "見込みあり？" },
+        { "id": "B08", "variant": "task", "lane": "L_SALES", "phase": "PH2", "label": "不適格にする", "sub": "理由を必須入力", "screen": "S04",
+          "spec": ["業務ルール（リード）: 不適格にするときは理由（予算なし／時期未定／競合決定／重複／その他）を必須とする。"] },
+        { "id": "B09", "variant": "end", "lane": "L_SALES", "phase": "PH2", "label": "不適格で終了" },
+        { "id": "B10", "variant": "task", "lane": "L_SALES", "phase": "PH2", "label": "評価済みにして取引開始する", "screen": "S05",
+          "spec": ["業務ルール（リード）: 取引開始できるのは状況「評価済み」のリードのみ。"] },
+        { "id": "B11", "variant": "system", "lane": "L_SYS", "phase": "PH2", "label": "取引先・責任者・商談を作成する", "sub": "リードは読み取り専用に",
+          "spec": ["業務ルール（リード）: 取引開始したリードは読み取り専用になり、作成した取引先・取引先責任者・商談へのリンクを持つ。"] },
+
+        { "id": "B12", "variant": "task", "lane": "L_SALES", "phase": "PH3", "label": "要件を確認し提案する", "sub": "フェーズを進める", "screen": "S10",
+          "spec": ["業務ルール（商談）: フェーズと確度の既定値は 見込み 10% → 要件確認 25% → 提案 50% → 見積提示 75% → 交渉 90% → 受注 100% ／ 失注 0%。"] },
+        { "id": "B13", "variant": "task", "lane": "L_SALES", "phase": "PH3", "label": "見積を作成する", "sub": "明細・値引を入力", "screen": "S11",
+          "spec": ["業務ルール（見積）: 見積番号は「Q-年-連番 5 桁」で自動採番する。有効期限の既定値は発行日から 30 日。"] },
+        { "id": "B14", "variant": "decision", "lane": "L_SYS", "phase": "PH3", "label": "値引率 20% 超の明細あり？",
+          "spec": ["業務ルール（見積）: 明細ごとの値引率が 20% を超える見積は、営業マネージャーの承認が必要。承認されるまで PDF 出力できない。"] },
+        { "id": "B15", "variant": "decision", "lane": "L_MGR", "phase": "PH3", "label": "見積を承認する？", "sub": "通知メールで依頼を受ける", "screen": "S11" },
+        { "id": "B16", "variant": "system", "lane": "L_SYS", "phase": "PH3", "label": "PDF 出力を可能にする" },
+        { "id": "B17", "variant": "task", "lane": "L_SALES", "phase": "PH3", "label": "見積 PDF を顧客に提示する", "sub": "商談と同期", "screen": "S11",
+          "spec": ["業務ルール（見積）: 1 つの商談で「同期中」にできる見積は 1 つ。同期中の見積の明細が商談の商品明細・金額に反映される。"] },
+
+        { "id": "B18", "variant": "decision", "lane": "L_CUST", "phase": "PH4", "label": "発注する？" },
+        { "id": "B19", "variant": "task", "lane": "L_SALES", "phase": "PH4", "label": "フェーズを受注にする", "screen": "S10",
+          "spec": ["業務ルール（商談）: 受注・失注にした商談は、営業マネージャー以上でなければフェーズを戻せない。"] },
+        { "id": "B20", "variant": "task", "lane": "L_SALES", "phase": "PH4", "label": "失注にする", "sub": "失注理由・競合先を必須入力", "screen": "S10",
+          "spec": ["業務ルール（商談）: 失注にするときは失注理由（価格／機能／競合／時期／その他）と競合先を必須とする。"] },
+        { "id": "B21", "variant": "end", "lane": "L_SALES", "phase": "PH4", "label": "失注で終了" },
+        { "id": "B22", "variant": "system", "lane": "L_SYS", "phase": "PH4", "label": "受注データを CSV 出力する", "sub": "毎日 2:00",
+          "spec": [
+            "業務ルール（受注データ出力）: 前日にフェーズが「受注」になった商談を、取引先コード・商談名・受注日・金額・明細とともに CSV 出力する。",
+            "業務ルール（受注データ出力）: 出力済みの商談には出力日時を記録し、再出力しない。"
+          ] },
+        { "id": "B23", "variant": "end", "lane": "L_ACC", "phase": "PH4", "label": "受注データを取り込む", "sub": "請求・入金は会計側",
+          "info": ["連携方式（CSV 以外の API 連携にするか）は未確定。"] },
+
+        { "id": "B24", "variant": "start", "lane": "L_CUST", "phase": "PH5", "label": "電話・メール・Web で問い合わせる" },
+        { "id": "B25", "variant": "task", "lane": "L_SUP", "phase": "PH5", "label": "ケースを登録する", "sub": "チャネル・優先度", "screen": "S14",
+          "info": ["メール・Web の問い合わせからケースを自動登録するかは仕様書に記載が無い（未確定）。"] },
+        { "id": "B26", "variant": "system", "lane": "L_SYS", "phase": "PH5", "label": "初回応答期限を設定する",
+          "spec": ["業務ルール（ケース）: 優先度ごとの初回応答 SLA は 高 4 時間、中 1 営業日、低 3 営業日。"] },
+        { "id": "B27", "variant": "system", "lane": "L_SYS", "phase": "PH5", "label": "SLA 超過を通知する", "sub": "担当者と営業マネージャーへ", "screen": "S13",
+          "spec": ["業務ルール（ケース）: SLA を超過したケースは一覧で赤く強調し、担当者と営業マネージャーに通知メールを送る。"] },
+
+        { "id": "B28", "variant": "task", "lane": "L_SUP", "phase": "PH6", "label": "調査・回答する", "sub": "コメント（公開／社内）", "screen": "S14" },
+        { "id": "B29", "variant": "decision", "lane": "L_SUP", "phase": "PH6", "label": "自分で解決できる？" },
+        { "id": "B30", "variant": "task", "lane": "L_SUP", "phase": "PH6", "label": "エスカレーションする", "sub": "二次サポートへ", "screen": "S14",
+          "spec": ["業務ルール（ケース）: エスカレーションすると優先度を「高」にし、エスカレーション先のキューへ所有者を変更する。"] },
+        { "id": "B31", "variant": "task", "lane": "L_SUP", "phase": "PH6", "label": "状況を解決にする", "screen": "S14" },
+        { "id": "B32", "variant": "decision", "lane": "L_CUST", "phase": "PH6", "label": "7 日以内に返信する？" },
+        { "id": "B33", "variant": "end", "lane": "L_SYS", "phase": "PH6", "label": "自動でクローズする", "sub": "夜間バッチ",
+          "spec": ["業務ルール（ケース）: 解決から 7 日間顧客の返信が無い場合、夜間バッチで自動的にクローズする。"],
+          "info": ["自動クローズの日数を顧客ごとに変えるかは未確定。"] }
+      ],
+      "edges": [
+        { "from": "B01", "to": "B02", "type": "flow" },
+        { "from": "B02", "to": "B03", "type": "flow" },
+        { "from": "B03", "to": "B05", "type": "flow", "label": "はい" },
+        { "from": "B03", "to": "B04", "type": "flow", "label": "いいえ" },
+        { "from": "B04", "to": "B05", "type": "flow" },
+        { "from": "B05", "to": "B06", "type": "flow" },
+
+        { "from": "B06", "to": "B07", "type": "flow" },
+        { "from": "B07", "to": "B08", "type": "flow", "label": "いいえ" },
+        { "from": "B08", "to": "B09", "type": "flow" },
+        { "from": "B07", "to": "B10", "type": "flow", "label": "はい" },
+        { "from": "B10", "to": "B11", "type": "flow" },
+
+        { "from": "B11", "to": "B12", "type": "flow" },
+        { "from": "B12", "to": "B13", "type": "flow" },
+        { "from": "B13", "to": "B14", "type": "flow" },
+        { "from": "B14", "to": "B15", "type": "flow", "label": "はい" },
+        { "from": "B14", "to": "B16", "type": "flow", "label": "いいえ" },
+        { "from": "B15", "to": "B16", "type": "flow", "label": "承認" },
+        { "from": "B15", "to": "B13", "type": "weak", "label": "差し戻し" },
+        { "from": "B16", "to": "B17", "type": "flow" },
+
+        { "from": "B17", "to": "B18", "type": "flow" },
+        { "from": "B18", "to": "B19", "type": "flow", "label": "はい" },
+        { "from": "B18", "to": "B20", "type": "flow", "label": "いいえ" },
+        { "from": "B20", "to": "B21", "type": "flow" },
+        { "from": "B19", "to": "B22", "type": "flow", "label": "翌日" },
+        { "from": "B22", "to": "B23", "type": "flow" },
+
+        { "from": "B24", "to": "B25", "type": "flow" },
+        { "from": "B25", "to": "B26", "type": "flow" },
+        { "from": "B26", "to": "B27", "type": "flow", "label": "期限超過時" },
+        { "from": "B26", "to": "B28", "type": "flow" },
+
+        { "from": "B28", "to": "B29", "type": "flow" },
+        { "from": "B29", "to": "B30", "type": "flow", "label": "いいえ" },
+        { "from": "B30", "to": "B28", "type": "weak", "label": "二次サポートが対応" },
+        { "from": "B29", "to": "B31", "type": "flow", "label": "はい" },
+        { "from": "B31", "to": "B32", "type": "flow" },
+        { "from": "B32", "to": "B33", "type": "flow", "label": "いいえ" },
+        { "from": "B32", "to": "B28", "type": "weak", "label": "はい（再対応）" }
+      ],
+      "legend": [
+        { "type": "flow", "label": "業務の流れ" },
+        { "type": "weak", "label": "差し戻し・再対応" }
+      ]
+    }
+  }
+}

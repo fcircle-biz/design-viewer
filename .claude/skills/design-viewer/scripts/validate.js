@@ -23,6 +23,8 @@ const KNOWN_DFD_VARIANTS = new Set(['ext', 'proc', 'store']);
 const KNOWN_FIELD_KEYS = new Set(['PK', 'FK', 'UK', '']);
 const KNOWN_FLOW_LAYOUTS = new Set(['lanes', 'elk']);
 const KNOWN_FLOW_EDGE_STYLES = new Set(['curve', 'orthogonal']);
+const KNOWN_FLOW_ARRANGES = new Set(['elk', 'groups']);
+const KNOWN_DFD_ARRANGES = new Set(['elk', 'steps']);
 
 function pushErr(errors, msg) { errors.push(msg); }
 function pushWarn(warnings, msg) { warnings.push(msg); }
@@ -93,6 +95,9 @@ function validateModel(model, viewerSrcDir) {
     }
     if (s.w !== undefined && (typeof s.w !== 'number' || s.w <= 0)) pushWarn(warnings, `screens.${s.id}.w が不正です（正の数値を指定してください）`);
     if (s.h !== undefined && (typeof s.h !== 'number' || s.h <= 0)) pushWarn(warnings, `screens.${s.id}.h が不正です（正の数値を指定してください）`);
+    if (s.status !== undefined && !['done', 'wip', 'designed', 'planned'].includes(s.status)) {
+      pushWarn(warnings, `screens.${s.id}.status が未知です: ${s.status}（done | wip | designed | planned）`);
+    }
     screenIds.add(s.id);
   });
   findDuplicates(screens, s => s && s.id).forEach(id => pushErr(errors, `screens の id が重複しています: ${id}`));
@@ -126,6 +131,15 @@ function validateModel(model, viewerSrcDir) {
     if (flow.layoutOptions !== undefined) {
       if (!isElk) pushWarn(warnings, 'modes.flow.layoutOptions は layout: "elk" のときだけ有効です');
       else if (!flow.layoutOptions || typeof flow.layoutOptions !== 'object' || Array.isArray(flow.layoutOptions)) pushErr(errors, 'modes.flow.layoutOptions はオブジェクトである必要があります');
+    }
+    if (flow.arrange !== undefined) {
+      if (!isElk) pushWarn(warnings, 'modes.flow.arrange は layout: "elk" のときだけ有効です');
+      else if (!KNOWN_FLOW_ARRANGES.has(flow.arrange)) pushErr(errors, `modes.flow.arrange が未知です: ${flow.arrange}（elk | groups）`);
+    }
+    const isGroupsArrange = isElk && flow.arrange === 'groups';
+    if (flow.hubGroup !== undefined) {
+      if (!isGroupsArrange) pushWarn(warnings, 'modes.flow.hubGroup は modes.flow.arrange: "groups" のときだけ有効です');
+      else if (!groupIds.has(flow.hubGroup)) pushErr(errors, `modes.flow.hubGroup が未知の group を参照しています: ${flow.hubGroup}`);
     }
     const checkNudge = (owner, n) => {
       if (n.nudge === undefined) return;
@@ -169,6 +183,13 @@ function validateModel(model, viewerSrcDir) {
 
   // --- modes.gallery ---
   if (modes.gallery) {
+    if (modes.gallery.arrange !== undefined && !['grid', 'table'].includes(modes.gallery.arrange)) {
+      pushErr(errors, `modes.gallery.arrange が未知です: ${modes.gallery.arrange}（grid | table）`);
+    }
+    if (modes.gallery.arrange === 'table') {
+      const noStatus = screens.filter(s => s && s.id && !s.status).map(s => s.id);
+      if (noStatus.length) pushWarn(warnings, `modes.gallery.arrange: "table" ですが status の無い画面があります（実装状況が空欄になります）: ${noStatus.slice(0, 5).join(', ')}${noStatus.length > 5 ? ` ほか ${noStatus.length - 5} 件` : ''}`);
+    }
     if (Array.isArray(modes.gallery.nodes) && modes.gallery.nodes.length > 0) {
       pushWarn(warnings, 'modes.gallery.nodes は無視されます（gallery はビルドが screens から自動生成します）');
     }
@@ -210,7 +231,6 @@ function validateModel(model, viewerSrcDir) {
 
     const nodesArr = Array.isArray(biz.nodes) ? biz.nodes : [];
     const nodeIds = new Set();
-    const nodePhaseById = new Map();
     const phaseNodeCount = new Map([...phaseIds].map(id => [id, 0]));
     const nodeEdgeCount = new Map();
     nodesArr.forEach((n, i) => {
@@ -226,7 +246,7 @@ function validateModel(model, viewerSrcDir) {
       if (hasPhases) {
         if (!n.phase) pushErr(errors, `modes.biz.nodes.${n.id}.phase が必須です（phases が定義されているため）`);
         else if (!phaseIds.has(n.phase)) pushErr(errors, `modes.biz.nodes.${n.id}.phase が未知の phase を参照しています: ${n.phase}`);
-        else { phaseNodeCount.set(n.phase, (phaseNodeCount.get(n.phase) || 0) + 1); nodePhaseById.set(n.id, n.phase); }
+        else phaseNodeCount.set(n.phase, (phaseNodeCount.get(n.phase) || 0) + 1);
       } else if (n.phase) {
         pushWarn(warnings, `modes.biz.nodes.${n.id}.phase は phases が未定義のため無視されます`);
       }
@@ -246,12 +266,6 @@ function validateModel(model, viewerSrcDir) {
       if (!nodeIds.has(e.to)) pushErr(errors, `modes.biz.edges[${i}] の to が未知の id を参照しています: ${e.to}`);
       else nodeEdgeCount.set(e.to, (nodeEdgeCount.get(e.to) || 0) + 1);
       if (e.type && !['flow', 'weak'].includes(e.type)) pushWarn(warnings, `modes.biz.edges[${i}] の type が未知です: ${e.type}（flow | weak）`);
-      if (hasPhases && nodeIds.has(e.from) && nodeIds.has(e.to)) {
-        const pf = nodePhaseById.get(e.from), pt = nodePhaseById.get(e.to);
-        if (pf && pt && pf !== pt) {
-          pushWarn(warnings, `modes.biz.edges[${i}] (${e.from} → ${e.to}) はフェーズをまたぐ辺です（${pf} → ${pt}）。フェーズをまたぐ辺はレイアウトで通路が確保されません`);
-        }
-      }
     });
     nodeEdgeCount.forEach((count, id) => {
       if (count === 0) pushWarn(warnings, `modes.biz.nodes.${id} に接続する辺がありません`);
@@ -322,6 +336,14 @@ function validateModel(model, viewerSrcDir) {
         pushErr(errors, `modes.dfd.edges[${i}] の step が modes.dfd.steps に存在しません: ${e.step}`);
       }
     });
+    if (dfd.arrange !== undefined && !KNOWN_DFD_ARRANGES.has(dfd.arrange)) {
+      pushErr(errors, `modes.dfd.arrange が未知です: ${dfd.arrange}（elk | steps）`);
+    }
+    if (dfd.arrange === 'steps') {
+      if (steps.length === 0) pushErr(errors, 'modes.dfd.arrange: "steps" には modes.dfd.steps が必要です');
+      const noStep = edges.filter(e => e && (e.step === undefined || e.step === null)).length;
+      if (noStep > 0) pushWarn(warnings, `modes.dfd.arrange: "steps" で step の無い辺が ${noStep} 本あります（「ステップなし」のブロックに入ります）`);
+    }
     void nodeIds;
   }
 

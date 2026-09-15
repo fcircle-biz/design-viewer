@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S19 データインポート</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .gear-on { color: #0176d3; background: #eef4ff; border-radius: 4px; padding: 4px; width: 24px; height: 24px; }
+  .steps { display: flex; align-items: center; padding: 14px 24px; gap: 0; }
+  .st { display: flex; align-items: center; gap: 8px; color: #444; white-space: nowrap; }
+  .st .n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 2px solid #c9c9c9; background: #fff; font-weight: 700; font-size: 12px; color: #747474; }
+  .st.done .n { background: #2e844a; border-color: #2e844a; color: #fff; }
+  .st.cur { color: #032d60; font-weight: 700; }
+  .st.cur .n { background: #0176d3; border-color: #0176d3; color: #fff; box-shadow: 0 0 0 4px #d8e6fe; }
+  .st .ico { width: 13px; height: 13px; stroke-width: 3; }
+  .line { flex: 1; height: 2px; background: #c9c9c9; margin: 0 14px; }
+  .line.done { background: #2e844a; }
+  .summary { display: flex; gap: 0; }
+  .summary > div { padding: 10px 20px; border-right: 1px solid #e5e5e5; }
+  .summary > div:last-child { border-right: 0; }
+  .summary .k { font-size: 12px; color: #444; }
+  .summary .v { font-size: 16px; font-weight: 700; }
+  .summary .v.err { color: #ba0517; }
+  .summary .v.ok { color: #2e844a; }
+  .arrow { color: #747474; width: 20px; text-align: center; padding-left: 0 !important; padding-right: 0 !important; }
+  .sample { color: #747474; font-size: 12px; }
+  .footbar { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
+  .footbar .spacer { flex: 1; }
+  .rowno { color: #444; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+    <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>リード、取引先、商談などを検索…</div>
+    <div class="top-actions">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <svg class="ico gear-on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <div class="avatar" style="background:#0b5cab">山本</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-app">設定</div>
+    <a>ユーザー</a><a>ロール・権限</a><a class="active">データインポート</a>
+  </div>
+  <div class="main">
+    <div class="page-head">
+      <div class="obj-icon obj-user"><svg class="ico" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></div>
+      <div>
+        <div class="eyebrow">設定</div>
+        <h1>データインポート</h1>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="steps">
+        <div class="st done"><span class="n"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>1 対象を選択</div>
+        <div class="line done"></div>
+        <div class="st done"><span class="n"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>2 CSV をアップロード</div>
+        <div class="line done"></div>
+        <div class="st done"><span class="n"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>3 項目の対応付け</div>
+        <div class="line done"></div>
+        <div class="st cur"><span class="n">4</span>確認・実行</div>
+      </div>
+      <div class="summary" style="border-top:1px solid #e5e5e5">
+        <div><div class="k">対象</div><div class="v">取引先</div></div>
+        <div><div class="k">ファイル</div><div class="v" style="display:flex;align-items:center;gap:6px"><svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>accounts_202609.csv</div></div>
+        <div><div class="k">総行数</div><div class="v">1,248 行</div></div>
+        <div><div class="k">登録できる行</div><div class="v ok">1,241 行</div></div>
+        <div><div class="k">エラー行</div><div class="v err">7 行</div></div>
+      </div>
+    </div>
+
+    <div class="alert-bar warn">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+      エラー行 7 行は登録されません。［インポート実行］でエラー行を除く 1,241 行を取引先として登録します。
+    </div>
+
+    <div class="cols">
+      <div class="card" style="width:600px; flex:none">
+        <div class="card-head"><h2>項目の対応付け</h2><span class="count">8 列</span><div class="actions"><button class="btn sm">対応付けを変更</button></div></div>
+        <table class="table">
+          <thead><tr><th>CSV の列</th><th>1 行目の値</th><th class="arrow"></th><th>CRM の項目</th></tr></thead>
+          <tbody>
+            <tr><td>会社名</td><td class="sample">株式会社ミナト精機</td><td class="arrow">→</td><td>取引先名 <span class="badge red">必須</span></td></tr>
+            <tr><td>法人番号</td><td class="sample">4010401098765</td><td class="arrow">→</td><td>法人番号 <span class="muted" style="font-size:12px">（13 桁・重複不可）</span></td></tr>
+            <tr><td>業種</td><td class="sample">製造</td><td class="arrow">→</td><td>業種</td></tr>
+            <tr><td>親会社名</td><td class="sample">ミナトホールディングス株式会社</td><td class="arrow">→</td><td>親取引先</td></tr>
+            <tr><td>取引先CD</td><td class="sample">A-100231</td><td class="arrow">→</td><td>取引先コード</td></tr>
+            <tr><td>担当者メール</td><td class="sample">sato.misaki@example.co.jp</td><td class="arrow">→</td><td>所有者 <span class="muted" style="font-size:12px">（メールで照合）</span></td></tr>
+            <tr><td>電話番号</td><td class="sample">03-5555-0142</td><td class="arrow">→</td><td>電話</td></tr>
+            <tr><td>備考</td><td class="sample">展示会 2026 名刺</td><td class="arrow">→</td><td class="muted">対応付けない</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card" style="flex:1; min-width:0">
+        <div class="card-head"><h2>エラー行</h2><span class="badge red">7 行</span></div>
+        <table class="table">
+          <thead><tr><th class="num">行</th><th>会社名</th><th>項目</th><th>エラー内容</th></tr></thead>
+          <tbody>
+            <tr class="alert"><td class="num rowno">15</td><td>株式会社ミナト精機</td><td>法人番号</td><td>既存の取引先「株式会社ミナト精機」と法人番号が重複</td></tr>
+            <tr class="alert"><td class="num rowno">88</td><td class="muted">（空）</td><td>取引先名</td><td>取引先名が空（必須）</td></tr>
+            <tr class="alert"><td class="num rowno">203</td><td>北斗ロジスティクス株式会社</td><td>法人番号</td><td>法人番号が 12 桁（13 桁で入力）</td></tr>
+            <tr class="alert"><td class="num rowno">412</td><td>青葉電機工業株式会社</td><td>法人番号</td><td>ファイル内の 356 行目と法人番号が重複</td></tr>
+            <tr class="alert"><td class="num rowno">530</td><td>さくら住設株式会社</td><td>所有者</td><td>メールに一致するユーザーがいない</td></tr>
+            <tr class="alert"><td class="num rowno">771</td><td class="muted">（空）</td><td>取引先名</td><td>取引先名が空（必須）</td></tr>
+            <tr class="alert"><td class="num rowno">1,022</td><td>東雲フーズ株式会社</td><td>親取引先</td><td>親取引先「東雲HD株式会社」が見つからない</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footbar">
+      <button class="btn">戻る</button>
+      <span class="spacer"></span>
+      <span class="muted" style="font-size:12px">実行結果はインポートジョブとして記録されます</span>
+      <button class="btn primary">インポート実行（1,241 行）</button>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,95 @@
+{
+  "modes": {
+    "dfd": {
+      "label": "データフロー",
+      "desc": "リード・取引先・商談のデータストアを多くの処理が共有するため、ステップごとのブロックで描く。右上のステップで順に強調できる。",
+      "arrange": "steps",
+      "nodes": [
+        { "id": "X_WEB", "kind": "dfd", "variant": "ext", "icon": "inbox", "label": "Web 問い合わせフォーム", "sub": "自社サイト" },
+        { "id": "X_SALES", "kind": "dfd", "variant": "ext", "icon": "user", "label": "営業担当" },
+        { "id": "X_MGR", "kind": "dfd", "variant": "ext", "icon": "team", "label": "営業マネージャー" },
+        { "id": "X_SUP", "kind": "dfd", "variant": "ext", "icon": "chat", "label": "サポート担当" },
+        { "id": "X_ADMIN", "kind": "dfd", "variant": "ext", "icon": "shield", "label": "システム管理者" },
+        { "id": "X_MAIL", "kind": "dfd", "variant": "ext", "icon": "send", "label": "メールサーバー", "sub": "SMTP" },
+        { "id": "X_ACC", "kind": "dfd", "variant": "ext", "icon": "db", "label": "会計システム" },
+
+        { "id": "P1", "kind": "dfd", "variant": "proc", "code": "P1", "icon": "gear", "label": "リード登録・割り当て",
+          "info": ["担当地域（都道府県）に応じた割り当てルールで所有者を決める。該当ルールが無ければ「未割り当て」キューに入れる。", "割り当てルールの保存先は仕様書に記載が無い（未確定）。"] },
+        { "id": "P2", "kind": "dfd", "variant": "proc", "code": "P2", "icon": "flow", "label": "取引開始", "sub": "評価済みリードのみ" },
+        { "id": "P3", "kind": "dfd", "variant": "proc", "code": "P3", "icon": "doc", "label": "見積作成・同期" },
+        { "id": "P4", "kind": "dfd", "variant": "proc", "code": "P4", "icon": "check", "label": "見積承認", "sub": "値引率 20% 超" },
+        { "id": "P5", "kind": "dfd", "variant": "proc", "code": "P5", "icon": "cal", "label": "受注データ出力", "sub": "毎日 2:00 バッチ" },
+        { "id": "P6", "kind": "dfd", "variant": "proc", "code": "P6", "icon": "chat", "label": "ケース対応" },
+        { "id": "P7", "kind": "dfd", "variant": "proc", "code": "P7", "icon": "bell", "label": "SLA 監視・自動クローズ", "sub": "夜間バッチ" },
+        { "id": "P8", "kind": "dfd", "variant": "proc", "code": "P8", "icon": "list", "label": "データインポート" },
+        { "id": "P9", "kind": "dfd", "variant": "proc", "code": "P9", "icon": "search", "label": "レポート集計" },
+
+        { "id": "D1", "kind": "dfd", "variant": "store", "code": "D1", "icon": "db", "label": "リード", "sub": "leads" },
+        { "id": "D2", "kind": "dfd", "variant": "store", "code": "D2", "icon": "db", "label": "取引先・取引先責任者", "sub": "accounts / contacts" },
+        { "id": "D3", "kind": "dfd", "variant": "store", "code": "D3", "icon": "db", "label": "商談・商談商品", "sub": "opportunities / line_items" },
+        { "id": "D4", "kind": "dfd", "variant": "store", "code": "D4", "icon": "db", "label": "見積・見積明細", "sub": "quotes / quote_line_items" },
+        { "id": "D5", "kind": "dfd", "variant": "store", "code": "D5", "icon": "db", "label": "ケース・コメント", "sub": "cases / case_comments" },
+        { "id": "D6", "kind": "dfd", "variant": "store", "code": "D6", "icon": "db", "label": "ユーザー・キュー", "sub": "users / queues" }
+      ],
+      "edges": [
+        { "from": "X_WEB", "to": "P1", "type": "flow", "label": "フォーム送信内容", "step": 1 },
+        { "from": "D6", "to": "P1", "type": "flow", "label": "担当者・キュー", "step": 1 },
+        { "from": "P1", "to": "D1", "type": "flow", "label": "リード（Web・新規）", "step": 1 },
+        { "from": "P1", "to": "X_MAIL", "type": "flow", "label": "割り当て通知", "step": 1 },
+
+        { "from": "X_SALES", "to": "P2", "type": "flow", "label": "取引開始の指示", "step": 2 },
+        { "from": "D1", "to": "P2", "type": "flow", "label": "評価済みリード", "step": 2 },
+        { "from": "P2", "to": "D2", "type": "flow", "label": "取引先・責任者", "step": 2 },
+        { "from": "P2", "to": "D3", "type": "flow", "label": "商談", "step": 2 },
+        { "from": "P2", "to": "D1", "type": "flow", "label": "変換先リンク", "step": 2 },
+
+        { "from": "X_SALES", "to": "P3", "type": "flow", "label": "明細・値引", "step": 3 },
+        { "from": "D3", "to": "P3", "type": "flow", "label": "商談", "step": 3 },
+        { "from": "P3", "to": "D4", "type": "flow", "label": "見積", "step": 3 },
+        { "from": "P3", "to": "D3", "type": "flow", "label": "同期した明細・金額", "step": 3 },
+        { "from": "P3", "to": "P4", "type": "flow", "label": "承認申請", "step": 3 },
+        { "from": "P4", "to": "X_MAIL", "type": "flow", "label": "承認依頼", "step": 3 },
+        { "from": "X_MGR", "to": "P4", "type": "flow", "label": "承認／差し戻し", "step": 3 },
+        { "from": "P4", "to": "D4", "type": "flow", "label": "承認状況", "step": 3 },
+        { "from": "P3", "to": "X_SALES", "type": "flow", "label": "見積 PDF", "step": 3 },
+
+        { "from": "D3", "to": "P5", "type": "flow", "label": "前日の受注商談", "step": 4 },
+        { "from": "D2", "to": "P5", "type": "flow", "label": "取引先コード", "step": 4 },
+        { "from": "P5", "to": "X_ACC", "type": "flow", "label": "受注データ CSV", "step": 4 },
+        { "from": "P5", "to": "D3", "type": "flow", "label": "出力日時", "step": 4 },
+
+        { "from": "X_SUP", "to": "P6", "type": "flow", "label": "ケース・コメント", "step": 5 },
+        { "from": "D2", "to": "P6", "type": "flow", "label": "取引先・責任者", "step": 5 },
+        { "from": "D6", "to": "P6", "type": "flow", "label": "エスカレーション先", "step": 5 },
+        { "from": "P6", "to": "D5", "type": "flow", "label": "ケース・期限", "step": 5 },
+        { "from": "P6", "to": "X_MAIL", "type": "flow", "label": "ケース更新通知", "step": 5 },
+
+        { "from": "D5", "to": "P7", "type": "flow", "label": "期限・解決日時", "step": 6 },
+        { "from": "P7", "to": "X_MAIL", "type": "flow", "label": "SLA 超過通知", "step": 6 },
+        { "from": "P7", "to": "D5", "type": "flow", "label": "自動クローズ", "step": 6 },
+
+        { "from": "X_ADMIN", "to": "P8", "type": "flow", "label": "CSV・項目対応", "step": 7 },
+        { "from": "P8", "to": "D2", "type": "flow", "label": "取引先・責任者", "step": 7 },
+        { "from": "P8", "to": "D1", "type": "flow", "label": "リード", "step": 7 },
+        { "from": "P8", "to": "X_ADMIN", "type": "flow", "label": "エラー行", "step": 7 },
+
+        { "from": "X_MGR", "to": "P9", "type": "flow", "label": "レポート条件", "step": 8 },
+        { "from": "D1", "to": "P9", "type": "flow", "label": "リード", "step": 8 },
+        { "from": "D3", "to": "P9", "type": "flow", "label": "商談", "step": 8 },
+        { "from": "D5", "to": "P9", "type": "flow", "label": "ケース", "step": 8 },
+        { "from": "P9", "to": "X_MGR", "type": "flow", "label": "グラフ・集計・CSV", "step": 8 }
+      ],
+      "steps": [
+        { "n": 1, "title": "問い合わせをリードにする", "desc": "Web フォームの送信内容をリードとして登録し、担当地域の割り当てルールで所有者を決めて通知する。" },
+        { "n": 2, "title": "リードを取引開始する", "desc": "評価済みリードから取引先・取引先責任者・商談を作り、リードに変換先を記録する。" },
+        { "n": 3, "title": "見積を作成・承認する", "desc": "明細を入力して見積を作る。値引率 20% 超なら営業マネージャーが承認してから PDF を出力する。同期中の見積は商談の明細・金額に反映する。" },
+        { "n": 4, "title": "受注データを出力する", "desc": "毎日 2:00、前日に受注した商談を会計システム向け CSV に出力し、出力日時を記録する。" },
+        { "n": 5, "title": "ケースに対応する", "desc": "問い合わせをケースとして登録・更新し、優先度別の初回応答期限を設定する。" },
+        { "n": 6, "title": "SLA を監視し自動クローズする", "desc": "期限を超過したケースを通知し、解決から 7 日間返信が無いケースをクローズする。" },
+        { "n": 7, "title": "CSV を取り込む", "desc": "管理者が CSV で取引先・取引先責任者・リードを一括登録し、エラー行を確認する。" },
+        { "n": 8, "title": "レポートで把握する", "desc": "リード・商談・ケースを集計し、グラフ・集計表・CSV で返す。" }
+      ],
+      "legend": [ { "type": "flow", "label": "データの流れ" } ]
+    }
+  }
+}

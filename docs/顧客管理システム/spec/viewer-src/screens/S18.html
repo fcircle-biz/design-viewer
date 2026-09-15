@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S18 ロール・権限設定</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .gear-on { color: #0176d3; background: #eef4ff; border-radius: 4px; padding: 4px; width: 24px; height: 24px; }
+  .tree { padding: 10px 8px; }
+  .tree-label { font-size: 12px; color: #747474; padding: 4px 8px 6px; }
+  .node { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px; border-radius: 4px; color: #181818; }
+  .node .ico { color: #747474; }
+  .node .cnt { margin-left: auto; font-size: 12px; color: #747474; }
+  .node.sel { background: #eef4ff; box-shadow: inset 3px 0 0 #0176d3; font-weight: 700; }
+  .node.sel .ico { color: #0176d3; }
+  .l1 { margin-left: 22px; } .l2 { margin-left: 44px; }
+  .tw { width: 12px; color: #747474; font-size: 10px; text-align: center; }
+  .tree-sep { border-top: 1px solid #e5e5e5; margin: 10px 8px; }
+  .role-desc { display: flex; gap: 32px; padding: 12px 14px; border-bottom: 1px solid #e5e5e5; }
+  .role-desc .k { font-size: 12px; color: #444; }
+  .matrix th.c, .matrix td.c { text-align: center; width: 96px; }
+  .matrix td { padding: 9px 10px; }
+  .ok { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; background: #0176d3; color: #fff; }
+  .ok .ico { width: 13px; height: 13px; stroke-width: 3; }
+  .ng { display: inline-block; width: 20px; height: 20px; border-radius: 4px; border: 1px solid #c9c9c9; background: #fff; vertical-align: middle; }
+  .scope { color: #444; font-size: 12px; }
+  .legend { display: flex; gap: 24px; padding: 10px 14px; font-size: 12px; color: #444; border-top: 1px solid #e5e5e5; background: #fafaf9; }
+</style>
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+    <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>リード、取引先、商談などを検索…</div>
+    <div class="top-actions">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <svg class="ico gear-on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <div class="avatar" style="background:#0b5cab">山本</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-app">設定</div>
+    <a>ユーザー</a><a class="active">ロール・権限</a><a>データインポート</a>
+  </div>
+  <div class="main">
+    <div class="page-head">
+      <div class="obj-icon obj-user"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div>
+        <div class="eyebrow">設定</div>
+        <h1>ロール・権限設定</h1>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="card" style="width:300px; flex:none">
+        <div class="card-head"><h2>ロール階層</h2></div>
+        <div class="tree">
+          <div class="tree-label">営業マネージャーは配下チームの全レコードを参照・更新できる</div>
+          <div class="node"><span class="tw">▾</span><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>システム管理者<span class="cnt">1 名</span></div>
+          <div class="node l1"><span class="tw">▾</span><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>営業マネージャー<span class="cnt">2 名</span></div>
+          <div class="node l2 sel"><span class="tw"></span><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>営業担当<span class="cnt">6 名</span></div>
+          <div class="tree-sep"></div>
+          <div class="node"><span class="tw"></span><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>サポート担当<span class="cnt">3 名</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1; min-width:0">
+        <div class="card-head">
+          <h2>営業担当 の権限</h2>
+          <div class="actions"><a class="btn sm">このロールのユーザー（6 名）</a><button class="btn sm">編集</button></div>
+        </div>
+        <div class="role-desc">
+          <div><div class="k">上位ロール</div><div>営業マネージャー</div></div>
+          <div><div class="k">権限の範囲</div><div>自分が所有するレコードの参照／作成／更新。同じチームのレコードは参照のみ</div></div>
+        </div>
+        <table class="table matrix">
+          <thead><tr><th>オブジェクト</th><th class="c">参照</th><th class="c">作成</th><th class="c">編集</th><th class="c">削除</th><th class="c">全件参照</th><th>対象範囲</th></tr></thead>
+          <tbody>
+            <tr><td>リード</td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="scope">編集は自分が所有するレコード ／ 参照は同じチームまで</td></tr>
+            <tr><td>取引先</td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="scope">編集は自分が所有するレコード ／ 参照は同じチームまで</td></tr>
+            <tr><td>取引先責任者</td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="scope">編集は自分が所有するレコード ／ 参照は同じチームまで</td></tr>
+            <tr><td>商談</td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="scope">編集は自分が所有するレコード ／ 参照は同じチームまで</td></tr>
+            <tr><td>見積</td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="scope">自分が所有する商談の見積 ／ 値引率 20% 超は承認が必要</td></tr>
+            <tr><td>活動</td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="scope">編集は自分が所有するレコード ／ 参照は同じチームまで</td></tr>
+            <tr><td>ケース</td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="scope">参照のみ</td></tr>
+            <tr><td>レポート</td><td class="c"><span class="ok"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="c"><span class="ng"></span></td><td class="scope">定義済みレポートの表示・CSV 出力</td></tr>
+          </tbody>
+        </table>
+        <div class="legend">
+          <span><span class="ok" style="vertical-align:middle;margin-right:6px"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>許可</span>
+          <span><span class="ng" style="margin-right:6px"></span>許可しない</span>
+          <span>全件参照: 所有者・チームに関係なくすべてのレコードを参照できる</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

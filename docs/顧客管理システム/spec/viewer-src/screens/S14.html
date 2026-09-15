@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S14 ケース詳細</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .path-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 16px; display: flex; gap: 16px; align-items: center; }
+  .path-card .path { flex: 1; }
+  .feed-item { display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid #e5e5e5; }
+  .feed-item:last-child { border-bottom: none; }
+  .feed-item .who { font-weight: 700; }
+  .feed-item .meta { font-size: 12px; color: #747474; }
+  .feed-item .text { margin-top: 4px; }
+  .feed-item.internal .bubble { background: #fff8e6; border: 1px dashed #f4bc25; }
+  .bubble { background: #f7f9fb; border: 1px solid #e5e5e5; border-radius: 6px; padding: 8px 10px; margin-top: 6px; }
+  .composer { border: 1px solid #c9c9c9; border-radius: 6px; overflow: hidden; }
+  .composer .ta { min-height: 64px; padding: 8px 10px; color: #747474; }
+  .composer .cbar { display: flex; align-items: center; gap: 12px; padding: 6px 10px; background: #fafaf9; border-top: 1px solid #e5e5e5; }
+  .radio::before { box-sizing: border-box; flex: none; }
+  .tl-icon.mail { background: #939393; } .tl-icon.cmt { background: #0176d3; } .tl-icon.int { background: #dd7a01; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+      <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>リード、取引先、商談などを検索…</div>
+      <div class="top-actions">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="avatar" style="background:#0b827c">高</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-app">サービス</div>
+      <a>ホーム</a><a>取引先</a><a>活動</a><a class="active">ケース</a><a>レポート</a>
+    </div>
+    <div class="main">
+      <div class="page-head">
+        <div class="obj-icon obj-case"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+        <div>
+          <div class="eyebrow">ケース 00001287</div>
+          <h1>月次帳票の PDF 出力でエラーになる</h1>
+        </div>
+        <div class="actions">
+          <button class="btn">
+            <svg class="ico" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>エスカレーション</button>
+          <button class="btn">編集</button>
+        </div>
+      </div>
+
+      <div class="path-card">
+        <div class="path">
+          <div class="step done">新規</div>
+          <div class="step current">対応中</div>
+          <div class="step">回答待ち</div>
+          <div class="step">解決</div>
+          <div class="step">クローズ</div>
+        </div>
+        <button class="btn primary">状況を「回答待ち」に更新</button>
+      </div>
+
+      <div class="cols">
+        <div class="col-side" style="width:420px">
+          <div class="card">
+            <div class="card-head"><h2>ケース情報</h2></div>
+            <div class="card-body">
+              <div class="grid-2" style="gap:4px 20px">
+                <div class="detail-row"><span class="k">取引先</span><span class="v"><a>株式会社ミナト精機</a></span></div>
+                <div class="detail-row"><span class="k">取引先責任者</span><span class="v"><a>情報システム課 小林 由美</a></span></div>
+                <div class="detail-row"><span class="k">受付チャネル</span><span class="v">Web</span></div>
+                <div class="detail-row"><span class="k">優先度</span><span class="v"><span class="badge amber">中</span></span></div>
+                <div class="detail-row"><span class="k">初回応答期限</span><span class="v">2026/09/16 17:00</span></div>
+                <div class="detail-row"><span class="k">初回応答</span><span class="v"><span class="badge green">期限内に応答済</span></span></div>
+                <div class="detail-row"><span class="k">キュー</span><span class="v">一次サポート</span></div>
+                <div class="detail-row"><span class="k">所有者</span><span class="v">高橋 健</span></div>
+                <div class="detail-row"><span class="k">受付日時</span><span class="v">2026/09/15 16:42</span></div>
+                <div class="detail-row"><span class="k">状況</span><span class="v">対応中</span></div>
+              </div>
+              <div class="detail-row" style="margin-top:4px"><span class="k">説明</span><span class="v">月次の出荷実績帳票を PDF 出力すると「テンプレートの読み込みに失敗しました」と表示される。9 月から発生。</span></div>
+            </div>
+          </div>
+          <div class="alert-bar info" style="align-items:flex-start">
+            <svg class="ico" style="margin-top:2px;flex:none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <span>状況を「解決」にしてから 7 日間お客様の返信が無い場合、夜間バッチで自動的に「クローズ」になります。</span>
+          </div>
+          <div class="alert-bar warn" style="align-items:flex-start">
+            <svg class="ico" style="margin-top:2px;flex:none" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            <span>エスカレーションすると優先度が「高」になり、所有者がエスカレーション先のキュー（二次サポート）に変わります。</span>
+          </div>
+        </div>
+
+        <div class="col-main">
+          <div class="card" style="flex:1">
+            <div class="card-head"><h2>コメント・メール履歴</h2><span class="count">(4)</span>
+              <div class="actions"><div class="btn-group"><button class="btn sm" style="background:#eef4ff;font-weight:700">すべて</button><button class="btn sm">公開</button><button class="btn sm">社内のみ</button></div></div>
+            </div>
+            <div class="card-body">
+              <div class="composer">
+                <div class="ta">コメントを入力…</div>
+                <div class="cbar">
+                  <span class="radio on">公開（お客様にメール通知）</span>
+                  <span class="radio">社内のみ</span>
+                  <button class="btn primary sm" style="margin-left:auto">コメントを追加</button>
+                </div>
+              </div>
+
+              <div class="feed-item internal" style="margin-top:6px">
+                <div class="tl-item" style="padding:0"><div class="tl-icon int"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div></div>
+                <div style="flex:1">
+                  <div><span class="who">高橋 健</span> <span class="badge amber">社内のみ</span> <span class="meta">2026/09/16 11:20</span></div>
+                  <div class="bubble">9 月のバージョン更新で帳票テンプレートの保存先が変わった影響の可能性。開発チームに再現確認を依頼済み。</div>
+                </div>
+              </div>
+
+              <div class="feed-item">
+                <div class="tl-item" style="padding:0"><div class="tl-icon mail"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg></div></div>
+                <div style="flex:1">
+                  <div><span class="who">小林 由美</span> <span class="badge blue">公開</span> <span class="meta">受信メール ・ kobayashi@minato-seiki.example.co.jp ・ 2026/09/16 10:48</span></div>
+                  <div class="bubble">ご連絡ありがとうございます。エラー画面のスクリーンショットと対象月（2026 年 8 月分）の情報をお送りします。</div>
+                </div>
+              </div>
+
+              <div class="feed-item">
+                <div class="tl-item" style="padding:0"><div class="tl-icon cmt"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div></div>
+                <div style="flex:1">
+                  <div><span class="who">高橋 健</span> <span class="badge blue">公開</span> <span class="meta">送信メール ・ 2026/09/16 10:05</span></div>
+                  <div class="bubble">小林様　お問い合わせありがとうございます。サポートの高橋です。状況を確認するため、エラー表示の画面と対象の帳票月を教えていただけますでしょうか。</div>
+                </div>
+              </div>
+
+              <div class="feed-item">
+                <div class="tl-item" style="padding:0"><div class="tl-icon mail"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg></div></div>
+                <div style="flex:1">
+                  <div><span class="who">小林 由美</span> <span class="badge blue">公開</span> <span class="meta">Web フォームで受付 ・ 2026/09/15 16:42</span></div>
+                  <div class="bubble">月次帳票の PDF 出力でエラーになります。至急ではありませんが月末までに解消したいです。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

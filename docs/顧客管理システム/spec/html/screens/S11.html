@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S11 見積作成</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .qline td { vertical-align: middle; }
+  .qline td .input { height: 28px; }
+  .table tr.discount-over td { background: #fef1ee; }
+  .table tr.discount-over td.rate { color: #ba0517; font-weight: 700; }
+  .rate-input { width: 72px; justify-content: flex-end; }
+  .qty-input { width: 64px; justify-content: flex-end; }
+  .price-input { width: 120px; justify-content: flex-end; }
+  .totals { width: 360px; margin-left: auto; padding: 10px 14px 14px; }
+  .totals .row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #e5e5e5; }
+  .totals .row.grand { border-bottom: none; font-size: 16px; font-weight: 700; color: #032d60; padding-top: 8px; }
+  .btn[disabled] { background: #f3f3f3; color: #a0a0a0; border-color: #dddbda; }
+  .readonly-v { height: 32px; display: flex; align-items: center; border-bottom: 1px solid #e5e5e5; }
+  .auto-tag { font-size: 11px; color: #747474; margin-left: 6px; }
+  .foot-note { font-size: 12px; color: #444; padding: 0 14px 12px; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+      <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>リード、取引先、商談などを検索…</div>
+      <div class="top-actions">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="avatar">佐</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-app">営業</div>
+      <a>ホーム</a><a>リード</a><a>取引先</a><a class="active">商談</a><a>活動</a><a>ケース</a><a>レポート</a>
+    </div>
+    <div class="main">
+      <div class="page-head">
+        <div class="obj-icon obj-quote"><svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg></div>
+        <div>
+          <div class="eyebrow">見積 ・ 商談: ミナト精機 生産管理システム刷新</div>
+          <h1>Q-2026-00042 <span class="badge amber" style="vertical-align:middle;margin-left:6px">承認待ち</span></h1>
+        </div>
+        <div class="actions">
+          <button class="btn">
+            <svg class="ico" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></svg>商談と同期</button>
+          <button class="btn" disabled>
+            <svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15l3 3 3-3"/></svg>PDF 出力</button>
+          <button class="btn primary">
+            <svg class="ico" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>承認申請</button>
+        </div>
+      </div>
+
+      <div class="alert-bar warn">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <b>値引率 20% 超のため営業マネージャーの承認が必要です</b>
+        <span>（明細 2 行目: 値引率 25%）。承認されるまで PDF 出力はできません。承認者: 営業マネージャー 山本 恵</span>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>見積ヘッダー</h2></div>
+        <div class="card-body">
+          <div class="grid-4">
+            <div class="field"><label>見積番号</label><div class="readonly-v">Q-2026-00042<span class="auto-tag">自動採番</span></div></div>
+            <div class="field"><label><span class="req">*</span>商談</label><div class="input">ミナト精機 生産管理システム刷新</div></div>
+            <div class="field"><label>取引先</label><div class="readonly-v"><a>株式会社ミナト精機</a></div></div>
+            <div class="field"><label>宛先（取引先責任者）</label><div class="select">製造部 部長 中村 浩二</div></div>
+            <div class="field"><label><span class="req">*</span>発行日</label><div class="input">2026/09/16</div></div>
+            <div class="field"><label><span class="req">*</span>有効期限</label><div class="input">2026/10/16</div><span class="muted" style="font-size:11px">既定: 発行日 ＋ 30 日</span></div>
+            <div class="field"><label>状況</label><div class="readonly-v"><span class="badge amber">承認待ち</span></div></div>
+            <div class="field"><label>商談との同期</label><div class="readonly-v muted">同期していません</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>明細</h2><span class="count">(3)</span>
+          <div class="actions"><button class="btn sm">
+            <svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>商品を追加</button></div>
+        </div>
+        <table class="table qline">
+          <thead><tr>
+            <th style="width:40px">#</th><th>商品コード</th><th>商品名</th><th class="num">数量</th><th class="num">単価</th><th class="num">値引率</th><th class="num">小計</th><th style="width:40px"></th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td>1</td><td>PRD-1010</td><td>生産管理クラウド ライセンス（年間）</td>
+              <td class="num"><div class="input qty-input" style="margin-left:auto">10</div></td>
+              <td class="num"><div class="input price-input" style="margin-left:auto">¥180,000</div></td>
+              <td class="num rate"><div class="input rate-input" style="margin-left:auto">0%</div></td>
+              <td class="num">¥1,800,000</td>
+              <td><svg class="ico muted" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></td>
+            </tr>
+            <tr class="discount-over">
+              <td>2</td><td>SRV-2200</td><td>導入支援サービス</td>
+              <td class="num"><div class="input qty-input" style="margin-left:auto">1</div></td>
+              <td class="num"><div class="input price-input" style="margin-left:auto">¥600,000</div></td>
+              <td class="num rate"><div class="input rate-input error" style="margin-left:auto">25%</div></td>
+              <td class="num">¥450,000</td>
+              <td><svg class="ico" style="color:#ba0517" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></td>
+            </tr>
+            <tr>
+              <td>3</td><td>SUP-3050</td><td>保守サポート（年間）</td>
+              <td class="num"><div class="input qty-input" style="margin-left:auto">10</div></td>
+              <td class="num"><div class="input price-input" style="margin-left:auto">¥36,000</div></td>
+              <td class="num rate"><div class="input rate-input" style="margin-left:auto">10%</div></td>
+              <td class="num">¥324,000</td>
+              <td><svg class="ico muted" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="display:flex;align-items:flex-start">
+          <div class="foot-note" style="padding-top:12px">値引率が 20% を超える明細（赤）がある見積は、営業マネージャーの承認後に PDF 出力できます。</div>
+          <div class="totals">
+            <div class="row"><span>合計（税抜）</span><span>¥2,574,000</span></div>
+            <div class="row"><span>消費税（10%）</span><span>¥257,400</span></div>
+            <div class="row grand"><span>総額</span><span>¥2,831,400</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

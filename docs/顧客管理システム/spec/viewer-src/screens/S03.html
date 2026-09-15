@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S03 リード一覧</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .lv-switch { display: flex; align-items: center; gap: 6px; font-size: 18px; font-weight: 700; }
+  .lv-switch .ico { color: #0b5cab; }
+  .filters { display: flex; align-items: flex-end; gap: 12px; padding: 0 14px 12px; border-bottom: 1px solid #e5e5e5; }
+  .filters .field { width: 190px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid #c9c9c9; border-radius: 12px; font-size: 12px; background: #fff; }
+  .th-sort { color: #181818 !important; font-weight: 700 !important; }
+  .table td .co { color: #444; }
+  .queue { display: inline-flex; align-items: center; gap: 4px; color: #8c4b02; }
+</style>
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+    <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>リード、取引先、商談などを検索…</div>
+    <div class="top-actions">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+      <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17v.01"/></svg>
+      <div class="avatar">佐藤</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-app">営業</div>
+    <a href="#">ホーム</a><a class="active" href="#">リード</a><a href="#">取引先</a><a href="#">商談</a><a href="#">活動</a><a href="#">ケース</a><a href="#">レポート</a>
+  </div>
+  <div class="main">
+    <div class="card" style="flex:1;display:flex;flex-direction:column">
+      <div class="page-head" style="border:none;border-radius:0">
+        <div class="obj-icon obj-lead"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></div>
+        <div>
+          <div class="eyebrow">リード</div>
+          <div class="lv-switch">自分の未対応リード <svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+        </div>
+        <div class="actions"><button class="btn primary">新規</button></div>
+      </div>
+      <div class="list-toolbar">
+        <span class="meta">128 件 ・ 並べ替え: 作成日（新しい順） ・ 数秒前に更新</span>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <div class="btn-group">
+            <button class="btn sm" style="background:#eef4ff;font-weight:700">自分の未対応リード</button>
+            <button class="btn sm">すべてのリード</button>
+            <button class="btn sm">未割り当てキュー</button>
+          </div>
+        </div>
+      </div>
+      <div class="filters">
+        <div class="field"><label>状況</label><div class="select">新規, 対応中</div></div>
+        <div class="field"><label>リードソース</label><div class="select">すべて</div></div>
+        <button class="btn">適用</button>
+        <span class="chip">状況: 新規, 対応中 ✕</span>
+        <span class="chip">所有者: 自分 + 未割り当て ✕</span>
+      </div>
+      <table class="table">
+        <tr>
+          <th style="width:36px"><span class="checkbox"></span></th>
+          <th>氏名</th><th>会社</th><th>状況</th><th>リードソース</th><th>都道府県</th><th>所有者</th><th class="th-sort">作成日 ▼</th>
+        </tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">井上 拓海</a></td><td class="co">白鷺建設株式会社</td><td><span class="badge blue">新規</span></td><td>Web</td><td>新潟県</td><td><span class="queue"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>未割り当て</span></td><td>2026/09/16</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">森田 彩</a></td><td class="co">株式会社しらかば農産</td><td><span class="badge blue">新規</span></td><td>Web</td><td>北海道</td><td><span class="queue"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>未割り当て</span></td><td>2026/09/15</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">小松 陽介</a></td><td class="co">東雲フーズ株式会社</td><td><span class="badge amber">対応中</span></td><td>展示会</td><td>東京都</td><td>佐藤 美咲</td><td>2026/09/14</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">石川 真理子</a></td><td class="co">株式会社みさき電子</td><td><span class="badge blue">新規</span></td><td>Web</td><td>神奈川県</td><td>佐藤 美咲</td><td>2026/09/12</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">藤田 大輔</a></td><td class="co">北斗ロジスティクス株式会社</td><td><span class="badge amber">対応中</span></td><td>紹介</td><td>埼玉県</td><td>佐藤 美咲</td><td>2026/09/10</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">中村 智也</a></td><td class="co">朝凪テクノ株式会社</td><td><span class="badge blue">新規</span></td><td>Web</td><td>沖縄県</td><td><span class="queue"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>未割り当て</span></td><td>2026/09/09</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">吉田 恵</a></td><td class="co">青葉メディカル株式会社</td><td><span class="badge amber">対応中</span></td><td>電話</td><td>東京都</td><td>佐藤 美咲</td><td>2026/09/08</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">渡辺 修</a></td><td class="co">株式会社ミナト精機</td><td><span class="badge blue">新規</span></td><td>セミナー</td><td>千葉県</td><td>佐藤 美咲</td><td>2026/09/05</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">加藤 里奈</a></td><td class="co">いろは製薬株式会社</td><td><span class="badge amber">対応中</span></td><td>Web</td><td>東京都</td><td>佐藤 美咲</td><td>2026/09/03</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">山口 健太</a></td><td class="co">株式会社つばめ運輸</td><td><span class="badge blue">新規</span></td><td>展示会</td><td>神奈川県</td><td>佐藤 美咲</td><td>2026/09/01</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">斎藤 優子</a></td><td class="co">銀河システム株式会社</td><td><span class="badge amber">対応中</span></td><td>紹介</td><td>東京都</td><td>佐藤 美咲</td><td>2026/08/28</td></tr>
+        <tr><td><span class="checkbox"></span></td><td><a href="#">清水 亮</a></td><td class="co">株式会社かえで工業</td><td><span class="badge blue">新規</span></td><td>Web</td><td>群馬県</td><td>佐藤 美咲</td><td>2026/08/27</td></tr>
+      </table>
+      <div class="pager" style="margin-top:auto;border-top:1px solid #e5e5e5">
+        <span>1–50 / 128 件（50 件／ページ）</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="btn sm" style="color:#939393">‹ 前へ</button>
+          <button class="btn sm" style="background:#0176d3;color:#fff;border-color:#0176d3">1</button>
+          <button class="btn sm">2</button>
+          <button class="btn sm">3</button>
+          <button class="btn sm">次へ ›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

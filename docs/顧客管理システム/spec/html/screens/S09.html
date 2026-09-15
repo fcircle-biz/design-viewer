@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S09 商談パイプライン</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .head-card { display: flex; flex-direction: column; }
+  .head-card .page-head { border: 0; border-radius: 0; padding-bottom: 6px; }
+  .page-head h1 .ico { color: #747474; }
+  .btn.on { background: #eef4ff; color: #032d60; font-weight: 700; border-color: #0176d3; position: relative; z-index: 1; }
+  .list-toolbar { padding: 4px 16px 12px 64px; }
+  .select.flt { min-width: 200px; gap: 10px; }
+  .select.flt b { font-weight: 400; color: #444; }
+  .summary { margin-left: auto; display: flex; align-items: center; gap: 16px; font-size: 13px; }
+  .summary strong { color: #032d60; font-size: 15px; }
+  .summary .sep { width: 1px; height: 18px; background: #e5e5e5; }
+  .summary a { display: inline-flex; align-items: center; gap: 4px; }
+  .kb-head .row { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .kb-head .prob { font-size: 12px; color: #747474; font-weight: 400; }
+  .kb-head .amt { font-weight: 700; color: #032d60; font-size: 13px; }
+  .kb-head .bar { margin-top: 6px; height: 4px; }
+  .kb-card .t { display: block; margin-bottom: 2px; line-height: 1.4; }
+  .kb-card .acc { font-size: 12px; color: #444; }
+  .kb-card .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+  .kb-card .amount { font-weight: 700; }
+  .kb-card .date { font-size: 12px; color: #444; }
+  .kb-card .date .ico { width: 12px; height: 12px; margin-right: 2px; }
+  .kb-card .own { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #444; margin-top: 6px; }
+  .kb-card.late { background: #fff7f5; }
+  .kb-card.late .date { color: #ba0517; font-weight: 700; }
+  .kb-col.drop { position: relative; }
+  .kb-card.dragging { position: absolute; z-index: 5; top: 330px; left: -20px; width: calc(100% - 16px); cursor: grabbing; }
+  .kb-col.drop { background: #eef4ff; border-color: #1b96ff; }
+  .kb-col.drop .kb-head { background: #eef4ff; }
+  .placeholder { border: 2px dashed #aacbff; border-radius: 6px; height: 92px; background: rgba(255,255,255,.5); display: grid; place-items: center; color: #747474; font-size: 12px; }
+  .drop-line { height: 3px; border-radius: 2px; background: #1b96ff; margin-top: 2px; }
+  .drop-slot { height: 96px; border-radius: 6px; background: rgba(27,150,255,.08); margin-top: -4px; }
+  .kb-col.won .kb-head .t { color: #2e844a; }
+  .grip { float: right; color: #939393; }
+  .grip .ico { width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+<div id="screen" style="height:900px">
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+      <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>リード、取引先、商談などを検索…</div>
+      <div class="top-actions">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="avatar" title="佐藤 美咲（営業担当）">佐</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-app">営業</div>
+      <a>ホーム</a><a>リード</a><a>取引先</a><a class="active">商談</a><a>活動</a><a>ケース</a><a>レポート</a>
+    </div>
+    <div class="main">
+      <div class="card head-card">
+        <div class="page-head">
+          <div class="obj-icon obj-opp"><svg class="ico" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div>
+          <div>
+            <div class="eyebrow">商談</div>
+            <h1>パイプライン <svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></h1>
+          </div>
+          <div class="actions">
+            <div class="btn-group">
+              <button class="btn on"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/></svg>カンバン</button>
+              <button class="btn"><svg class="ico" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>一覧</button>
+            </div>
+            <button class="btn primary"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新規</button>
+          </div>
+        </div>
+        <div class="list-toolbar">
+          <div class="select flt"><span><b>所有者:</b> 営業第 1 チーム</span></div>
+          <div class="select flt"><span><b>完了予定:</b> 2026 年 第 3 四半期</span></div>
+          <div class="summary">
+            <span>未完了・受注 <strong>14 件</strong></span>
+            <span class="sep"></span>
+            <span>合計金額 <strong>¥45,170,000</strong></span>
+            <span class="sep"></span>
+            <a>失注 3 件 <svg class="ico" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M9 6l6 6-6 6"/></svg></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="kanban">
+        <!-- 見込み -->
+        <div class="kb-col">
+          <div class="kb-head">
+            <div class="row"><span class="t">見込み <span class="prob">10%</span></span><span class="s">3 件</span></div>
+            <div class="amt">¥7,450,000</div>
+          </div>
+          <div class="kb-cards">
+            <div class="kb-card">
+              <a class="t">東雲フーズ 生産管理システム導入</a>
+              <div class="acc">東雲フーズ株式会社</div>
+              <div class="foot"><span class="amount">¥3,200,000</span><span class="date">2026/09/30</span></div>
+              <div class="own"><span class="avatar sm">佐</span>佐藤 美咲</div>
+            </div>
+            <div class="kb-card late">
+              <a class="t">光陽商事 基幹連携 追加開発</a>
+              <div class="acc">光陽商事株式会社</div>
+              <div class="foot"><span class="amount">¥2,800,000</span><span class="date"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 7v5M12 16h.01"/></svg>2026/08/31</span></div>
+              <div class="own"><span class="avatar sm">佐</span>佐藤 美咲</div>
+            </div>
+            <div class="kb-card">
+              <a class="t">さくら住建 現場端末 更新</a>
+              <div class="acc">株式会社さくら住建</div>
+              <div class="foot"><span class="amount">¥1,450,000</span><span class="date">2026/09/25</span></div>
+              <div class="own"><span class="avatar sm" style="background:#2e844a">田</span>田中 翔太</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 要件確認 -->
+        <div class="kb-col">
+          <div class="kb-head">
+            <div class="row"><span class="t">要件確認 <span class="prob">25%</span></span><span class="s">2 件</span></div>
+            <div class="amt">¥5,060,000</div>
+          </div>
+          <div class="kb-cards">
+            <div class="kb-card late">
+              <a class="t">ハヤテ通信 保守契約 更新</a>
+              <div class="acc">株式会社ハヤテ通信</div>
+              <div class="foot"><span class="amount">¥960,000</span><span class="date"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 7v5M12 16h.01"/></svg>2026/09/12</span></div>
+              <div class="own"><span class="avatar sm" style="background:#c23934">山</span>山本 彩</div>
+            </div>
+            <div class="kb-card">
+              <a class="t">みらい薬品 在庫管理 拡張</a>
+              <div class="acc">株式会社みらい薬品</div>
+              <div class="foot"><span class="amount">¥4,100,000</span><span class="date">2026/09/28</span></div>
+              <div class="own"><span class="avatar sm">佐</span>佐藤 美咲</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 提案 -->
+        <div class="kb-col">
+          <div class="kb-head">
+            <div class="row"><span class="t">提案 <span class="prob">50%</span></span><span class="s">3 件</span></div>
+            <div class="amt">¥16,400,000</div>
+          </div>
+          <div class="kb-cards">
+            <div class="kb-card">
+              <a class="t">北斗ロジ 倉庫管理システム刷新</a>
+              <div class="acc">北斗ロジスティクス株式会社</div>
+              <div class="foot"><span class="amount">¥8,500,000</span><span class="date">2026/09/30</span></div>
+              <div class="own"><span class="avatar sm">佐</span>佐藤 美咲</div>
+            </div>
+            <div class="placeholder">移動元</div>
+            <div class="kb-card">
+              <a class="t">アオバ電子 検査装置 リプレース</a>
+              <div class="acc">株式会社アオバ電子</div>
+              <div class="foot"><span class="amount">¥5,600,000</span><span class="date">2026/09/19</span></div>
+              <div class="own"><span class="avatar sm" style="background:#2e844a">田</span>田中 翔太</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 見積提示（ドロップ先） -->
+        <div class="kb-col drop">
+          <div class="kb-head">
+            <div class="row"><span class="t">見積提示 <span class="prob">75%</span></span><span class="s">2 件</span></div>
+            <div class="amt">¥7,580,000</div>
+          </div>
+          <div class="kb-cards">
+            <div class="kb-card">
+              <a class="t">ミナト精機 IoT 監視パッケージ</a>
+              <div class="acc">株式会社ミナト精機</div>
+              <div class="foot"><span class="amount">¥6,380,000</span><span class="date">2026/09/30</span></div>
+              <div class="own"><span class="avatar sm">佐</span>佐藤 美咲</div>
+            </div>
+            <div class="kb-card late">
+              <a class="t">中央テクノ ライセンス追加</a>
+              <div class="acc">中央テクノサービス株式会社</div>
+              <div class="foot"><span class="amount">¥1,200,000</span><span class="date"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 7v5M12 16h.01"/></svg>2026/09/15</span></div>
+              <div class="own"><span class="avatar sm" style="background:#c23934">山</span>山本 彩</div>
+            </div>
+            <div class="drop-line"></div>
+            <div class="drop-slot"></div>
+          </div>
+          <div class="kb-card dragging">
+              <span class="grip"><svg class="ico" viewBox="0 0 24 24"><path d="M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"/></svg></span>
+              <a class="t">ツバサ医療 受付システム</a>
+              <div class="acc">株式会社ツバサ医療システム</div>
+              <div class="foot"><span class="amount">¥2,300,000</span><span class="date">2026/09/26</span></div>
+              <div class="own"><span class="avatar sm">佐</span>佐藤 美咲</div>
+            </div>
+        </div>
+
+        <!-- 交渉 -->
+        <div class="kb-col">
+          <div class="kb-head">
+            <div class="row"><span class="t">交渉 <span class="prob">90%</span></span><span class="s">1 件</span></div>
+            <div class="amt">¥4,800,000</div>
+          </div>
+          <div class="kb-cards">
+            <div class="kb-card">
+              <a class="t">北斗ロジ 配送端末 200 台</a>
+              <div class="acc">北斗ロジスティクス株式会社</div>
+              <div class="foot"><span class="amount">¥4,800,000</span><span class="date">2026/09/20</span></div>
+              <div class="own"><span class="avatar sm">佐</span>佐藤 美咲</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 受注 -->
+        <div class="kb-col won">
+          <div class="kb-head">
+            <div class="row"><span class="t">受注 <span class="prob">100%</span></span><span class="s">3 件</span></div>
+            <div class="amt">¥3,880,000</div>
+          </div>
+          <div class="kb-cards">
+            <div class="kb-card">
+              <a class="t">アオバ電子 操作教育サービス</a>
+              <div class="acc">株式会社アオバ電子</div>
+              <div class="foot"><span class="amount">¥650,000</span><span class="date">2026/09/10</span></div>
+              <div class="own"><span class="avatar sm">佐</span>佐藤 美咲</div>
+            </div>
+            <div class="kb-card">
+              <a class="t">東雲フーズ ラベル印字機</a>
+              <div class="acc">東雲フーズ株式会社</div>
+              <div class="foot"><span class="amount">¥2,150,000</span><span class="date">2026/09/05</span></div>
+              <div class="own"><span class="avatar sm" style="background:#2e844a">田</span>田中 翔太</div>
+            </div>
+            <div class="kb-card">
+              <a class="t">ミナト精機九州 保守延長</a>
+              <div class="acc">ミナト精機九州株式会社</div>
+              <div class="foot"><span class="amount">¥1,080,000</span><span class="date">2026/08/28</span></div>
+              <div class="own"><span class="avatar sm">佐</span>佐藤 美咲</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

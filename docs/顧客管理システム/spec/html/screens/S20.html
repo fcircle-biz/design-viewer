@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S20 検索結果</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .gsearch.filled { color: #181818; border-color: #0176d3; box-shadow: 0 0 0 1px #0176d3 inset; }
+  .gsearch .x { margin-left: auto; color: #747474; }
+  mark { background: #fce9c7; color: inherit; padding: 0 1px; border-radius: 2px; }
+  .facets { padding: 6px 0; }
+  .facet { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 14px; color: #181818; }
+  .facet .obj-icon { width: 22px; height: 22px; border-radius: 4px; }
+  .facet .obj-icon .ico { width: 13px; height: 13px; }
+  .facet .n { margin-left: auto; color: #444; font-size: 12px; }
+  .facet.active { background: #eef4ff; box-shadow: inset 3px 0 0 #0176d3; font-weight: 700; }
+  .results { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; }
+  .card-head .obj-icon { width: 24px; height: 24px; border-radius: 4px; }
+  .card-head .obj-icon .ico { width: 14px; height: 14px; }
+  .more { padding: 8px 14px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+    <div class="gsearch filled"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>ミナト<span class="x">✕</span></div>
+    <div class="top-actions">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <div class="avatar">佐藤</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-app">営業</div>
+    <a>ホーム</a><a>リード</a><a>取引先</a><a>商談</a><a>活動</a><a>ケース</a><a>レポート</a>
+  </div>
+  <div class="main">
+    <div class="page-head">
+      <div class="obj-icon" style="background:#747474"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
+      <div>
+        <div class="eyebrow">検索結果</div>
+        <h1>「ミナト」の検索結果 18 件</h1>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="card" style="width:240px; flex:none; align-self:flex-start">
+        <div class="card-head"><h2>オブジェクト</h2></div>
+        <div class="facets">
+          <a class="facet active"><span class="obj-icon" style="background:#747474"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>すべて<span class="n">18</span></a>
+          <a class="facet"><span class="obj-icon obj-lead"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg></span>リード<span class="n">2</span></a>
+          <a class="facet"><span class="obj-icon obj-account"><svg class="ico" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span>取引先<span class="n">3</span></a>
+          <a class="facet"><span class="obj-icon obj-contact"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M14 10h4M14 14h4"/></svg></span>取引先責任者<span class="n">5</span></a>
+          <a class="facet"><span class="obj-icon obj-opp"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>商談<span class="n">5</span></a>
+          <a class="facet"><span class="obj-icon obj-case"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>ケース<span class="n">3</span></a>
+        </div>
+      </div>
+
+      <div class="results" style="flex:1; min-width:0">
+        <div class="card">
+          <div class="card-head"><span class="obj-icon obj-account"><svg class="ico" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span><h2>取引先</h2><span class="count">(3)</span></div>
+          <table class="table">
+            <thead><tr><th>取引先名</th><th>電話</th><th>所有者</th></tr></thead>
+            <tbody>
+              <tr><td><a>株式会社<mark>ミナト</mark>精機</a></td><td>03-5555-0142</td><td>佐藤 美咲</td></tr>
+              <tr><td><a><mark>ミナト</mark>ホールディングス株式会社</a></td><td>03-5555-0100</td><td>鈴木 大輔</td></tr>
+              <tr><td><a><mark>ミナト</mark>化成株式会社</a></td><td>045-555-0187</td><td>伊藤 さくら</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="obj-icon obj-contact"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M14 10h4M14 14h4"/></svg></span><h2>取引先責任者</h2><span class="count">(5)</span></div>
+          <table class="table">
+            <thead><tr><th>氏名</th><th>取引先</th><th>メール</th></tr></thead>
+            <tbody>
+              <tr><td><a>木村 浩二</a></td><td>株式会社<mark>ミナト</mark>精機</td><td>kimura.koji@example.co.jp</td></tr>
+              <tr><td><a>松本 理恵</a></td><td>株式会社<mark>ミナト</mark>精機</td><td>matsumoto.rie@example.co.jp</td></tr>
+              <tr><td><a>井上 誠</a></td><td><mark>ミナト</mark>化成株式会社</td><td>inoue.makoto@example.co.jp</td></tr>
+            </tbody>
+          </table>
+          <div class="more"><a>残り 2 件を表示</a></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="obj-icon obj-opp"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><h2>商談</h2><span class="count">(5)</span></div>
+          <table class="table">
+            <thead><tr><th>商談名</th><th>フェーズ</th><th class="num">金額</th></tr></thead>
+            <tbody>
+              <tr><td><a><mark>ミナト</mark>精機 生産管理システム更新</a></td><td>提案</td><td class="num">¥8,400,000</td></tr>
+              <tr><td><a><mark>ミナト</mark>化成 保守契約更新</a></td><td>交渉</td><td class="num">¥2,160,000</td></tr>
+              <tr><td><a><mark>ミナト</mark>精機 追加ライセンス</a></td><td><span class="badge green">受注</span></td><td class="num">¥1,200,000</td></tr>
+            </tbody>
+          </table>
+          <div class="more"><a>残り 2 件を表示</a></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="obj-icon obj-case"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span><h2>ケース</h2><span class="count">(3)</span></div>
+          <table class="table">
+            <thead><tr><th>ケース番号</th><th>件名</th><th>状況</th></tr></thead>
+            <tbody>
+              <tr><td><a>00001287</a></td><td><mark>ミナト</mark>精機 帳票出力でエラー</td><td><span class="badge blue">対応中</span></td></tr>
+              <tr><td><a>00001254</a></td><td><mark>ミナト</mark>化成 ユーザー追加の依頼</td><td><span class="badge amber">回答待ち</span></td></tr>
+              <tr><td><a>00001190</a></td><td><mark>ミナト</mark>精機 ログインできない</td><td><span class="badge gray">クローズ</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="obj-icon obj-lead"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg></span><h2>リード</h2><span class="count">(2)</span></div>
+          <table class="table">
+            <thead><tr><th>氏名</th><th>会社</th><th>状況</th></tr></thead>
+            <tbody>
+              <tr><td><a>森 陽介</a></td><td><mark>ミナト</mark>電設株式会社</td><td><span class="badge blue">対応中</span></td></tr>
+              <tr><td><a>石井 由美</a></td><td><mark>ミナト</mark>物流サービス株式会社</td><td><span class="badge gray">新規</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

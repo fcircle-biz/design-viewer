@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S17 ユーザー管理</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .gear-on { color: #0176d3; background: #eef4ff; border-radius: 4px; padding: 4px; width: 24px; height: 24px; }
+  .filters { display: flex; align-items: flex-end; gap: 10px; padding: 0 14px 12px; }
+  .filters .field { width: 180px; }
+  .filters .search { width: 260px; }
+  .input .ico { color: #747474; margin-right: 6px; }
+  .cb { display: inline-block; width: 14px; height: 14px; border: 1px solid #939393; border-radius: 3px; background: #fff; vertical-align: middle; }
+  .cb.on { background: #0176d3; border-color: #0176d3; box-shadow: inset 0 0 0 3px #0176d3, inset 0 0 0 5px #fff; }
+  .table td:first-child, .table th:first-child { width: 36px; }
+  .name { display: flex; align-items: center; gap: 8px; }
+  .table tr.inactive td { color: #747474; }
+  .lock-note { font-size: 11px; color: #8c4b02; margin-left: 6px; }
+  .selbar { font-size: 12px; color: #0b5cab; }
+</style>
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+    <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>リード、取引先、商談などを検索…</div>
+    <div class="top-actions">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <svg class="ico gear-on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <div class="avatar" style="background:#0b5cab">山本</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-app">設定</div>
+    <a class="active">ユーザー</a><a>ロール・権限</a><a>データインポート</a>
+  </div>
+  <div class="main">
+    <div class="page-head">
+      <div class="obj-icon obj-user"><svg class="ico" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <div>
+        <div class="eyebrow">設定</div>
+        <h1>ユーザー管理</h1>
+      </div>
+      <div class="actions">
+        <button class="btn">無効化</button>
+        <button class="btn primary"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新規ユーザー</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="list-toolbar">
+        <span class="meta">12 名 ・ 氏名で並べ替え</span>
+        <span class="selbar" style="margin-left:auto">1 名を選択中</span>
+      </div>
+      <div class="filters">
+        <div class="field search"><label>氏名・メールで検索</label><div class="input"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="muted">検索…</span></div></div>
+        <div class="field"><label>ロール</label><div class="select">すべて</div></div>
+        <div class="field"><label>チーム</label><div class="select">すべて</div></div>
+        <div class="field"><label>状態</label><div class="select">すべて</div></div>
+      </div>
+      <table class="table">
+        <thead><tr><th><span class="cb"></span></th><th>氏名 ▲</th><th>メール</th><th>ロール</th><th>チーム</th><th>上司</th><th>状態</th></tr></thead>
+        <tbody>
+          <tr><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#7f8de1">伊藤</span><a>伊藤 さくら</a></div></td><td>ito.sakura@example.co.jp</td><td>営業担当</td><td>営業第1チーム</td><td>鈴木 大輔</td><td><span class="badge green">有効</span></td></tr>
+          <tr><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#f88962">加藤</span><a>加藤 麻衣</a></div></td><td>kato.mai@example.co.jp</td><td>サポート担当</td><td>サポートチーム</td><td class="muted">—</td><td><span class="badge green">有効</span></td></tr>
+          <tr class="inactive"><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#939393">小林</span><a>小林 優斗</a></div></td><td>kobayashi.yuto@example.co.jp</td><td>営業担当</td><td>営業第2チーム</td><td>田中 健一</td><td><span class="badge gray">無効</span></td></tr>
+          <tr><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#5a4fcf">佐藤</span><a>佐藤 美咲</a></div></td><td>sato.misaki@example.co.jp</td><td>営業担当</td><td>営業第1チーム</td><td>鈴木 大輔</td><td><span class="badge green">有効</span></td></tr>
+          <tr><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#2e844a">鈴木</span><a>鈴木 大輔</a></div></td><td>suzuki.daisuke@example.co.jp</td><td>営業マネージャー</td><td>営業第1チーム</td><td class="muted">—</td><td><span class="badge green">有効</span></td></tr>
+          <tr class="alert"><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#cb65ff">高橋</span><a>高橋 直樹</a></div></td><td>takahashi.naoki@example.co.jp</td><td>営業担当</td><td>営業第1チーム</td><td>鈴木 大輔</td><td><span class="badge amber"><svg class="ico" viewBox="0 0 24 24" style="width:11px;height:11px;margin-right:4px"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>ロック中</span><span class="lock-note">5 回連続失敗 ・ 14:32 に解除（残り 18 分）</span></td></tr>
+          <tr><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#0176d3">田中</span><a>田中 健一</a></div></td><td>tanaka.kenichi@example.co.jp</td><td>営業マネージャー</td><td>営業第2チーム</td><td class="muted">—</td><td><span class="badge green">有効</span></td></tr>
+          <tr class="selected"><td><span class="cb on"></span></td><td><div class="name"><span class="avatar sm" style="background:#fcb95b">中村</span><a>中村 彩</a></div></td><td>nakamura.aya@example.co.jp</td><td>営業担当</td><td>営業第2チーム</td><td>田中 健一</td><td><span class="badge green">有効</span></td></tr>
+          <tr class="inactive"><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#939393">山田</span><a>山田 恵</a></div></td><td>yamada.megumi@example.co.jp</td><td>サポート担当</td><td>サポートチーム</td><td class="muted">—</td><td><span class="badge gray">無効</span></td></tr>
+          <tr><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#0b5cab">山本</span><a>山本 翔</a></div></td><td>yamamoto.sho@example.co.jp</td><td>システム管理者</td><td class="muted">—</td><td class="muted">—</td><td><span class="badge green">有効</span></td></tr>
+          <tr><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#3ba55c">吉田</span><a>吉田 和也</a></div></td><td>yoshida.kazuya@example.co.jp</td><td>サポート担当</td><td>サポートチーム</td><td class="muted">—</td><td><span class="badge green">有効</span></td></tr>
+          <tr><td><span class="cb"></span></td><td><div class="name"><span class="avatar sm" style="background:#a094ed">渡辺</span><a>渡辺 拓也</a></div></td><td>watanabe.takuya@example.co.jp</td><td>営業担当</td><td>営業第2チーム</td><td>田中 健一</td><td><span class="badge green">有効</span></td></tr>
+        </tbody>
+      </table>
+      <div class="pager"><span>1〜12 / 12 名</span><span>1 ページ 50 件</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>
