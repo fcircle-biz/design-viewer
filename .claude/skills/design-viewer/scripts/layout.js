@@ -685,7 +685,9 @@ async function layoutFlowElk(model, warnings) {
   // 起点を ELK に含めると層が 1 つ増えて全体の並びが変わるため（参照 HTML も起点は手置き）。
   const attached = new Set(items.filter(it => it.attachTo && ids.has(it.attachTo) && it.attachTo !== it.id).map(it => it.id));
   const elkItems = items.filter(it => !attached.has(it.id));
-  const elkEdges = edges.filter(e => !attached.has(e.from) && !attached.has(e.to));
+  // weak（保存後に戻る等の逆向きの遷移）は層の決定に使わない。往復の辺が ELK の層順を
+  // 入れ替え、主な流れ（左→右）が読めなくなるため。配置後に他の辺と同様に描く。
+  const elkEdges = edges.filter(e => !attached.has(e.from) && !attached.has(e.to) && e.type !== 'weak');
 
   const graph = {
     id: 'root',
@@ -705,7 +707,9 @@ async function layoutFlowElk(model, warnings) {
   });
   const nodeById = new Map(nodes.map(n => [n.id, n]));
   items.filter(it => attached.has(it.id)).forEach(it => {
-    const n = nodeById.get(it.id), t = nodeById.get(it.attachTo);
+    const n = nodeById.get(it.id), t0 = nodeById.get(it.attachTo);
+    // 相手が pin 済みなら固定後の座標を基準にする（pin は後段で適用されるため）
+    const t = t0.pin ? { ...t0, x: t0.pin.x, y: t0.pin.y } : t0;
     const gap = (typeof it.attachGap === 'number' ? it.attachGap : 130) * U;
     const side = it.attachSide || 'left';
     if (side === 'right') { n.x = t.x + t.w + gap; n.y = t.y + (t.h - n.h) / 2; }

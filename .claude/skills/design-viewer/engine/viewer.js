@@ -26,6 +26,7 @@
   var LIVE_MIN_PX = 300;      // 画面ノードの表示幅（デバイス px）がこれ以上で「大」サムネイル
   var TEXT_MIN_SCALE = 0.3;   // concept/er/dfd: 表示倍率×DPR がこれ未満なら文字を描かず箱だけ
   var EDGE_LABEL_MIN_K = 0.14;
+  var CARD_TITLE_MIN_PX = 12;  // layout: "elk" の画面カード見出しの最小文字サイズ（これ未満ならカード上に出す）
   var RASTER_CACHE_MAX = 300;
   var SETTLE_MS = 160;
 
@@ -1200,9 +1201,10 @@
       ctx.restore();
 
       // ラベル（貪欲法で重なりを間引く）
-      // layout: "elk" はラベルもズームに比例（参照 12px・左右余白 11px・高さ 26px。上限 13px、6px 未満は描かない）
-      var labelPx = modeUnit ? Math.min(13, 12*modeUnit*state.view.k) : 11;
-      var labelVisible = modeUnit ? labelPx>=6 : state.view.k>EDGE_LABEL_MIN_K;
+      // layout: "elk" はラベルもズームに比例（参照 12px・左右余白 11px・高さ 26px。10〜13px に収める。
+      // 全体表示でも遷移の意味が読めるよう、縮小しても消さない）
+      var labelPx = modeUnit ? clamp(12*modeUnit*state.view.k, 10, 13) : 11;
+      var labelVisible = modeUnit ? true : state.view.k>EDGE_LABEL_MIN_K;
       if(e.label && labelVisible){
         var labelWorld = e.labelAt || route[Math.floor(route.length/2)];
         var lp = worldToScreen(labelWorld[0], labelWorld[1]);
@@ -1344,8 +1346,14 @@
     }
   }
 
+  function platformName(scr, appName){
+    if(scr.platform==='teams') return 'Teams';
+    if(!scr.platform || scr.platform==='app') return appName;
+    return scr.platform;
+  }
+
   function screenTagText(scr){
-    return (scr.platform==='teams'?'Teams':'App')+(scr.role ? ' / '+scr.role : '');
+    return platformName(scr, 'App')+(scr.role ? ' / '+scr.role : '');
   }
 
   // 文字幅は 100px の基準フォントで測って比例計算する（カードの文字はズームに合わせて
@@ -1374,9 +1382,19 @@
 
     var cy = sr.y + 26*u, left = sr.x + 14*u, right = sr.x + sr.w - 14*u;
     var titlePx = 15*u, badgePx = 11*u;
-    if(titlePx < 4){
+    if(titlePx < CARD_TITLE_MIN_PX){
+      // 縮小時はカード内の見出しが読めないため、カードの上に固定サイズで「ID タイトル」を出す
+      // （全体表示で画面遷移を読めるようにする）
       ctx.fillStyle = '#D7DEE8';
       roundRectPath(ctx, left, cy-3*u, (right-left)*0.55, 6*u, 3*u); ctx.fill();
+      ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+      ctx.font = '700 '+CARD_TITLE_MIN_PX+'px '+FONT_STACK;
+      ctx.fillStyle = '#8390A1';
+      ctx.fillText(entry.id, sr.x, sr.y-6);
+      var idW2 = measureCached(ctx, entry.id, ctx.font) + 5;
+      ctx.font = '800 '+CARD_TITLE_MIN_PX+'px '+FONT_STACK;
+      ctx.fillStyle = '#1D2735';
+      ctx.fillText(truncateText(ctx, scr.title||'', ctx.font, Math.max(sr.w-idW2, 60)), sr.x+idW2, sr.y-6);
       return;
     }
     ctx.textBaseline = 'middle';
@@ -1580,7 +1598,7 @@
     var s = screensById.get(entry.id) || {};
     var html = '<div class="v-panel-kicker">'+escHtml(entry.id)+' ・ 画面</div>'+
       '<div class="v-panel-title">'+escHtml(s.title)+'</div>'+
-      '<div class="v-tag-row"><span class="v-tag">'+(s.platform==='teams'?'Teams':'Power Apps')+'</span>'+
+      '<div class="v-tag-row"><span class="v-tag">'+escHtml(platformName(s, 'Power Apps'))+'</span>'+
       '<span class="v-tag v-tag-slate">'+escHtml(s.role)+'</span></div>'+
       '<button class="v-open-screen-btn" type="button" data-id="'+escHtml(entry.id)+'">画面を開く（等倍プレビュー）</button>';
     html += section('目的', s.purpose ? '<div class="v-section-p">'+escHtml(s.purpose)+'</div>' : emptyHtml());

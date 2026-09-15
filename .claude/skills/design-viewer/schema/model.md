@@ -123,11 +123,18 @@ gallery はこの順に見出し帯として並ぶ |
 | `edgeStyle: "orthogonal"` | ELK の直交ルートをそのまま使う |
 | `layoutOptions` | 既定値は参照 HTML と同じ間隔（参照 px: nodeNode 130・層間 230・edgeNode 80・edgeEdge 40・componentComponent 220・padding 100）の 4 倍。キーは `elk.` を省略可 |
 | `nudge: {dx, dy}` | ELK 配置後にノードをずらす（ワールド px。`screens[]` と `nodes[]` に書ける）。「T 系の画面は上、FAQ 系は下」のような見た目上の段分けに使う |
-| `attachTo` / `attachSide` / `attachGap` | そのノードを ELK に渡さず、`attachTo` のノードの横（`left` 既定 \| `right` \| `top` \| `bottom`）に `attachGap`（参照 px、既定 130）空けて置く。起点ノード向け。起点を ELK に含めると層が 1 つ増えて全体の並びが変わるため |
+| `attachTo` / `attachSide` / `attachGap` | そのノードを ELK に渡さず、`attachTo` のノードの横（`left` 既定 \| `right` \| `top` \| `bottom`）に `attachGap`（参照 px、既定 130）空けて置く。起点ノード向け。起点を ELK に含めると層が 1 つ増えて全体の並びが変わるため。相手が `pin` 済みなら固定後の座標を基準にする |
 
 - `group` は使わない（書いてもよいが flow では無視。gallery では従来どおり使う）。
+- **`type: "weak"` の辺は層の決定に使わない**（配置後に描くだけ）。「保存後に詳細へ戻る」のような逆向きの
+  遷移は `weak` にする。`user` のまま往復の辺を書くと ELK が層順を入れ替え、主な流れ（左→右）が読めなくなる。
+  既定で隠したい場合は `toggles: [{ "type": "weak", "label": "戻る遷移を表示", "default": false }]`。
+- ハブ型（ダッシュボードから各機能へ放射状に分かれる）で、長い辺がカードの下を通る場合は、
+  全画面を `pin` で格子に置くほうが読みやすい（列の間隔を行の間隔より広くすると、辺が上下でなく左右から出入りしてカード見出しを避ける）。
 - nudge / attachTo / pin の結果ノードが重なると、`layout.js` が警告を出す。
-- 辺ラベル・線幅はズームに比例する（縮小するとラベルは消える）。
+- 辺ラベル・線幅はズームに比例する。ラベルは 10〜13px に収め、全体表示でも消さない。画面カードの見出しは
+  12px 未満になるとカードの上に固定 12px で表示する（全体表示で遷移を読めるようにするため）。
+- `screens[].platform` はカードのバッジに出る（`teams` → Teams、`app` / 未指定 → App、それ以外は値をそのまま表示）。
 - 辺が多く入り組んだグラフ（1 画面あたり 3 本超など）は曲線が交差して読みにくくなる。
   その場合は `lanes` を使うか、`edgeStyle: "orthogonal"` を試す。
 
