@@ -4,9 +4,9 @@
   var rt = DV.rt;
   // 詳細パネルと画面プレビューモーダル。
   // --- import ---
-  var KIND_LABEL_JA, escHtml, detailPanelEl, panelBodyEl, neighborToggleBtn, modalTitleEl, modalBodyEl, previewModalEl, modalScale100Btn, modalScaleFitBtn, registry, screensById, state, nodeLabel, focusNode, platformName, invalidate, nudgeViewForPanel;
+  var KIND_LABEL_JA, escHtml, detailPanelEl, panelBodyEl, neighborToggleBtn, modalTitleEl, modalBodyEl, previewModalEl, modalScale100Btn, modalScaleFitBtn, registry, screensById, batchesById, state, nodeLabel, focusNode, setMode, platformName, invalidate, nudgeViewForPanel;
   DV.links.push(function(){
-    KIND_LABEL_JA = DV.KIND_LABEL_JA; escHtml = DV.escHtml; detailPanelEl = DV.detailPanelEl; panelBodyEl = DV.panelBodyEl; neighborToggleBtn = DV.neighborToggleBtn; modalTitleEl = DV.modalTitleEl; modalBodyEl = DV.modalBodyEl; previewModalEl = DV.previewModalEl; modalScale100Btn = DV.modalScale100Btn; modalScaleFitBtn = DV.modalScaleFitBtn; registry = DV.registry; screensById = DV.screensById; state = DV.state; nodeLabel = DV.nodeLabel; focusNode = DV.focusNode; platformName = DV.platformName; invalidate = DV.invalidate; nudgeViewForPanel = DV.nudgeViewForPanel;
+    KIND_LABEL_JA = DV.KIND_LABEL_JA; escHtml = DV.escHtml; detailPanelEl = DV.detailPanelEl; panelBodyEl = DV.panelBodyEl; neighborToggleBtn = DV.neighborToggleBtn; modalTitleEl = DV.modalTitleEl; modalBodyEl = DV.modalBodyEl; previewModalEl = DV.previewModalEl; modalScale100Btn = DV.modalScale100Btn; modalScaleFitBtn = DV.modalScaleFitBtn; registry = DV.registry; screensById = DV.screensById; batchesById = DV.batchesById; state = DV.state; nodeLabel = DV.nodeLabel; focusNode = DV.focusNode; setMode = DV.setMode; platformName = DV.platformName; invalidate = DV.invalidate; nudgeViewForPanel = DV.nudgeViewForPanel;
   });
   // --- body ---
   // ---------------------------------------------------------
@@ -130,12 +130,12 @@
     return '<ul>'+info.map(function(x){ return '<li>'+escHtml(x)+'</li>'; }).join('')+'</ul>';
   }
   // 主な操作：番号バッジ付きのステップ表示。
-  function opsSection(arr){
+  function opsSection(arr, heading){
     if(!arr || !arr.length) return '';
     var rows = arr.map(function(x,i){
       return '<li class="v-op-item"><span class="v-op-num">'+(i+1)+'</span><span class="v-op-text">'+escHtml(x)+'</span></li>';
     }).join('');
-    return section('主な操作', '<ol class="v-op-list">'+rows+'</ol>');
+    return section(heading||'主な操作', '<ol class="v-op-list">'+rows+'</ol>');
   }
   // データアクセス：読み取り／書き込みするテーブルを 1 つの表にまとめる。
   function dataAccessSection(reads, writes){
@@ -202,7 +202,14 @@
   function attachPanelHandlers(){
     var rows = panelBodyEl.querySelectorAll('.v-trans-item');
     for(var i=0;i<rows.length;i++){
-      rows[i].addEventListener('click', (function(el){ return function(){ focusNode(el.getAttribute('data-target')); }; })(rows[i]));
+      rows[i].addEventListener('click', (function(el){ return function(){
+        // data-mode があれば別のモード（機能一覧 ⇔ ジョブフロー）へ切り替えてから寄る
+        var mode = el.getAttribute('data-mode');
+        // data-filter があればジョブフローをそのバッチで絞り込んでから移る
+        if(el.hasAttribute('data-filter')) DV.setJobFilter(el.getAttribute('data-filter'), { noFit:true });
+        if(mode && mode!==state.mode) setMode(mode);
+        focusNode(el.getAttribute('data-target'));
+      }; })(rows[i]));
     }
     var openBtn = panelBodyEl.querySelector('.v-open-screen-btn');
     if(openBtn){ openBtn.addEventListener('click', function(){ openScreenPreview(openBtn.getAttribute('data-id')); }); }
@@ -248,6 +255,44 @@
     panelBodyEl.innerHTML = html;
     attachPanelHandlers();
   }
+  // 別のモードにあるノードへ移る行（遷移の一覧と同じ見た目。クリックでモードを切り替えて寄る）
+  function jumpItemHtml(mode, id, label, note, filter){
+    return '<div class="v-trans-item v-dir-out" data-mode="'+escHtml(mode)+'" data-target="'+escHtml(id)+'"'+
+      (filter!=null ? ' data-filter="'+escHtml(filter)+'"' : '')+'>'+
+      '<span class="v-trans-dir">→ 移動</span>'+
+      '<span class="v-trans-node">'+escHtml(label)+'</span>'+
+      (note ? '<span class="v-trans-label">'+escHtml(note)+'</span>' : '<span class="v-trans-label v-trans-label-empty">—</span>')+
+      '</div>';
+  }
+  // バッチ機能（batches[]）: 起動・異常時・再実行の運用情報と、ジョブフロー上のジョブへの移動
+  function renderBatchPanel(entry){
+    var b = batchesById.get(entry.id) || {};
+    var tags = [];
+    if(b.schedule) tags.push('<span class="v-tag">'+escHtml(b.schedule)+'</span>');
+    if(b.trigger) tags.push('<span class="v-tag v-tag-slate">'+escHtml(b.trigger)+'</span>');
+    var html = '<div class="v-panel-kicker">'+escHtml(entry.id)+' ・ '+escHtml(KIND_LABEL_JA.batch||'バッチ')+'</div>'+
+      '<div class="v-panel-title">'+escHtml(b.title)+'</div>'+
+      '<div class="v-tag-row">'+tags.join('')+statusTagHtml(b.status)+'</div>';
+    html += section('概要', '<div class="v-callout">'+escHtml(b.purpose||'なし')+'</div>');
+    var run = [];
+    if(b.schedule) run.push('起動: '+b.schedule);
+    if(b.trigger) run.push('起動条件: '+b.trigger);
+    if(b.onError) run.push('異常時: '+b.onError);
+    if(b.rerun) run.push('再実行: '+b.rerun);
+    if(run.length) html += section('運用', infoBodyHtml(run));
+    html += opsSection(b.ops, '処理の流れ');
+    html += dataAccessSection(b.reads, b.writes);
+    html += tasksSection(b.tasks);
+    html += specSection(b.spec, '仕様');
+    html += notesSection(b.notes);
+    var job = VIEWER_DATA.modes.jobflow;
+    if(job){
+      var jobs = (job.nodes||[]).filter(function(n){ return n.batch===entry.id; }).map(function(n){ return jumpItemHtml('jobflow', n.id, n.id+' '+(n.label||''), n.sub, entry.id); }).join('');
+      html += section('ジョブフロー', jobs ? '<div class="v-trans-list">'+jobs+'</div>' : emptyHtml());
+    }
+    panelBodyEl.innerHTML = html;
+    attachPanelHandlers();
+  }
   function renderBizPanel(entry){
     var mp = entry.modePos[state.mode] || entry.modePos[Object.keys(entry.modePos)[0]];
     var n = (mp && mp.node) || {};
@@ -255,7 +300,7 @@
     // group はアクターの列（group.lane がレーン id）
     var lane = (modeObj.groups||[]).filter(function(g){ return g.lane===n.lane; })[0];
     var phase = (modeObj.phases||[]).filter(function(p){ return p.id===n.phase; })[0];
-    var html = '<div class="v-panel-kicker">'+escHtml(entry.id)+' ・ '+escHtml(KIND_LABEL_JA.biz||'業務ステップ')+'</div>'+
+    var html = '<div class="v-panel-kicker">'+escHtml(entry.id)+' ・ '+escHtml(KIND_LABEL_JA[entry.kind]||'業務ステップ')+'</div>'+
       '<div class="v-panel-title">'+escHtml(n.label||entry.id)+'</div>';
     var tags = [];
     if(lane) tags.push('<span class="v-tag">'+escHtml(lane.label)+'</span>');
@@ -268,10 +313,16 @@
         ? '<button class="v-open-screen-btn" type="button" data-id="'+escHtml(n.screen)+'">'+escHtml(n.screen)+' '+escHtml(scr.title||'')+' を開く</button>'
         : emptyHtml());
     }
+    if(n.batch){
+      var bt = batchesById.get(n.batch);
+      html += section('関連バッチ', bt && VIEWER_DATA.modes.gallery
+        ? '<div class="v-trans-list">'+jumpItemHtml('gallery', n.batch, n.batch+' '+(bt.title||''), bt.schedule)+'</div>'
+        : '<div class="v-section-p">'+escHtml(n.batch+(bt ? ' '+(bt.title||'') : ''))+'</div>');
+    }
     html += specSection(n.spec, '仕様');
     var infoHtml = infoBodyHtml(n.info);
     if(infoHtml) html += section('補足情報', infoHtml);
-    html += transitionsSection(entry.id, '前後の工程');
+    html += transitionsSection(entry.id, entry.kind==='job' ? '前後のジョブ' : '前後の工程');
     panelBodyEl.innerHTML = html;
     attachPanelHandlers();
   }
@@ -280,7 +331,8 @@
     var entry = registry.get(state.selected);
     if(!entry){ detailPanelEl.hidden=true; return; }
     if(entry.kind==='screen') renderScreenPanel(entry);
-    else if(entry.kind==='biz') renderBizPanel(entry);
+    else if(entry.kind==='batch') renderBatchPanel(entry);
+    else if(entry.kind==='biz' || entry.kind==='job') renderBizPanel(entry);
     else renderNodePanel(entry);
   }
 

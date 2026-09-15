@@ -1,0 +1,60 @@
+{
+  "modes": {
+    "jobflow": {
+      "label": "ジョブフロー",
+      "desc": "夜間に動くバッチのジョブの順序。列は処理するシステム、行はバッチ（起動のタイミング）。異常時の分岐は仕様書に記載が無いため描いていない。",
+      "lanes": [
+        { "id": "JL_SYS", "label": "顧客管理システム", "sub": "夜間バッチ" },
+        { "id": "JL_ACC", "label": "会計システム" }
+      ],
+      "phases": [
+        { "id": "JP1", "label": "J01 受注データ出力（毎日 2:00）" },
+        { "id": "JP2", "label": "J02 ケース自動クローズ（毎日 夜間）" }
+      ],
+      "nodes": [
+        { "id": "J01-0", "variant": "start", "lane": "JL_SYS", "phase": "JP1", "label": "毎日 2:00 に起動", "batch": "J01",
+          "spec": ["機能一覧（受注データ出力）: 受注した商談を毎日 2:00 に会計システム向け CSV に出力（バッチ）。"] },
+        { "id": "J01-1", "variant": "job", "lane": "JL_SYS", "phase": "JP1", "label": "前日の受注商談を抽出する", "sub": "出力済みの商談は除く", "batch": "J01",
+          "spec": [
+            "業務ルール（受注データ出力）: 前日にフェーズが「受注」になった商談を CSV 出力する。",
+            "業務ルール（受注データ出力）: 出力済みの商談には出力日時を記録し、再出力しない。"
+          ],
+          "info": ["読み取り: 商談（stage, exported_at）"] },
+        { "id": "J01-2", "variant": "job", "lane": "JL_SYS", "phase": "JP1", "label": "受注データ CSV を出力する", "sub": "取引先コード・金額・明細", "batch": "J01",
+          "spec": ["業務ルール（受注データ出力）: 取引先コード・商談名・受注日・金額・明細とともに CSV 出力する。"],
+          "info": ["読み取り: 商談・取引先（account_code）・商談商品"] },
+        { "id": "J01-3", "variant": "job", "lane": "JL_SYS", "phase": "JP1", "label": "出力日時を記録する", "sub": "商談の exported_at", "batch": "J01",
+          "spec": ["業務ルール（受注データ出力）: 出力済みの商談には出力日時を記録し、再出力しない。"],
+          "info": ["書き込み: 商談（exported_at）", "CSV の出力と記録の順序は仕様書に記載が無い（未確定）。"] },
+        { "id": "J01-4", "variant": "end", "lane": "JL_SYS", "phase": "JP1", "label": "終了", "batch": "J01" },
+        { "id": "J01-5", "variant": "end", "lane": "JL_ACC", "phase": "JP1", "label": "受注データを受け取る",
+          "spec": ["外部連携（会計システム）: 受注した商談の受注データを CSV で日次出力する。"],
+          "info": ["会計システム側の取り込み方法は対象外（仕様書の範囲外）。", "未確定事項: 会計システムとの連携方式（CSV 以外の API 連携にするか）。"] },
+
+        { "id": "J02-0", "variant": "start", "lane": "JL_SYS", "phase": "JP2", "label": "夜間に起動", "batch": "J02",
+          "info": ["起動時刻は仕様書に記載が無い（未確定）。"] },
+        { "id": "J02-1", "variant": "job", "lane": "JL_SYS", "phase": "JP2", "label": "解決から 7 日返信の無いケースを抽出する", "sub": "状況「解決」・resolved_at", "batch": "J02",
+          "spec": ["業務ルール（ケース）: 解決から 7 日間顧客の返信が無い場合、夜間バッチで自動的にクローズする。"],
+          "info": ["読み取り: ケース（status, resolved_at）", "「顧客の返信」をどの記録で判定するかは仕様書に記載が無い（未確定）。"] },
+        { "id": "J02-2", "variant": "job", "lane": "JL_SYS", "phase": "JP2", "label": "状況をクローズにする", "batch": "J02",
+          "spec": ["業務ルール（ケース）: 状況は 新規 → 対応中 → 回答待ち → 解決 → クローズ。"],
+          "info": ["書き込み: ケース（status）"] },
+        { "id": "J02-3", "variant": "end", "lane": "JL_SYS", "phase": "JP2", "label": "終了", "batch": "J02" }
+      ],
+      "edges": [
+        { "from": "J01-0", "to": "J01-1", "type": "flow" },
+        { "from": "J01-1", "to": "J01-2", "type": "flow" },
+        { "from": "J01-2", "to": "J01-5", "type": "flow", "label": "受注データ CSV" },
+        { "from": "J01-2", "to": "J01-3", "type": "flow" },
+        { "from": "J01-3", "to": "J01-4", "type": "flow" },
+
+        { "from": "J02-0", "to": "J02-1", "type": "flow" },
+        { "from": "J02-1", "to": "J02-2", "type": "flow" },
+        { "from": "J02-2", "to": "J02-3", "type": "flow" }
+      ],
+      "legend": [
+        { "type": "flow", "label": "ジョブの順序（正常終了で次へ）" }
+      ]
+    }
+  }
+}

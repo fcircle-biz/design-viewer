@@ -4,9 +4,9 @@
   var rt = DV.rt;
   // ノード本体・カード・選択ハイライトの描画。
   // --- import ---
-  var LIVE_MIN_PX, TEXT_MIN_SCALE, CARD_TITLE_MIN_PX, roundRectPath, measureCached, truncateText, registry, screensById, state, worldRectToScreen, pickBucket, getRaster, getScreenRaster, BIZ_DOT_COLOR, BIZ_LABEL_WORLD_PX, drawBizLabelOverlay, CONCEPT_VARIANT_COLOR, ER_TONE_GRAD, DFD_VARIANT_COLOR, ensureImage, rectIntersects, FONT_STACK;
+  var LIVE_MIN_PX, TEXT_MIN_SCALE, CARD_TITLE_MIN_PX, getIconPath, roundRectPath, measureCached, truncateText, registry, screensById, batchesById, state, worldRectToScreen, pickBucket, getRaster, getScreenRaster, BIZ_DOT_COLOR, JOB_DOT_COLOR, BIZ_LABEL_WORLD_PX, drawBizLabelOverlay, CONCEPT_VARIANT_COLOR, ER_TONE_GRAD, DFD_VARIANT_COLOR, ensureImage, rectIntersects, FONT_STACK;
   DV.links.push(function(){
-    LIVE_MIN_PX = DV.LIVE_MIN_PX; TEXT_MIN_SCALE = DV.TEXT_MIN_SCALE; CARD_TITLE_MIN_PX = DV.CARD_TITLE_MIN_PX; roundRectPath = DV.roundRectPath; measureCached = DV.measureCached; truncateText = DV.truncateText; registry = DV.registry; screensById = DV.screensById; state = DV.state; worldRectToScreen = DV.worldRectToScreen; pickBucket = DV.pickBucket; getRaster = DV.getRaster; getScreenRaster = DV.getScreenRaster; BIZ_DOT_COLOR = DV.BIZ_DOT_COLOR; BIZ_LABEL_WORLD_PX = DV.BIZ_LABEL_WORLD_PX; drawBizLabelOverlay = DV.drawBizLabelOverlay; CONCEPT_VARIANT_COLOR = DV.CONCEPT_VARIANT_COLOR; ER_TONE_GRAD = DV.ER_TONE_GRAD; DFD_VARIANT_COLOR = DV.DFD_VARIANT_COLOR; ensureImage = DV.ensureImage; rectIntersects = DV.rectIntersects; FONT_STACK = DV.FONT_STACK;
+    LIVE_MIN_PX = DV.LIVE_MIN_PX; TEXT_MIN_SCALE = DV.TEXT_MIN_SCALE; CARD_TITLE_MIN_PX = DV.CARD_TITLE_MIN_PX; getIconPath = DV.getIconPath; roundRectPath = DV.roundRectPath; measureCached = DV.measureCached; truncateText = DV.truncateText; registry = DV.registry; screensById = DV.screensById; batchesById = DV.batchesById; state = DV.state; worldRectToScreen = DV.worldRectToScreen; pickBucket = DV.pickBucket; getRaster = DV.getRaster; getScreenRaster = DV.getScreenRaster; BIZ_DOT_COLOR = DV.BIZ_DOT_COLOR; JOB_DOT_COLOR = DV.JOB_DOT_COLOR; BIZ_LABEL_WORLD_PX = DV.BIZ_LABEL_WORLD_PX; drawBizLabelOverlay = DV.drawBizLabelOverlay; CONCEPT_VARIANT_COLOR = DV.CONCEPT_VARIANT_COLOR; ER_TONE_GRAD = DV.ER_TONE_GRAD; DFD_VARIANT_COLOR = DV.DFD_VARIANT_COLOR; ensureImage = DV.ensureImage; rectIntersects = DV.rectIntersects; FONT_STACK = DV.FONT_STACK;
   });
   // --- body ---
   function drawNodes(ctx, cull, visSet){
@@ -24,6 +24,7 @@
       ctx.save();
       ctx.globalAlpha = c.op;
       if(entry.kind==='screen') drawScreenNode(ctx, entry, sr, c);
+      else if(entry.kind==='batch') drawBatchNode(ctx, entry, sr, c);
       else drawCacheableNode(ctx, entry, sr, c);
       ctx.restore();
     }
@@ -49,30 +50,79 @@
 
     // 見出し（スクリーン座標固定サイズ）。サムネイルが画面上で SCREEN_HEAD_MIN_W 未満の縮尺では
     // 文字が隣の画面にはみ出して読めないので描かない（layout.js の GALLERY_HEAD_MIN_W と揃える）
+    drawNodeHeading(ctx, entry.id, scr.title, screenTagText(scr), scr.platform==='teams' ? '#5B5FC7' : '#2F5BEA', sr);
+  }
+
+  // 機能一覧（格子）のノードの上に出す「ID タイトル」と右端のタグ（画面・バッチ共通）
+  function drawNodeHeading(ctx, id, title, tagText, tagColor, sr){
     if(sr.w < SCREEN_HEAD_MIN_W) return;
     var headY = sr.y-8;
     ctx.font = '700 12px '+FONT_STACK;
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    var idText = entry.id+'  ';
+    var idText = id+'  ';
     var idW = measureCached(ctx, idText, ctx.font);
     var maxHeadW = Math.max(40, sr.w);
     ctx.fillStyle = '#8A93A3';
     ctx.fillText(idText, sr.x, headY);
     ctx.fillStyle = '#1A2029';
     var titleMaxW = Math.max(10, maxHeadW-idW-(sr.w>=300?100:0));
-    ctx.fillText(truncateText(ctx, scr.title||'', ctx.font, titleMaxW), sr.x+idW, headY);
-    if(sr.w>=300){
-      var tagText = screenTagText(scr);
+    ctx.fillText(truncateText(ctx, title||'', ctx.font, titleMaxW), sr.x+idW, headY);
+    if(sr.w>=300 && tagText){
       ctx.font = '700 10px '+FONT_STACK;
       var tw = measureCached(ctx, tagText, ctx.font)+16;
       var tx = sr.x+sr.w-tw;
       roundRectPath(ctx, tx, headY-13, tw, 17, 999);
-      ctx.fillStyle = scr.platform==='teams' ? '#5B5FC7' : '#2F5BEA';
+      ctx.fillStyle = tagColor;
       ctx.fill();
       ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(tagText, tx+tw/2, headY-13+9);
       ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     }
+  }
+
+  // バッチ機能（batches[]）のカード。画面イメージが無いので、時計のアイコン・名称・起動のタイミングを描く。
+  // 文字はズームに比例する（カードの短辺に対する比率）。表（機能一覧の arrange: "table"）では名称・起動を列に出すので
+  // アイコンと「バッチ」の文字だけにする。
+  var BATCH_COLOR = { card:'#F3FAF8', border:'#8CCBC0', iconBg:'#DDF1EC', fg:'#0F766E' };
+  function drawBatchNode(ctx, entry, sr, c){
+    var b = batchesById.get(entry.id) || {};
+    var mp = entry.modePos[state.mode];
+    var inTable = !!(mp && mp.node && mp.node.table);
+    var s = Math.min(sr.w, sr.h);
+    roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, s*0.08);
+    ctx.fillStyle = BATCH_COLOR.card; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = BATCH_COLOR.border; ctx.stroke();
+    if(s < 6) return;
+    var cx = sr.x+sr.w/2;
+    var sched = inTable ? 'バッチ' : b.schedule;
+    var titlePx = inTable ? 0 : s*0.075, schedPx = s*(inTable ? 0.13 : 0.055);
+    var box = s*(inTable ? 0.42 : 0.3);
+    var textH = (titlePx>=6 ? titlePx*1.5 : 0) + (schedPx>=6 && sched ? schedPx*1.5 : 0);
+    var boxY = sr.y + (sr.h - box - textH)/2;
+    roundRectPath(ctx, cx-box/2, boxY, box, box, box*0.26);
+    ctx.fillStyle = BATCH_COLOR.iconBg; ctx.fill();
+    ctx.save();
+    var icon = box*0.62;
+    ctx.translate(cx-icon/2, boxY+box/2-icon/2);
+    ctx.scale(icon/24, icon/24);
+    ctx.strokeStyle = BATCH_COLOR.fg; ctx.lineWidth = 1.8; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.stroke(getIconPath('clock'));
+    ctx.restore();
+    var ty = boxY + box + s*0.04;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    if(titlePx >= 6){
+      ctx.font = '800 '+titlePx.toFixed(2)+'px '+FONT_STACK;
+      ctx.fillStyle = '#1A2029';
+      ctx.fillText(truncateText(ctx, b.title||'', ctx.font, sr.w*0.86), cx, ty);
+      ty += titlePx*1.5;
+    }
+    if(schedPx >= 6 && sched){
+      ctx.font = '600 '+schedPx.toFixed(2)+'px '+FONT_STACK;
+      ctx.fillStyle = BATCH_COLOR.fg;
+      ctx.fillText(truncateText(ctx, sched, ctx.font, sr.w*0.86), cx, ty);
+    }
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    if(!inTable) drawNodeHeading(ctx, entry.id, b.title, 'バッチ', BATCH_COLOR.fg, sr);
   }
 
   function platformName(scr, appName){
@@ -204,6 +254,7 @@
     if(entry.kind==='er') fill = (ER_TONE_GRAD[n.tone]||ER_TONE_GRAD.slate)[0];
     else if(entry.kind==='concept') fill = (CONCEPT_VARIANT_COLOR[n.variant]||CONCEPT_VARIANT_COLOR.entity).fg;
     else if(entry.kind==='biz') fill = BIZ_DOT_COLOR[n.variant] || BIZ_DOT_COLOR.task;
+    else if(entry.kind==='job') fill = JOB_DOT_COLOR[n.variant] || JOB_DOT_COLOR.job;
     else if(entry.kind==='dfd') fill = (DFD_VARIANT_COLOR[n.variant]||DFD_VARIANT_COLOR.proc).fg;
     else if(entry.kind==='pill') fill = '#1A2029';
     roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, Math.min(10, sr.w/4));
@@ -227,10 +278,10 @@
       drawSimpleBox(ctx, entry, sr);
       return;
     }
-    // biz: ラスタ内の label が画面上で読めなくなる倍率では、ラスタは文字なしで
+    // biz / job: ラスタ内の label が画面上で読めなくなる倍率では、ラスタは文字なしで
     // 作り直し、代わりに画面固定サイズのオーバーレイラベルを重ねて描く（二重描画防止）。
     var noText = false, overlayNode = null;
-    if(entry.kind==='biz'){
+    if(entry.kind==='biz' || entry.kind==='job'){
       var labelWorldPx = BIZ_LABEL_WORLD_PX[n.variant] || 15;
       if(labelWorldPx*state.view.k < BIZ_LABEL_OVERLAY_MIN_PX){
         noText = true;
