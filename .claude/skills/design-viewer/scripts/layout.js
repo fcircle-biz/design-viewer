@@ -337,15 +337,48 @@ function placeLaneRow(memberIds, nodeMeta, laneEdges) {
 }
 
 // ---------- gallery（ELK 不要） ----------
+// 画面名・グループ見出しはスクリーン座標で固定サイズ（12px 前後）なので、隙間をワールド px の定数に
+// すると全体表示（縮小）で文字が隣の画面やグループに食い込む。そこで「全体表示の想定倍率 k で
+// 画面上に必要な px」から隙間を決め、グループを横に並べるブロック（R 行 × 必要列）を棚詰めする。
+// R と棚の幅の候補を総当たりし、想定倍率が最も大きくなる配置を採用する。
+const GALLERY_VIEW = { w: 1500, h: 600 };   // 全体表示で使える領域の想定（タイトルカード・ツールバーを除く）
+const GALLERY_PX = { title: 30, header: 76, gutterX: 28, groupGapX: 44, groupGapY: 40, pad: 20 };
+const GALLERY_BASE = { title: 160, header: 130, gutterX: 140, groupGapX: 100, groupGapY: 100, pad: 140 };
+
+function buildGalleryLayout(blocks, cellW, cellH, R, shelfCols, k) {
+  const g = {};
+  Object.keys(GALLERY_PX).forEach(key => { g[key] = Math.max(GALLERY_BASE[key], GALLERY_PX[key] / k); });
+  const nodes = [], outGroups = [];
+  let shelfX = 0, shelfY = 0, shelfH = 0, shelfUsedCols = 0;
+  blocks.forEach(b => {
+    const cols = Math.max(1, Math.ceil(b.items.length / R));
+    const rows = Math.ceil(b.items.length / cols);
+    if (shelfUsedCols > 0 && shelfUsedCols + cols > shelfCols) {
+      shelfY += shelfH + g.groupGapY; shelfX = 0; shelfH = 0; shelfUsedCols = 0;
+    }
+    const bw = g.pad * 2 + cols * cellW + (cols - 1) * g.gutterX;
+    const bh = g.header + rows * cellH + (rows - 1) * g.title + g.pad;
+    b.items.forEach((s, idx) => {
+      const r = Math.floor(idx / cols), c = idx % cols;
+      nodes.push({
+        id: s.id, kind: 'screen', group: b.id,
+        x: shelfX + g.pad + c * (cellW + g.gutterX),
+        y: shelfY + g.header + r * (cellH + g.title),
+        w: s.w || DEFAULT_SCREEN_W, h: s.h || DEFAULT_SCREEN_H,
+      });
+    });
+    outGroups.push({ id: b.id, label: b.label, x: shelfX, y: shelfY, w: bw, h: bh });
+    shelfX += bw + g.groupGapX; shelfH = Math.max(shelfH, bh); shelfUsedCols += cols;
+  });
+  const bounds = computeBounds(nodes, outGroups, []);
+  const fitK = Math.min(0.6, GALLERY_VIEW.w / bounds.w, GALLERY_VIEW.h / bounds.h);
+  return { nodes, groups: outGroups, bounds, fitK };
+}
+
 function layoutGallery(model, warnings) {
   const screens = model.screens || [];
   const groups = model.groups || [];
   const byGroupOrder = new Map(groups.map(g => [g.id, g.order]));
-  const n = screens.length;
-  const cols = Math.max(1, Math.ceil(Math.sqrt(n * 1.6)));
-  // headerH: グループ見出し帯（fix #2）。ノード領域はグループ矩形の上端から 130px 下から
-  // 始める（見出しラベルの下に隠れないように ≥90px の要求に余裕を持たせている）。
-  const gutterX = 140, gutterY = 160, headerH = 130, laneGap = 100;
 
   // 最大セルサイズ（全画面共通のグリッドセルにする。個々の画面は自サイズのまま左上寄せ）
   let cellW = DEFAULT_SCREEN_W, cellH = DEFAULT_SCREEN_H;
@@ -355,33 +388,33 @@ function layoutGallery(model, warnings) {
   const groupOrderIds = sortedGroups.map(g => g.id);
   const unassigned = screens.some(s => !s.group || !byGroupOrder.has(s.group));
   if (unassigned) groupOrderIds.push('__unassigned__');
-
-  const nodes = [];
-  const outGroups = [];
-  let curY = 0;
-  for (const gid of groupOrderIds) {
-    const items = screens.filter(s => (s.group && byGroupOrder.has(s.group) ? s.group : '__unassigned__') === gid);
-    if (items.length === 0) continue;
-    const rows = Math.ceil(items.length / cols);
-    const laneW = cols * cellW + (cols - 1) * gutterX + gutterX * 2;
-    const laneH = headerH + rows * cellH + (rows - 1) * gutterY + gutterY;
-    items.forEach((s, idx) => {
-      const r = Math.floor(idx / cols), c = idx % cols;
-      nodes.push({
-        id: s.id, kind: 'screen', group: gid,
-        x: gutterX + c * (cellW + gutterX),
-        y: curY + headerH + r * (cellH + gutterY),
-        w: s.w || DEFAULT_SCREEN_W, h: s.h || DEFAULT_SCREEN_H,
-      });
-    });
-    const g = sortedGroups.find(g => g.id === gid);
-    outGroups.push({ id: gid, label: g ? g.label : '(未分類)', x: 0, y: curY, w: laneW, h: laneH });
-    curY += laneH + laneGap;
-  }
+  const blocks = groupOrderIds.map(gid => {
+    const g = sortedGroups.find(x => x.id === gid);
+    return {
+      id: gid, label: g ? g.label : '(未分類)',
+      items: screens.filter(s => (s.group && byGroupOrder.has(s.group) ? s.group : '__unassigned__') === gid),
+    };
+  }).filter(b => b.items.length > 0);
   if (unassigned) warnings.push('gallery: group 未設定の画面を (未分類) レーンに配置しました');
+  if (blocks.length === 0) return { nodes: [], groups: [], edges: [], bounds: { x: 0, y: 0, w: 0, h: 0 } };
 
-  const bounds = computeBounds(nodes, outGroups, []);
-  return { nodes, groups: outGroups, edges: [], bounds };
+  const maxItems = Math.max(...blocks.map(b => b.items.length));
+  let best = null;
+  for (let R = 1; R <= Math.min(maxItems, 8); R++) {
+    const colsOf = blocks.map(b => Math.ceil(b.items.length / R));
+    const totalCols = colsOf.reduce((a, c) => a + c, 0);
+    for (let shelfCols = Math.max(...colsOf); shelfCols <= totalCols; shelfCols++) {
+      // 隙間は倍率に依存し、倍率は隙間に依存するので、小さい側へ寄せながら数回反復する
+      let k = 0.2, lay = null;
+      for (let it = 0; it < 6; it++) {
+        lay = buildGalleryLayout(blocks, cellW, cellH, R, shelfCols, k);
+        if (lay.fitK >= k * 0.98) break;
+        k = lay.fitK;
+      }
+      if (!best || lay.fitK > best.fitK + 1e-6) best = lay;
+    }
+  }
+  return { nodes: best.nodes, groups: best.groups, edges: [], bounds: best.bounds };
 }
 
 function computeBounds(nodes, groups, edges) {
