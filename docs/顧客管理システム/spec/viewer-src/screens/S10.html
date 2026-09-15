@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S10 商談詳細</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .head-card .page-head { border: 0; border-radius: 0; padding-bottom: 4px; }
+  .head-card .highlights { padding-bottom: 12px; gap: 48px; }
+  .hl-item .v .avatar { display: inline-grid; vertical-align: middle; margin-right: 4px; }
+  .hl-item .v.big { font-weight: 700; color: #032d60; }
+  .hl-item .note { font-size: 11px; color: #747474; }
+  .path-wrap { border-top: 1px solid #e5e5e5; padding: 10px 16px 12px; display: flex; align-items: center; gap: 16px; }
+  .path-wrap .path { flex: 1; }
+  .path-wrap .path .step.done::before { content: "✓"; margin-right: 4px; }
+  .path-wrap .path .step.end { background: #ecebea; color: #444; }
+  .card .table tr:last-child td { border-bottom: 0; }
+  .card-head .obj-icon { width: 24px; height: 24px; border-radius: 4px; }
+  .card-head .obj-icon .ico { width: 14px; height: 14px; }
+  .card-head .sub { font-size: 12px; color: #444; margin-left: 4px; }
+  .card-head .sub .ico { width: 12px; height: 12px; color: #2e844a; }
+  .table tfoot td { background: #fafaf9; border-top: 1px solid #c9c9c9; border-bottom: 0; font-weight: 700; }
+  .table tfoot td.total { color: #032d60; font-size: 14px; }
+  .code { color: #747474; font-size: 12px; }
+  .badge .ico { width: 11px; height: 11px; margin-right: 3px; }
+  .tl-group { font-size: 12px; font-weight: 700; color: #444; padding: 8px 0 2px; display: flex; justify-content: space-between; }
+  .tl-group .muted { font-weight: 400; }
+  .tl-icon .ico { width: 14px; height: 14px; }
+  .tl-top { display: flex; justify-content: space-between; gap: 8px; }
+  .tl-date { color: #747474; font-size: 12px; white-space: nowrap; }
+  .tl-desc { font-size: 12px; color: #444; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="screen" style="height:900px">
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+      <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>リード、取引先、商談などを検索…</div>
+      <div class="top-actions">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="avatar" title="佐藤 美咲（営業担当）">佐</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-app">営業</div>
+      <a>ホーム</a><a>リード</a><a>取引先</a><a class="active">商談</a><a>活動</a><a>ケース</a><a>レポート</a>
+    </div>
+    <div class="main">
+      <div class="card head-card">
+        <div class="page-head">
+          <div class="obj-icon obj-opp"><svg class="ico" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div>
+          <div>
+            <div class="eyebrow">商談</div>
+            <h1>ミナト精機 IoT 監視パッケージ</h1>
+          </div>
+          <div class="actions">
+            <button class="btn">編集</button>
+            <button class="btn primary">フェーズを変更</button>
+          </div>
+        </div>
+        <div class="highlights">
+          <div class="hl-item"><div class="k">取引先</div><div class="v"><a>株式会社ミナト精機</a></div></div>
+          <div class="hl-item"><div class="k">金額</div><div class="v big">¥6,380,000</div><div class="note">商品明細の合計</div></div>
+          <div class="hl-item"><div class="k">確度</div><div class="v">75%</div></div>
+          <div class="hl-item"><div class="k">完了予定日</div><div class="v">2026/09/30</div></div>
+          <div class="hl-item"><div class="k">所有者</div><div class="v"><span class="avatar sm">佐</span>佐藤 美咲</div></div>
+          <div class="hl-item"><div class="k">競合先</div><div class="v">株式会社センテック</div></div>
+        </div>
+        <div class="path-wrap">
+          <div class="path">
+            <div class="step done">見込み</div>
+            <div class="step done">要件確認</div>
+            <div class="step done">提案</div>
+            <div class="step current">見積提示</div>
+            <div class="step">交渉</div>
+            <div class="step end">受注／失注</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div class="col-main">
+          <div class="card">
+            <div class="card-head">
+              <span class="obj-icon obj-opp"><svg class="ico" viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span>
+              <h2>商品明細</h2><span class="count">(4)</span>
+              <span class="sub"><svg class="ico" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></svg> 同期中の見積 Q-2026-00042 から反映</span>
+            </div>
+            <table class="table">
+              <thead><tr><th>商品</th><th class="num">数量</th><th class="num">単価</th><th class="num">値引率</th><th class="num">小計</th></tr></thead>
+              <tbody>
+                <tr><td><a>IoT ゲートウェイ GW-200</a> <span class="code">P-1020</span></td><td class="num">20</td><td class="num">¥120,000</td><td class="num">10%</td><td class="num">¥2,160,000</td></tr>
+                <tr><td><a>振動センサー VS-10</a> <span class="code">P-1104</span></td><td class="num">60</td><td class="num">¥45,000</td><td class="num">15%</td><td class="num">¥2,295,000</td></tr>
+                <tr><td><a>監視クラウド 年間ライセンス</a> <span class="code">P-3001</span></td><td class="num">1</td><td class="num">¥1,500,000</td><td class="num">5%</td><td class="num">¥1,425,000</td></tr>
+                <tr><td><a>導入設定サービス</a> <span class="code">P-9005</span></td><td class="num">1</td><td class="num">¥500,000</td><td class="num">0%</td><td class="num">¥500,000</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="4" class="num">合計（商談の金額）</td><td class="num total">¥6,380,000</td></tr></tfoot>
+            </table>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="obj-icon obj-quote"><svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></span>
+              <h2>見積</h2><span class="count">(2)</span>
+              <div class="actions"><button class="btn sm">新規見積</button></div>
+            </div>
+            <table class="table">
+              <thead><tr><th>見積番号</th><th>同期</th><th>承認状況</th><th class="num">最大値引率</th><th class="num">合計金額</th><th>発行日</th><th>有効期限</th></tr></thead>
+              <tbody>
+                <tr class="selected"><td><a>Q-2026-00042</a></td><td><span class="badge green"><svg class="ico" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></svg>同期中</span></td><td><span class="badge gray">承認不要</span></td><td class="num">15%</td><td class="num">¥6,380,000</td><td>2026/09/09</td><td>2026/10/09</td></tr>
+                <tr><td><a>Q-2026-00031</a></td><td class="muted">—</td><td><span class="badge green">承認済み（鈴木 部長）</span></td><td class="num">25%</td><td class="num">¥6,110,000</td><td>2026/08/05</td><td class="muted">2026/09/04（期限切れ）</td></tr>
+              </tbody>
+            </table>
+            <div style="padding:10px 14px;border-top:1px solid #e5e5e5">
+              <div class="alert-bar info"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>同期中にできる見積は 1 つです。値引率が 20% を超える明細を含む見積は、営業マネージャーの承認後に PDF 出力できます。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-side">
+          <div class="card" style="flex:1">
+            <div class="card-head">
+              <h2>活動</h2>
+              <div class="actions"><button class="btn sm">新規 ToDo</button><button class="btn sm">新規行動</button></div>
+            </div>
+            <div class="card-body" style="padding-top:4px">
+              <div class="tl-group"><span>予定・未完了</span></div>
+              <div class="timeline">
+                <div class="tl-item">
+                  <div class="tl-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+                  <div class="tl-body" style="border-bottom:0"><div class="tl-top"><span class="tl-title">見積内容の説明（訪問）</span><span class="tl-date">9/18 14:00</span></div><div class="tl-meta">行動 ・ 高橋 健一</div></div>
+                </div>
+              </div>
+              <div class="tl-group"><span>完了した活動</span><span class="muted">新しい順</span></div>
+              <div class="timeline">
+                <div class="tl-item">
+                  <div class="tl-icon obj-task"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">見積書 Q-2026-00042 を送付</span><span class="tl-date">9/15</span></div><div class="tl-meta">ToDo ・ 佐藤 美咲</div></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-icon obj-task"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">値引率を 20% 以内に再調整</span><span class="tl-date">9/09</span></div><div class="tl-meta">ToDo ・ 佐藤 美咲</div><div class="tl-desc">センサー 25% → 15% に変更し再見積。</div></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">要件ヒアリング（生産技術課）</span><span class="tl-date">9/08</span></div><div class="tl-meta">行動 ・ 中村 由香</div></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+                  <div class="tl-body" style="border-bottom:0"><div class="tl-top"><span class="tl-title">製品紹介（オンライン）</span><span class="tl-date">8/25</span></div><div class="tl-meta">行動 ・ 高橋 健一</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

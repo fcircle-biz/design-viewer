@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S12 活動（カレンダー・ToDo）</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .cal-card { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .cal-grid { display: grid; grid-template-columns: 56px repeat(5, 1fr); }
+  .cal-dh { text-align: center; padding: 6px 0; border-bottom: 1px solid #e5e5e5; border-left: 1px solid #e5e5e5; font-size: 12px; color: #444; }
+  .cal-dh b { display: block; font-size: 16px; color: #181818; }
+  .cal-dh.today { background: #eef4ff; }
+  .cal-dh.today b { color: #0176d3; }
+  .cal-times { position: relative; }
+  .cal-times div { height: 62px; font-size: 11px; color: #747474; text-align: right; padding-right: 6px; transform: translateY(-7px); }
+  .cal-day { position: relative; border-left: 1px solid #e5e5e5; height: 558px;
+    background-image: repeating-linear-gradient(to bottom, #e5e5e5 0, #e5e5e5 1px, transparent 1px, transparent 62px); }
+  .cal-day.today { background-color: #f7faff; }
+  .ev { position: absolute; left: 4px; right: 4px; border-radius: 4px; background: #f1e3fd; border-left: 3px solid #cb65ff; padding: 3px 6px; font-size: 11px; line-height: 1.35; overflow: hidden; }
+  .ev .t { font-size: 12px; font-weight: 700; color: #3c1a66; }
+  .ev .r { color: #0b5cab; }
+  .ev .h { color: #5c5c5c; font-size: 11px; }
+  .now-line { position: absolute; left: 0; right: 0; height: 2px; background: #ba0517; }
+  .now-line::before { content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #ba0517; }
+  .todo-card { width: 460px; flex: none; display: flex; flex-direction: column; }
+  .todo { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #e5e5e5; align-items: flex-start; }
+  .todo .checkbox { margin-top: 2px; }
+  .todo .body { flex: 1; min-width: 0; }
+  .todo .subj { color: #0b5cab; }
+  .todo .rel { font-size: 12px; color: #444; }
+  .todo .due { font-size: 12px; white-space: nowrap; text-align: right; }
+  .todo.done .subj { color: #747474; text-decoration: line-through; }
+  .todo-group { font-size: 12px; font-weight: 700; color: #444; background: #fafaf9; padding: 5px 14px; border-bottom: 1px solid #e5e5e5; }
+  .week-nav { display: flex; align-items: center; gap: 8px; }
+  .icon-btn { width: 28px; height: 28px; border: 1px solid #c9c9c9; border-radius: 4px; display: grid; place-items: center; color: #444; background: #fff; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+      <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>リード、取引先、商談などを検索…</div>
+      <div class="top-actions">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="avatar">佐</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-app">営業</div>
+      <a>ホーム</a><a>リード</a><a>取引先</a><a>商談</a><a class="active">活動</a><a>ケース</a><a>レポート</a>
+    </div>
+    <div class="main">
+      <div class="page-head">
+        <div class="obj-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+        <div>
+          <div class="eyebrow">活動</div>
+          <h1>カレンダー・ToDo</h1>
+        </div>
+        <div class="actions">
+          <button class="btn"><svg class="ico" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>新規 ToDo</button>
+          <button class="btn primary"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新規行動</button>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div class="card cal-card">
+          <div class="card-head">
+            <div class="week-nav">
+              <span class="icon-btn"><svg class="ico" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></span>
+              <span class="icon-btn"><svg class="ico" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+              <button class="btn sm">今日</button>
+              <h2 style="margin-left:6px">2026年9月14日（月）〜 9月18日（金）</h2>
+            </div>
+            <div class="actions">
+              <div class="btn-group"><button class="btn sm">日</button><button class="btn sm" style="background:#eef4ff;font-weight:700">週</button><button class="btn sm">月</button></div>
+            </div>
+          </div>
+          <div class="cal-grid">
+            <div style="border-bottom:1px solid #e5e5e5"></div>
+            <div class="cal-dh">月<b>14</b></div>
+            <div class="cal-dh">火<b>15</b></div>
+            <div class="cal-dh today">水<b>16</b></div>
+            <div class="cal-dh">木<b>17</b></div>
+            <div class="cal-dh">金<b>18</b></div>
+          </div>
+          <div class="cal-grid" style="padding-top:8px;padding-bottom:10px">
+            <div class="cal-times"><div>9:00</div><div>10:00</div><div>11:00</div><div>12:00</div><div>13:00</div><div>14:00</div><div>15:00</div><div>16:00</div><div>17:00</div></div>
+            <!-- 月 -->
+            <div class="cal-day">
+              <div class="ev" style="top:31px;height:62px"><div class="t">週次営業会議</div><div class="h">9:30–10:30</div></div>
+              <div class="ev" style="top:310px;height:93px"><div class="t">要件ヒアリング</div><div class="r">株式会社ミナト精機</div><div class="h">14:00–15:30</div></div>
+            </div>
+            <!-- 火 -->
+            <div class="cal-day">
+              <div class="ev" style="top:62px;height:62px"><div class="t">製品デモ</div><div class="r">北斗ロジスティクス株式会社</div><div class="h">10:00–11:00</div></div>
+              <div class="ev" style="top:372px;height:62px"><div class="t">見積説明</div><div class="r">東和フーズ株式会社</div><div class="h">15:00–16:00</div></div>
+            </div>
+            <!-- 水（今日） -->
+            <div class="cal-day today">
+              <div class="ev" style="top:124px;height:62px"><div class="t">訪問: 提案書提出</div><div class="r">株式会社ミナト精機</div><div class="h">11:00–12:00</div></div>
+              <div class="now-line" style="top:341px"></div>
+              <div class="ev" style="top:434px;height:62px"><div class="t">オンライン商談</div><div class="r">青葉テクノ株式会社</div><div class="h">16:00–17:00</div></div>
+            </div>
+            <!-- 木 -->
+            <div class="cal-day">
+              <div class="ev" style="top:0;height:93px"><div class="t">導入打合せ</div><div class="r">北斗ロジスティクス株式会社</div><div class="h">9:00–10:30</div></div>
+              <div class="ev" style="top:248px;height:62px"><div class="t">初回訪問</div><div class="r">リード: 丸山 修（さくら電装）</div><div class="h">13:00–14:00</div></div>
+            </div>
+            <!-- 金 -->
+            <div class="cal-day">
+              <div class="ev" style="top:186px;height:62px"><div class="t">価格交渉</div><div class="r">東和フーズ株式会社</div><div class="h">12:00–13:00</div></div>
+              <div class="ev" style="top:372px;height:93px"><div class="t">四半期見込み確認</div><div class="h">15:00–16:30</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card todo-card">
+          <div class="card-head"><h2>ToDo</h2><span class="count">(7)</span>
+            <div class="actions"><div class="select" style="height:26px;font-size:12px;gap:8px">自分の ToDo（未完了＋今週完了）</div></div>
+          </div>
+          <div class="todo-group">期日超過</div>
+          <div class="todo">
+            <span class="checkbox"></span>
+            <div class="body"><div class="subj">見積 Q-2026-00039 の再提出</div><div class="rel">商談: 東和フーズ 物流倉庫 WMS 導入</div></div>
+            <div class="due overdue">2026/09/11</div>
+          </div>
+          <div class="todo">
+            <span class="checkbox"></span>
+            <div class="body"><div class="subj">導入事例資料を送付</div><div class="rel">取引先責任者: 北斗ロジスティクス 佐々木 真理</div></div>
+            <div class="due overdue">2026/09/15</div>
+          </div>
+          <div class="todo-group">今日</div>
+          <div class="todo">
+            <span class="checkbox"></span>
+            <div class="body"><div class="subj">提案書の最終確認</div><div class="rel">商談: ミナト精機 生産管理システム刷新</div></div>
+            <div class="due">2026/09/16</div>
+          </div>
+          <div class="todo">
+            <span class="checkbox"></span>
+            <div class="body"><div class="subj">Web 問い合わせへの折り返し電話</div><div class="rel">リード: 丸山 修（さくら電装株式会社）</div></div>
+            <div class="due">2026/09/16</div>
+          </div>
+          <div class="todo-group">今後</div>
+          <div class="todo">
+            <span class="checkbox"></span>
+            <div class="body"><div class="subj">デモ環境のアカウント発行</div><div class="rel">取引先: 青葉テクノ株式会社</div></div>
+            <div class="due">2026/09/17</div>
+          </div>
+          <div class="todo">
+            <span class="checkbox"></span>
+            <div class="body"><div class="subj">問い合わせ内容を営業に共有</div><div class="rel">ケース: 00001287 帳票出力エラー</div></div>
+            <div class="due">2026/09/18</div>
+          </div>
+          <div class="todo-group">完了</div>
+          <div class="todo done">
+            <span class="checkbox on"></span>
+            <div class="body"><div class="subj">訪問日程の調整メール</div><div class="rel">取引先: 株式会社ミナト精機</div></div>
+            <div class="due muted">2026/09/14</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

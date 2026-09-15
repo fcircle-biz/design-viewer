@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S08 取引先責任者詳細</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .head-card .page-head { border: 0; border-radius: 0; padding-bottom: 4px; }
+  .head-card .highlights { padding-bottom: 12px; gap: 48px; }
+  .hl-item .v .avatar { display: inline-grid; vertical-align: middle; margin-right: 4px; }
+  .hl-item .v .ico { width: 14px; height: 14px; color: #747474; margin-right: 4px; }
+  .crumb { font-size: 12px; color: #444; }
+  .grid-2 { gap: 0 32px; }
+  .detail-row .v .ico { width: 14px; height: 14px; color: #7f8de1; margin-right: 4px; }
+  .detail-row .k .req { color: #ba0517; margin-right: 2px; }
+  .card .table tr:last-child td { border-bottom: 0; }
+  .card-head .obj-icon { width: 24px; height: 24px; border-radius: 4px; }
+  .card-head .obj-icon .ico { width: 14px; height: 14px; }
+  .tl-group { font-size: 12px; font-weight: 700; color: #444; padding: 8px 0 2px; display: flex; justify-content: space-between; }
+  .tl-group .muted { font-weight: 400; }
+  .tl-icon .ico { width: 14px; height: 14px; }
+  .tl-top { display: flex; justify-content: space-between; gap: 8px; }
+  .tl-date { color: #747474; font-size: 12px; white-space: nowrap; }
+  .tl-desc { font-size: 12px; color: #444; margin-top: 2px; }
+  .month { font-size: 12px; color: #747474; padding: 10px 0 0; border-top: 1px solid #e5e5e5; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="screen" style="height:900px">
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+      <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>リード、取引先、商談などを検索…</div>
+      <div class="top-actions">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="avatar" title="佐藤 美咲（営業担当）">佐</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-app">営業</div>
+      <a>ホーム</a><a>リード</a><a class="active">取引先</a><a>商談</a><a>活動</a><a>ケース</a><a>レポート</a>
+    </div>
+    <div class="main">
+      <div class="card head-card">
+        <div class="page-head">
+          <div class="obj-icon obj-contact"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div>
+          <div>
+            <div class="eyebrow">取引先責任者</div>
+            <h1>高橋 健一 <span style="font-size:13px;font-weight:400;color:#444">購買部 部長</span></h1>
+          </div>
+          <div class="actions">
+            <button class="btn">編集</button>
+            <button class="btn">新規 ToDo</button>
+            <button class="btn">新規行動</button>
+          </div>
+        </div>
+        <div class="highlights">
+          <div class="hl-item"><div class="k">取引先</div><div class="v"><a>株式会社ミナト精機</a></div></div>
+          <div class="hl-item"><div class="k">役職</div><div class="v">購買部 部長</div></div>
+          <div class="hl-item"><div class="k">メール</div><div class="v"><a>k.takahashi@minato-seiki.example.co.jp</a></div></div>
+          <div class="hl-item"><div class="k">電話</div><div class="v">03-5555-0131</div></div>
+          <div class="hl-item"><div class="k">所有者</div><div class="v"><span class="avatar sm">佐</span>佐藤 美咲</div></div>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div class="col-main">
+          <div class="card">
+            <div class="card-head"><h2>取引先責任者の詳細</h2></div>
+            <div class="card-body grid-2">
+              <div class="detail-row"><span class="k">氏名</span><span class="v">高橋 健一（タカハシ ケンイチ）</span></div>
+              <div class="detail-row"><span class="k"><span class="req">*</span>取引先</span><span class="v"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/></svg><a>株式会社ミナト精機</a></span></div>
+              <div class="detail-row"><span class="k">役職</span><span class="v">購買部 部長</span></div>
+              <div class="detail-row"><span class="k">所有者</span><span class="v">佐藤 美咲</span></div>
+              <div class="detail-row"><span class="k">メール</span><span class="v"><a>k.takahashi@minato-seiki.example.co.jp</a></span></div>
+              <div class="detail-row"><span class="k">作成者</span><span class="v">佐藤 美咲、2026/05/12 10:24</span></div>
+              <div class="detail-row"><span class="k">電話</span><span class="v">03-5555-0131</span></div>
+              <div class="detail-row"><span class="k">最終更新者</span><span class="v">佐藤 美咲、2026/09/08 17:02</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="obj-icon obj-opp"><svg class="ico" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+              <h2>商談</h2><span class="count">(2)</span>
+              <div class="actions"><button class="btn sm">新規</button></div>
+            </div>
+            <table class="table">
+              <thead><tr><th>商談名</th><th>取引先</th><th>フェーズ</th><th class="num">金額</th><th>完了予定日</th></tr></thead>
+              <tbody>
+                <tr><td><a>ミナト精機 IoT 監視パッケージ</a></td><td><a>株式会社ミナト精機</a></td><td><span class="badge blue">見積提示</span></td><td class="num">¥6,380,000</td><td>2026/09/30</td></tr>
+                <tr><td><a>ミナト精機 保守契約 2026 年度</a></td><td><a>株式会社ミナト精機</a></td><td><span class="badge green">受注</span></td><td class="num">¥1,800,000</td><td>2026/04/01</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="obj-icon obj-case"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              <h2>ケース</h2><span class="count">(2)</span>
+              <div class="actions"><button class="btn sm">新規</button></div>
+            </div>
+            <table class="table">
+              <thead><tr><th>ケース番号</th><th>件名</th><th>受付チャネル</th><th>状況</th><th>優先度</th><th>受付日</th></tr></thead>
+              <tbody>
+                <tr><td><a>C-00318</a></td><td>ゲートウェイがクラウドに接続できない</td><td>電話</td><td><span class="badge amber">対応中</span></td><td><span class="badge red">高</span></td><td>2026/09/15</td></tr>
+                <tr><td><a>C-00251</a></td><td>請求書の送付先変更について</td><td>メール</td><td><span class="badge gray">クローズ</span></td><td><span class="badge">低</span></td><td>2026/07/22</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="col-side">
+          <div class="card" style="flex:1">
+            <div class="card-head">
+              <h2>活動</h2>
+              <div class="actions"><button class="btn sm">新規 ToDo</button><button class="btn sm">新規行動</button></div>
+            </div>
+            <div class="card-body" style="padding-top:4px">
+              <div class="tl-group"><span>予定・未完了</span></div>
+              <div class="timeline">
+                <div class="tl-item">
+                  <div class="tl-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+                  <div class="tl-body" style="border-bottom:0"><div class="tl-top"><span class="tl-title">見積内容の説明（訪問）</span><span class="tl-date">9/18 14:00</span></div><div class="tl-meta">行動 ・ 関連先: ミナト精機 IoT 監視パッケージ</div></div>
+                </div>
+              </div>
+              <div class="tl-group"><span>完了した活動</span><span class="muted">新しい順</span></div>
+              <div class="month">2026 年 9 月</div>
+              <div class="timeline">
+                <div class="tl-item">
+                  <div class="tl-icon obj-task"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">見積書 Q-2026-00042 を送付</span><span class="tl-date">9/15</span></div><div class="tl-meta">ToDo ・ 佐藤 美咲</div></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-icon obj-task"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">決裁ルートの確認電話</span><span class="tl-date">9/11</span></div><div class="tl-meta">ToDo ・ 佐藤 美咲</div><div class="tl-desc">1,000 万円未満は部長決裁で可。</div></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+                  <div class="tl-body" style="border-bottom:0"><div class="tl-top"><span class="tl-title">提案内容のレビュー会議</span><span class="tl-date">9/03</span></div><div class="tl-meta">行動 ・ 10:00〜11:00 ・ 佐藤 美咲</div></div>
+                </div>
+              </div>
+              <div class="month">2026 年 8 月</div>
+              <div class="timeline">
+                <div class="tl-item">
+                  <div class="tl-icon obj-event"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+                  <div class="tl-body"><div class="tl-top"><span class="tl-title">製品紹介（オンライン）</span><span class="tl-date">8/25</span></div><div class="tl-meta">行動 ・ 15:00〜16:00 ・ 佐藤 美咲</div></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-icon obj-task"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+                  <div class="tl-body" style="border-bottom:0"><div class="tl-top"><span class="tl-title">資料請求へのお礼メール</span><span class="tl-date">8/18</span></div><div class="tl-meta">ToDo ・ 佐藤 美咲</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

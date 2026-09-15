@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S04 リード詳細</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .path-wrap { display: flex; align-items: center; gap: 10px; }
+  .path-wrap .path { flex: 1; }
+  .path-sep { width: 1px; height: 24px; background: #c9c9c9; }
+  .path-dq { width: 150px; height: 32px; border: 1px dashed #939393; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #444; }
+  .path-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: #444; }
+  .path-foot .btn { margin-left: auto; }
+  .tl-actions { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #e5e5e5; }
+  .tl-group { font-size: 12px; font-weight: 700; color: #444; padding: 10px 0 2px; }
+  .timeline { padding: 0 14px 8px; }
+  .detail-row .v a { color: #0b5cab; }
+</style>
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+    <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>リード、取引先、商談などを検索…</div>
+    <div class="top-actions">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+      <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17v.01"/></svg>
+      <div class="avatar">佐藤</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-app">営業</div>
+    <a href="#">ホーム</a><a class="active" href="#">リード</a><a href="#">取引先</a><a href="#">商談</a><a href="#">活動</a><a href="#">ケース</a><a href="#">レポート</a>
+  </div>
+  <div class="main">
+    <div class="page-head">
+      <div class="obj-icon obj-lead"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></div>
+      <div><div class="eyebrow">リード</div><h1>渡辺 修</h1></div>
+      <div class="actions">
+        <button class="btn primary">取引開始</button>
+        <button class="btn">編集</button>
+      </div>
+    </div>
+
+    <div class="alert-bar warn">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg>
+      <span><strong>重複の候補があります。</strong>メールアドレス osamu.watanabe@minato-seiki.example.co.jp が既存の取引先責任者と一致します:
+      <a href="#">渡辺 修（株式会社ミナト精機 / 生産技術部 課長）</a></span>
+    </div>
+
+    <div class="cols">
+      <div class="col-main">
+        <div class="card">
+          <div class="card-body">
+            <div class="path-wrap">
+              <div class="path">
+                <div class="step done">✓ 新規</div>
+                <div class="step done">✓ 対応中</div>
+                <div class="step current">評価済み</div>
+              </div>
+              <div class="path-sep"></div>
+              <div class="path-dq">不適格</div>
+            </div>
+            <div class="path-foot">
+              <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v.01M11 12h1v5h1"/></svg>
+              状況が「評価済み」のため取引開始できます。不適格にする場合は理由の選択が必要です。
+              <button class="btn sm">状況を変更</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="tabs"><a class="active" href="#">詳細</a><a href="#">関連</a></div>
+          <div class="card-body">
+            <div class="section-title">リード情報</div>
+            <div class="grid-2">
+              <div class="detail-row"><span class="k">会社</span><span class="v">株式会社ミナト精機</span></div>
+              <div class="detail-row"><span class="k">リード所有者</span><span class="v"><a href="#">佐藤 美咲</a></span></div>
+              <div class="detail-row"><span class="k">氏名</span><span class="v">渡辺 修</span></div>
+              <div class="detail-row"><span class="k">状況</span><span class="v"><span class="badge green">評価済み</span></span></div>
+              <div class="detail-row"><span class="k">メール</span><span class="v"><a href="#">osamu.watanabe@minato-seiki.example.co.jp</a></span></div>
+              <div class="detail-row"><span class="k">リードソース</span><span class="v">Web</span></div>
+              <div class="detail-row"><span class="k">電話</span><span class="v">043-555-0182</span></div>
+              <div class="detail-row"><span class="k">都道府県</span><span class="v">千葉県</span></div>
+            </div>
+            <div class="section-title" style="margin-top:14px">システム情報</div>
+            <div class="grid-2">
+              <div class="detail-row"><span class="k">作成者</span><span class="v">Web 問い合わせフォーム ・ 2026/09/05 09:12</span></div>
+              <div class="detail-row"><span class="k">最終更新者</span><span class="v">佐藤 美咲 ・ 2026/09/15 16:40</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-side" style="width:440px">
+        <div class="card">
+          <div class="card-head"><h2>活動</h2></div>
+          <div class="tl-actions">
+            <button class="btn sm"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>ToDo を追加</button>
+            <button class="btn sm"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>行動を追加</button>
+          </div>
+          <div class="timeline">
+            <div class="tl-group">予定</div>
+            <div class="tl-item">
+              <div class="tl-icon" style="background:#3ba55c"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></div>
+              <div class="tl-body"><div class="tl-title">取引開始後、提案日程を打診</div><div class="tl-meta">ToDo ・ 期日 2026/09/18 ・ 佐藤 美咲</div></div>
+            </div>
+            <div class="tl-group">完了（新しい順）</div>
+            <div class="tl-item">
+              <div class="tl-icon" style="background:#cb65ff"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg></div>
+              <div class="tl-body"><div class="tl-title">オンライン打ち合わせ（予算・導入時期の確認）</div><div class="tl-meta">行動 ・ 2026/09/15 14:00–15:00</div><div style="font-size:12px;margin-top:2px">予算確保済み、2027年1月稼働希望。評価済みに変更。</div></div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-icon" style="background:#3ba55c"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></div>
+              <div class="tl-body"><div class="tl-title">製品資料をメールで送付</div><div class="tl-meta">ToDo ・ 2026/09/09 完了</div></div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-icon" style="background:#3ba55c"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></div>
+              <div class="tl-body" style="border-bottom:none"><div class="tl-title">初回連絡（電話）</div><div class="tl-meta">ToDo ・ 2026/09/06 完了</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,213 @@
+{
+  "modes": {
+    "er": {
+      "label": "ER図",
+      "desc": "仕様書のデータモデルにある 16 テーブル。所有者（owner_id）はすべて users を参照する。活動の関連先（related_type + related_id）は複数テーブルを指すため FK の線を引いていない。",
+      "nodes": [
+        { "id": "T_ROLES", "kind": "er", "tone": "slate", "label": "ロール", "sub": "roles",
+          "info": ["parent_role_id で同じテーブルの親ロールを参照する（ロール階層）。"],
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "name", "type": "varchar", "note": "営業担当／営業マネージャー／サポート担当／システム管理者" },
+            { "name": "parent_role_id", "type": "bigint", "key": "FK", "note": "roles.id（自己参照）" }
+          ] },
+        { "id": "T_TEAMS", "kind": "er", "tone": "slate", "label": "チーム", "sub": "teams",
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "name", "type": "varchar" },
+            { "name": "manager_id", "type": "bigint", "key": "FK", "note": "users.id" }
+          ] },
+        { "id": "T_USERS", "kind": "er", "tone": "slate", "label": "ユーザー", "sub": "users",
+          "info": ["manager_id で同じテーブルの上司を参照する。", "5 回連続でログインに失敗すると locked_until に 30 分後の日時を入れる。"],
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "name", "type": "varchar" },
+            { "name": "email", "type": "varchar", "key": "UK" },
+            { "name": "role_id", "type": "bigint", "key": "FK", "note": "roles.id" },
+            { "name": "team_id", "type": "bigint", "key": "FK", "note": "teams.id" },
+            { "name": "manager_id", "type": "bigint", "key": "FK", "note": "users.id（自己参照）" },
+            { "name": "is_active", "type": "boolean" },
+            { "name": "locked_until", "type": "datetime", "note": "ロック解除日時" }
+          ] },
+        { "id": "T_LEADS", "kind": "er", "tone": "amber", "label": "リード", "sub": "leads",
+          "info": ["取引開始すると converted_* に作成した取引先・責任者・商談を記録し、読み取り専用になる。"],
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "company", "type": "varchar" },
+            { "name": "name", "type": "varchar" },
+            { "name": "email", "type": "varchar" },
+            { "name": "phone", "type": "varchar" },
+            { "name": "prefecture", "type": "varchar", "note": "割り当てルールに使う" },
+            { "name": "source", "type": "varchar", "note": "Web など" },
+            { "name": "status", "type": "varchar", "note": "新規／対応中／評価済み／不適格" },
+            { "name": "disqualify_reason", "type": "varchar", "note": "不適格時は必須" },
+            { "name": "owner_id", "type": "bigint", "key": "FK", "note": "users.id" },
+            { "name": "converted_account_id", "type": "bigint", "key": "FK", "note": "accounts.id" },
+            { "name": "converted_contact_id", "type": "bigint", "key": "FK", "note": "contacts.id" },
+            { "name": "converted_opportunity_id", "type": "bigint", "key": "FK", "note": "opportunities.id" }
+          ] },
+        { "id": "T_ACCOUNTS", "kind": "er", "tone": "blue", "label": "取引先", "sub": "accounts",
+          "info": ["parent_account_id で同じテーブルの親取引先を参照する（グループ会社の階層）。"],
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "name", "type": "varchar", "note": "必須" },
+            { "name": "corporate_number", "type": "char(13)", "key": "UK", "note": "任意・重複不可" },
+            { "name": "industry", "type": "varchar" },
+            { "name": "parent_account_id", "type": "bigint", "key": "FK", "note": "accounts.id（自己参照）" },
+            { "name": "owner_id", "type": "bigint", "key": "FK", "note": "users.id" },
+            { "name": "account_code", "type": "varchar", "note": "受注データ出力に使う" }
+          ] },
+        { "id": "T_CONTACTS", "kind": "er", "tone": "blue", "label": "取引先責任者", "sub": "contacts",
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "account_id", "type": "bigint", "key": "FK", "note": "accounts.id（必須）" },
+            { "name": "name", "type": "varchar" },
+            { "name": "title", "type": "varchar", "note": "役職" },
+            { "name": "email", "type": "varchar" },
+            { "name": "phone", "type": "varchar" },
+            { "name": "owner_id", "type": "bigint", "key": "FK", "note": "users.id" }
+          ] },
+        { "id": "T_OPPS", "kind": "er", "tone": "green", "label": "商談", "sub": "opportunities",
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "account_id", "type": "bigint", "key": "FK", "note": "accounts.id" },
+            { "name": "name", "type": "varchar" },
+            { "name": "stage", "type": "varchar", "note": "見込み〜受注／失注" },
+            { "name": "probability", "type": "int", "note": "確度 %" },
+            { "name": "amount", "type": "decimal", "note": "明細合計（無ければ手入力）" },
+            { "name": "close_date", "type": "date", "note": "完了予定日" },
+            { "name": "lost_reason", "type": "varchar", "note": "失注時は必須" },
+            { "name": "competitor", "type": "varchar", "note": "失注時は必須" },
+            { "name": "owner_id", "type": "bigint", "key": "FK", "note": "users.id" },
+            { "name": "exported_at", "type": "datetime", "note": "受注データ出力日時" }
+          ] },
+        { "id": "T_OPP_ITEMS", "kind": "er", "tone": "green", "label": "商談商品", "sub": "opportunity_line_items",
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "opportunity_id", "type": "bigint", "key": "FK", "note": "opportunities.id" },
+            { "name": "product_id", "type": "bigint", "key": "FK", "note": "products.id" },
+            { "name": "quantity", "type": "int" },
+            { "name": "unit_price", "type": "decimal" },
+            { "name": "discount_rate", "type": "decimal" }
+          ] },
+        { "id": "T_PRODUCTS", "kind": "er", "tone": "teal", "label": "商品", "sub": "products",
+          "info": ["商品マスタの管理画面は未確定（当面は管理者が CSV インポートで登録する想定）。"],
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "code", "type": "varchar", "key": "UK" },
+            { "name": "name", "type": "varchar" },
+            { "name": "list_price", "type": "decimal" },
+            { "name": "is_active", "type": "boolean" }
+          ] },
+        { "id": "T_QUOTES", "kind": "er", "tone": "green", "label": "見積", "sub": "quotes",
+          "info": ["1 つの商談で is_synced を true にできる見積は 1 つ。"],
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "opportunity_id", "type": "bigint", "key": "FK", "note": "opportunities.id" },
+            { "name": "quote_no", "type": "varchar", "key": "UK", "note": "Q-年-連番 5 桁" },
+            { "name": "status", "type": "varchar", "note": "承認待ち など" },
+            { "name": "is_synced", "type": "boolean", "note": "同期中" },
+            { "name": "expires_on", "type": "date", "note": "既定は発行日 + 30 日" },
+            { "name": "approved_by", "type": "bigint", "key": "FK", "note": "users.id" }
+          ] },
+        { "id": "T_QUOTE_ITEMS", "kind": "er", "tone": "green", "label": "見積明細", "sub": "quote_line_items",
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "quote_id", "type": "bigint", "key": "FK", "note": "quotes.id" },
+            { "name": "product_id", "type": "bigint", "key": "FK", "note": "products.id" },
+            { "name": "quantity", "type": "int" },
+            { "name": "unit_price", "type": "decimal" },
+            { "name": "discount_rate", "type": "decimal", "note": "20% 超は承認が必要" }
+          ] },
+        { "id": "T_ACTIVITIES", "kind": "er", "tone": "purple", "label": "活動", "sub": "activities",
+          "info": ["related_type（リード／取引先／取引先責任者／商談／ケース）と related_id の組で関連先を指す。FK 制約は張れないため図に線を引いていない。"],
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "type", "type": "varchar", "note": "task／event" },
+            { "name": "subject", "type": "varchar" },
+            { "name": "due_date", "type": "date", "note": "ToDo は必須" },
+            { "name": "start_at", "type": "datetime", "note": "行動は必須" },
+            { "name": "end_at", "type": "datetime", "note": "開始より後" },
+            { "name": "status", "type": "varchar" },
+            { "name": "related_type", "type": "varchar" },
+            { "name": "related_id", "type": "bigint" },
+            { "name": "owner_id", "type": "bigint", "key": "FK", "note": "users.id" }
+          ] },
+        { "id": "T_QUEUES", "kind": "er", "tone": "amber", "label": "キュー", "sub": "queues",
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "name", "type": "varchar", "note": "未割り当て／一次サポート／二次サポート 等" }
+          ] },
+        { "id": "T_CASES", "kind": "er", "tone": "amber", "label": "ケース", "sub": "cases",
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "case_no", "type": "varchar", "key": "UK" },
+            { "name": "account_id", "type": "bigint", "key": "FK", "note": "accounts.id" },
+            { "name": "contact_id", "type": "bigint", "key": "FK", "note": "contacts.id" },
+            { "name": "channel", "type": "varchar", "note": "電話／メール／Web" },
+            { "name": "status", "type": "varchar", "note": "新規〜クローズ" },
+            { "name": "priority", "type": "varchar", "note": "高／中／低" },
+            { "name": "subject", "type": "varchar" },
+            { "name": "queue_id", "type": "bigint", "key": "FK", "note": "queues.id" },
+            { "name": "owner_id", "type": "bigint", "key": "FK", "note": "users.id" },
+            { "name": "first_response_due", "type": "datetime", "note": "初回応答期限（SLA）" },
+            { "name": "resolved_at", "type": "datetime", "note": "7 日後に自動クローズ" }
+          ] },
+        { "id": "T_CASE_COMMENTS", "kind": "er", "tone": "amber", "label": "ケースコメント", "sub": "case_comments",
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "case_id", "type": "bigint", "key": "FK", "note": "cases.id" },
+            { "name": "body", "type": "text" },
+            { "name": "is_public", "type": "boolean", "note": "公開／社内のみ" },
+            { "name": "created_by", "type": "bigint", "key": "FK", "note": "users.id" },
+            { "name": "created_at", "type": "datetime" }
+          ] },
+        { "id": "T_IMPORT_JOBS", "kind": "er", "tone": "slate", "label": "インポートジョブ", "sub": "import_jobs",
+          "fields": [
+            { "name": "id", "type": "bigint", "key": "PK" },
+            { "name": "object_type", "type": "varchar", "note": "取引先／取引先責任者／リード" },
+            { "name": "file_name", "type": "varchar" },
+            { "name": "total_rows", "type": "int" },
+            { "name": "error_rows", "type": "int" },
+            { "name": "status", "type": "varchar" },
+            { "name": "created_by", "type": "bigint", "key": "FK", "note": "users.id" }
+          ] }
+      ],
+      "edges": [
+        { "from": "T_USERS", "to": "T_ROLES", "type": "rel", "fromField": "role_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_USERS", "to": "T_TEAMS", "type": "rel", "fromField": "team_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_TEAMS", "to": "T_USERS", "type": "rel", "fromField": "manager_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+
+        { "from": "T_LEADS", "to": "T_USERS", "type": "rel", "fromField": "owner_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_LEADS", "to": "T_ACCOUNTS", "type": "rel", "fromField": "converted_account_id", "toField": "id", "fromLabel": "N", "toLabel": "0..1" },
+        { "from": "T_LEADS", "to": "T_CONTACTS", "type": "rel", "fromField": "converted_contact_id", "toField": "id", "fromLabel": "N", "toLabel": "0..1" },
+        { "from": "T_LEADS", "to": "T_OPPS", "type": "rel", "fromField": "converted_opportunity_id", "toField": "id", "fromLabel": "N", "toLabel": "0..1" },
+
+        { "from": "T_ACCOUNTS", "to": "T_USERS", "type": "rel", "fromField": "owner_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_CONTACTS", "to": "T_ACCOUNTS", "type": "rel", "fromField": "account_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_CONTACTS", "to": "T_USERS", "type": "rel", "fromField": "owner_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+
+        { "from": "T_OPPS", "to": "T_ACCOUNTS", "type": "rel", "fromField": "account_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_OPPS", "to": "T_USERS", "type": "rel", "fromField": "owner_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_OPP_ITEMS", "to": "T_OPPS", "type": "rel", "fromField": "opportunity_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_OPP_ITEMS", "to": "T_PRODUCTS", "type": "rel", "fromField": "product_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+
+        { "from": "T_QUOTES", "to": "T_OPPS", "type": "rel", "fromField": "opportunity_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_QUOTES", "to": "T_USERS", "type": "rel", "fromField": "approved_by", "toField": "id", "fromLabel": "N", "toLabel": "0..1" },
+        { "from": "T_QUOTE_ITEMS", "to": "T_QUOTES", "type": "rel", "fromField": "quote_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_QUOTE_ITEMS", "to": "T_PRODUCTS", "type": "rel", "fromField": "product_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+
+        { "from": "T_ACTIVITIES", "to": "T_USERS", "type": "rel", "fromField": "owner_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+
+        { "from": "T_CASES", "to": "T_ACCOUNTS", "type": "rel", "fromField": "account_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_CASES", "to": "T_CONTACTS", "type": "rel", "fromField": "contact_id", "toField": "id", "fromLabel": "N", "toLabel": "0..1" },
+        { "from": "T_CASES", "to": "T_QUEUES", "type": "rel", "fromField": "queue_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_CASES", "to": "T_USERS", "type": "rel", "fromField": "owner_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_CASE_COMMENTS", "to": "T_CASES", "type": "rel", "fromField": "case_id", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+        { "from": "T_CASE_COMMENTS", "to": "T_USERS", "type": "rel", "fromField": "created_by", "toField": "id", "fromLabel": "N", "toLabel": "1" },
+
+        { "from": "T_IMPORT_JOBS", "to": "T_USERS", "type": "rel", "fromField": "created_by", "toField": "id", "fromLabel": "N", "toLabel": "1" }
+      ]
+    }
+  }
+}

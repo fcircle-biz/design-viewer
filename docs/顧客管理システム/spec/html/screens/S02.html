@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S02 ホーム</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .home-grid { display: grid; grid-template-columns: 1fr 1fr 380px; gap: 12px; flex: 1; min-height: 0; }
+  .kpi-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 12px; }
+  .kpi .sub { font-size: 12px; color: #444; margin-top: 6px; display: flex; justify-content: space-between; }
+  .kpi .bar { height: 10px; margin-top: 8px; }
+  .kpi .bar > span.pipe { background: #90d0fe; }
+  .stack-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #ecebea; margin-top: 8px; }
+  .stack-bar span { display: block; height: 100%; }
+  .legend { display: flex; gap: 12px; font-size: 11px; color: #444; margin-top: 6px; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list li { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid #e5e5e5; }
+  .list li:last-child { border-bottom: none; }
+  .list .t { color: #0b5cab; }
+  .list .m { font-size: 12px; color: #747474; }
+  .list .right { margin-left: auto; text-align: right; }
+  .ev-time { width: 86px; flex: none; font-size: 12px; color: #444; }
+  .ev-bar { width: 3px; align-self: stretch; border-radius: 2px; background: #cb65ff; flex: none; }
+  .rec-ico { width: 24px; height: 24px; border-radius: 4px; }
+  .rec-ico .ico { width: 14px; height: 14px; }
+  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .greet { font-size: 16px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+    <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>リード、取引先、商談などを検索…</div>
+    <div class="top-actions">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+      <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17v.01"/></svg>
+      <div class="avatar">佐藤</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-app">営業</div>
+    <a class="active" href="#">ホーム</a><a href="#">リード</a><a href="#">取引先</a><a href="#">商談</a><a href="#">活動</a><a href="#">ケース</a><a href="#">レポート</a>
+  </div>
+  <div class="main">
+    <div class="page-head">
+      <div class="obj-icon obj-user"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10H3z"/><path d="M9 21v-6h6v6"/></svg></div>
+      <div><div class="eyebrow">2026年9月16日（水）</div><div class="greet">おはようございます、佐藤 美咲さん</div></div>
+      <div class="actions"><span class="muted" style="align-self:center">今四半期: 2026年7月〜9月（残り 14 日）</span></div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="k">今四半期の目標達成率</div>
+        <div class="v">72.4%</div>
+        <div class="stack-bar"><span style="width:72.4%;background:#0176d3"></span><span style="width:27.6%;background:#90d0fe"></span></div>
+        <div class="legend"><span><i style="background:#0176d3"></i>受注額</span><span><i style="background:#90d0fe"></i>目標まで ¥8,280,000</span></div>
+      </div>
+      <div class="kpi"><div class="k">目標</div><div class="v">¥30,000,000</div><div class="sub"><span>2026年度 Q2</span></div></div>
+      <div class="kpi"><div class="k">受注額</div><div class="v">¥21,720,000</div><div class="sub"><span>受注 9 件</span><span style="color:#2e844a">先週比 +¥2,400,000</span></div></div>
+      <div class="kpi"><div class="k">パイプライン金額（未完了）</div><div class="v">¥18,650,000</div><div class="sub"><span>商談 14 件</span><span>加重 ¥10,930,000</span></div></div>
+    </div>
+
+    <div class="home-grid">
+      <div class="col">
+        <div class="card">
+          <div class="card-head">
+            <div class="obj-icon obj-opp" style="width:24px;height:24px;border-radius:4px"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div>
+            <h2>担当商談</h2><span class="count">(14)</span>
+            <div class="actions"><a href="#" style="font-size:12px">パイプラインを表示</a></div>
+          </div>
+          <table class="table">
+            <tr><th>商談名</th><th>フェーズ</th><th class="num">金額</th><th>完了予定日</th></tr>
+            <tr class="alert"><td><a href="#">ミナト精機 生産管理連携</a></td><td>交渉</td><td class="num">¥4,800,000</td><td class="overdue">2026/09/10</td></tr>
+            <tr class="alert"><td><a href="#">北斗ロジ 倉庫端末追加</a></td><td>見積提示</td><td class="num">¥1,650,000</td><td class="overdue">2026/09/12</td></tr>
+            <tr><td><a href="#">青葉メディカル 年間保守</a></td><td>提案</td><td class="num">¥2,400,000</td><td>2026/09/25</td></tr>
+            <tr><td><a href="#">東雲フーズ 受発注刷新</a></td><td>要件確認</td><td class="num">¥6,200,000</td><td>2026/09/30</td></tr>
+            <tr><td><a href="#">白鷺建設 現場管理</a></td><td>見込み</td><td class="num">¥980,000</td><td>2026/10/15</td></tr>
+          </table>
+          <div class="pager"><span><span class="overdue">2 件</span> が完了予定日を超過しています</span><a href="#">すべて表示</a></div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card">
+          <div class="card-head">
+            <div class="obj-icon obj-task" style="width:24px;height:24px;border-radius:4px"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></div>
+            <h2>今日の ToDo</h2><span class="count">(5)</span>
+            <div class="actions"><button class="btn sm">新規 ToDo</button></div>
+          </div>
+          <ul class="list">
+            <li><span class="checkbox"></span><div><div class="t">見積 Q-2026-00042 の承認状況を確認</div><div class="m">商談: ミナト精機 生産管理連携</div></div><div class="right overdue" style="font-size:12px">期日 9/14</div></li>
+            <li><span class="checkbox"></span><div><div class="t">導入事例資料を送付</div><div class="m">リード: 小松 陽介（東雲フーズ株式会社）</div></div><div class="right overdue" style="font-size:12px">期日 9/15</div></li>
+            <li><span class="checkbox"></span><div><div class="t">訪問日程の再調整を電話</div><div class="m">取引先責任者: 松本 由佳</div></div><div class="right m">期日 今日</div></li>
+            <li><span class="checkbox"></span><div><div class="t">Web 問い合わせリードに初回連絡</div><div class="m">リード: 井上 拓海（白鷺建設株式会社）</div></div><div class="right m">期日 今日</div></li>
+            <li><span class="checkbox on"></span><div><div class="t muted" style="text-decoration:line-through;color:#747474">提案書ドラフト送付</div><div class="m">商談: 青葉メディカル 年間保守</div></div><div class="right m">完了</div></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card">
+          <div class="card-head">
+            <div class="obj-icon obj-event" style="width:24px;height:24px;border-radius:4px"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div>
+            <h2>今日の予定</h2><span class="count">(3)</span>
+            <div class="actions"><a href="#" style="font-size:12px">カレンダー</a></div>
+          </div>
+          <ul class="list">
+            <li><div class="ev-time">10:00–11:00</div><div class="ev-bar"></div><div><div class="t">要件ヒアリング（オンライン）</div><div class="m">東雲フーズ 受発注刷新</div></div></li>
+            <li><div class="ev-time">14:00–15:30</div><div class="ev-bar"></div><div><div class="t">価格交渉 訪問</div><div class="m">株式会社ミナト精機 本社</div></div></li>
+            <li><div class="ev-time">17:00–17:30</div><div class="ev-bar"></div><div><div class="t">チーム週次パイプライン確認</div><div class="m">社内</div></div></li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>最近使ったレコード</h2></div>
+          <ul class="list">
+            <li><div class="obj-icon obj-opp rec-ico"><svg class="ico" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/></svg></div><div><div class="t">ミナト精機 生産管理連携</div><div class="m">商談</div></div></li>
+            <li><div class="obj-icon obj-account rec-ico"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/></svg></div><div><div class="t">北斗ロジスティクス株式会社</div><div class="m">取引先</div></div></li>
+            <li><div class="obj-icon obj-lead rec-ico"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></div><div><div class="t">小松 陽介</div><div class="m">リード</div></div></li>
+            <li><div class="obj-icon obj-quote rec-ico"><svg class="ico" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg></div><div><div class="t">Q-2026-00042</div><div class="m">見積</div></div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

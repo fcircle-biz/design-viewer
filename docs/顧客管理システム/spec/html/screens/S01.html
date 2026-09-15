@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S01 ログイン</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .login-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(180deg, #eaf5fe 0%, #f3f2f2 60%); }
+  .login-logo { display: flex; align-items: center; gap: 10px; font-size: 26px; font-weight: 700; color: #032d60; margin-bottom: 22px; }
+  .login-logo .brand-mark { width: 44px; height: 44px; font-size: 22px; border-radius: 10px; }
+  .login-card { width: 460px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 26px 30px 24px; box-shadow: 0 2px 8px rgba(0,0,0,.06); display: flex; flex-direction: column; gap: 14px; }
+  .login-card h1 { margin: 0 0 2px; font-size: 18px; }
+  .login-card .input { height: 38px; }
+  .login-card .btn.primary { height: 40px; justify-content: center; font-size: 14px; width: 100%; }
+  .login-links { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+  .login-foot { margin-top: 20px; font-size: 12px; color: #747474; }
+  .alert-bar.error { align-items: flex-start; font-size: 12px; line-height: 1.6; }
+  .alert-bar .ico { flex: none; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="login-wrap">
+    <div class="login-logo"><span class="brand-mark">C</span> Circle CRM</div>
+    <div class="login-card">
+      <h1>ログイン</h1>
+      <div class="alert-bar error">
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16.5v.01"/></svg>
+        <div>メールアドレスまたはパスワードが正しくありません。<br><strong>残り 2 回失敗するとアカウントが 30 分ロックされます。</strong></div>
+      </div>
+      <div class="field">
+        <label><span class="req">*</span>メールアドレス</label>
+        <div class="input">misaki.sato@example.co.jp</div>
+      </div>
+      <div class="field">
+        <label><span class="req">*</span>パスワード</label>
+        <div class="input error">&nbsp;</div>
+        <div class="help-error">パスワードを入力してください</div>
+      </div>
+      <button class="btn primary">ログイン</button>
+      <div class="login-links">
+        <span class="muted">5 回連続で失敗すると 30 分ロックされます</span>
+        <a href="#">パスワードを忘れた方</a>
+      </div>
+    </div>
+    <div class="login-foot">© 2026 Circle CRM ・ 対応ブラウザ: Chrome／Edge 最新版</div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,79 @@
+{
+  "modes": {
+    "concept": {
+      "label": "概念図",
+      "desc": "誰が、どの情報を、どの仕組みで扱うか。リードが取引先・取引先責任者・商談に変わり、受注後の問い合わせはケースとして取引先にひもづく。",
+      "nodes": [
+        { "id": "A_CUST", "kind": "concept", "variant": "actor", "icon": "user", "label": "顧客", "sub": "見込み客・取引先の担当者",
+          "info": ["自社サイトのフォーム、電話、メールで問い合わせる。システムには直接ログインしない。"] },
+        { "id": "A_SALES", "kind": "concept", "variant": "actor", "icon": "user", "label": "営業担当", "sub": "リード・取引先・商談の担当",
+          "info": ["自分が所有するレコードの参照／作成／更新。同じチームのレコードは参照のみ。"] },
+        { "id": "A_MGR", "kind": "concept", "variant": "actor", "icon": "team", "label": "営業マネージャー", "sub": "チームの管理",
+          "info": ["配下チームの全レコードの参照／更新、所有者の変更、値引率 20% 超の見積の承認。"] },
+        { "id": "A_SUP", "kind": "concept", "variant": "actor", "icon": "chat", "label": "サポート担当", "sub": "問い合わせ対応",
+          "info": ["ケースの参照／作成／更新、取引先・取引先責任者の参照。リード・商談タブは表示されない。"] },
+        { "id": "A_ADMIN", "kind": "concept", "variant": "actor", "icon": "shield", "label": "システム管理者", "sub": "ユーザー・データ管理",
+          "info": ["全機能、ユーザー・ロール管理、データインポート。"] },
+
+        { "id": "SYS_WEB", "kind": "concept", "variant": "system", "icon": "inbox", "label": "Web 問い合わせフォーム", "sub": "自社サイト",
+          "info": ["フォーム送信内容をリード（ソース Web・状況 新規）として自動登録する。"] },
+        { "id": "SYS_CRM", "kind": "concept", "variant": "system", "icon": "apps", "label": "顧客管理システム", "sub": "Circle CRM（ブラウザ）",
+          "info": ["対応ブラウザは Chrome／Edge の最新版。", "すべてのレコードの作成・更新・削除について、変更前後の値・変更者・日時を監査ログに 5 年間保存する。"] },
+        { "id": "SYS_MAIL", "kind": "concept", "variant": "system", "icon": "send", "label": "メールサーバー", "sub": "SMTP",
+          "info": ["担当割り当て・承認依頼・ケース更新・SLA 超過の通知メールを送る。"] },
+        { "id": "SYS_ACC", "kind": "concept", "variant": "system", "icon": "db", "label": "会計システム", "sub": "請求・入金管理（対象外）",
+          "info": ["請求・入金管理は会計システム側で行う。", "連携方式（CSV 以外の API 連携にするか）は未確定。"] },
+
+        { "id": "E_LEAD", "kind": "concept", "variant": "entity", "icon": "spark", "label": "リード", "sub": "見込み客",
+          "info": ["状況は 新規 → 対応中 → 評価済み、または 不適格（理由必須）。"] },
+        { "id": "E_ACCOUNT", "kind": "concept", "variant": "entity", "icon": "team", "label": "取引先", "sub": "法人。親取引先を 1 つ持てる",
+          "info": ["法人番号（13 桁）は任意、入力した場合は重複不可。"] },
+        { "id": "E_CONTACT", "kind": "concept", "variant": "entity", "icon": "user", "label": "取引先責任者", "sub": "取引先の担当者（個人）" },
+        { "id": "E_OPP", "kind": "concept", "variant": "entity", "icon": "flow", "label": "商談", "sub": "フェーズ・確度・金額",
+          "info": ["見込み 10% → 要件確認 25% → 提案 50% → 見積提示 75% → 交渉 90% → 受注 100% ／ 失注 0%。"] },
+        { "id": "E_QUOTE", "kind": "concept", "variant": "entity", "icon": "doc", "label": "見積", "sub": "明細・値引・承認",
+          "info": ["値引率 20% 超の明細があると営業マネージャーの承認が必要。"] },
+        { "id": "E_ACT", "kind": "concept", "variant": "entity", "icon": "cal", "label": "活動", "sub": "ToDo・行動（予定）",
+          "info": ["リード／取引先／取引先責任者／商談／ケースのいずれかに関連付ける。"] },
+        { "id": "E_CASE", "kind": "concept", "variant": "entity", "icon": "warn", "label": "ケース", "sub": "問い合わせ・SLA",
+          "info": ["初回応答 SLA は 高 4 時間、中 1 営業日、低 3 営業日。"] },
+
+        { "id": "F_IMPORT", "kind": "concept", "variant": "file", "icon": "list", "label": "インポート CSV", "sub": "取引先・責任者・リード" },
+        { "id": "F_QUOTE", "kind": "concept", "variant": "file", "icon": "doc", "label": "見積 PDF", "sub": "承認後に出力可" },
+        { "id": "F_ORDER", "kind": "concept", "variant": "file", "icon": "list", "label": "受注データ CSV", "sub": "毎日 2:00 に出力" }
+      ],
+      "edges": [
+        { "from": "A_CUST", "to": "SYS_WEB", "type": "rel", "label": "問い合わせる" },
+        { "from": "SYS_WEB", "to": "E_LEAD", "type": "rel", "label": "自動登録" },
+        { "from": "A_SALES", "to": "E_LEAD", "type": "rel", "label": "評価・取引開始" },
+        { "from": "E_LEAD", "to": "E_ACCOUNT", "type": "weak", "label": "取引開始で作成" },
+        { "from": "E_LEAD", "to": "E_OPP", "type": "weak", "label": "取引開始で作成" },
+        { "from": "E_ACCOUNT", "to": "E_CONTACT", "type": "rel", "label": "所属" },
+        { "from": "E_ACCOUNT", "to": "E_OPP", "type": "rel", "label": "持つ" },
+        { "from": "A_SALES", "to": "E_OPP", "type": "rel", "label": "進める" },
+        { "from": "E_OPP", "to": "E_QUOTE", "type": "rel", "label": "持つ" },
+        { "from": "A_MGR", "to": "E_QUOTE", "type": "rel", "label": "承認" },
+        { "from": "E_QUOTE", "to": "F_QUOTE", "type": "rel", "label": "出力" },
+        { "from": "F_QUOTE", "to": "A_CUST", "type": "rel", "label": "提示" },
+        { "from": "A_SALES", "to": "E_ACT", "type": "rel", "label": "記録" },
+        { "from": "A_CUST", "to": "A_SUP", "type": "rel", "label": "電話・メール" },
+        { "from": "A_SUP", "to": "E_CASE", "type": "rel", "label": "対応" },
+        { "from": "E_CASE", "to": "E_ACCOUNT", "type": "rel", "label": "関連" },
+        { "from": "SYS_CRM", "to": "SYS_MAIL", "type": "rel", "label": "通知を依頼" },
+        { "from": "E_OPP", "to": "F_ORDER", "type": "rel", "label": "受注分を出力" },
+        { "from": "F_ORDER", "to": "SYS_ACC", "type": "rel", "label": "取り込む" },
+        { "from": "A_ADMIN", "to": "F_IMPORT", "type": "rel", "label": "用意" },
+        { "from": "F_IMPORT", "to": "SYS_CRM", "type": "rel", "label": "一括登録" },
+        { "from": "A_MGR", "to": "SYS_CRM", "type": "rel", "label": "レポートで把握" }
+      ],
+      "legend": [
+        { "variant": "actor", "label": "人" },
+        { "variant": "system", "label": "仕組み" },
+        { "variant": "entity", "label": "情報" },
+        { "variant": "file", "label": "外部ファイル" },
+        { "type": "rel", "label": "関係" },
+        { "type": "weak", "label": "変換（取引開始）" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>S13 ケース一覧</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .filters { display: flex; gap: 12px; padding: 0 14px 12px; align-items: flex-end; border-bottom: 1px solid #e5e5e5; }
+  .filters .field .select { width: 170px; }
+  .lv-title { display: flex; align-items: center; gap: 6px; font-size: 18px; font-weight: 700; }
+  .table tr.alert td:first-child { box-shadow: inset 3px 0 0 #ba0517; }
+  .ch { display: inline-flex; align-items: center; gap: 4px; }
+  .sort { color: #181818 !important; font-weight: 700 !important; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 12px; background: #eef4ff; color: #0b5cab; font-size: 12px; border: 1px solid #b0c9f0; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> Circle CRM</div>
+      <div class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>リード、取引先、商談などを検索…</div>
+      <div class="top-actions">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="avatar" style="background:#0b827c">高</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-app">サービス</div>
+      <a>ホーム</a><a>取引先</a><a>活動</a><a class="active">ケース</a><a>レポート</a>
+    </div>
+    <div class="main">
+      <div class="card" style="flex:1;display:flex;flex-direction:column">
+        <div class="list-toolbar" style="padding-top:12px">
+          <div class="obj-icon obj-case"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+          <div>
+            <div class="muted" style="font-size:12px">ケース</div>
+            <div class="lv-title">自分のキュー <svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <div class="input" style="width:240px;gap:6px;color:#747474"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>このリストを検索…</div>
+            <button class="btn primary"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新規ケース</button>
+          </div>
+        </div>
+        <div class="filters">
+          <div class="field"><label>状況</label><div class="select">未クローズ（すべて）</div></div>
+          <div class="field"><label>優先度</label><div class="select">すべて</div></div>
+          <div class="field"><label>キュー</label><div class="select">一次サポート</div></div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <span class="chip"><svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>SLA 超過 2 件</span>
+            <span class="meta muted" style="font-size:12px">10 件 ・ 並べ替え: 初回応答期限 ・ 9/16 14:30 に更新</span>
+          </div>
+        </div>
+        <table class="table">
+          <thead><tr>
+            <th>ケース番号</th><th>件名</th><th>取引先</th><th>受付チャネル</th><th>状況</th><th>優先度</th><th class="sort">初回応答期限 ▲</th><th>所有者</th>
+          </tr></thead>
+          <tbody>
+            <tr class="alert">
+              <td><a>00001294</a></td><td>出荷指示データが連携されない</td><td><a>北斗ロジスティクス株式会社</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>電話</span></td>
+              <td><span class="badge blue">新規</span></td><td><span class="badge red">高</span></td>
+              <td><span class="overdue">2026/09/16 13:10</span> <span class="badge red" style="margin-left:4px">SLA 超過</span></td><td>高橋 健</td>
+            </tr>
+            <tr class="alert">
+              <td><a>00001289</a></td><td>ライセンス追加の手順を知りたい</td><td><a>青葉テクノ株式会社</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>メール</span></td>
+              <td><span class="badge blue">新規</span></td><td><span class="badge amber">中</span></td>
+              <td><span class="overdue">2026/09/15 17:00</span> <span class="badge red" style="margin-left:4px">SLA 超過</span></td><td>高橋 健</td>
+            </tr>
+            <tr>
+              <td><a>00001296</a></td><td>ログイン画面が表示されない</td><td><a>株式会社ミナト精機</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>電話</span></td>
+              <td><span class="badge blue">新規</span></td><td><span class="badge red">高</span></td>
+              <td>2026/09/16 17:45</td><td>高橋 健</td>
+            </tr>
+            <tr>
+              <td><a>00001287</a></td><td>月次帳票の PDF 出力でエラーになる</td><td><a>株式会社ミナト精機</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>Web</span></td>
+              <td><span class="badge purple">対応中</span></td><td><span class="badge amber">中</span></td>
+              <td>2026/09/16 17:00 <span class="muted" style="font-size:11px">応答済</span></td><td>高橋 健</td>
+            </tr>
+            <tr>
+              <td><a>00001297</a></td><td>CSV 取込時に文字化けする</td><td><a>東和フーズ株式会社</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>メール</span></td>
+              <td><span class="badge blue">新規</span></td><td><span class="badge amber">中</span></td>
+              <td>2026/09/17 14:20</td><td>高橋 健</td>
+            </tr>
+            <tr>
+              <td><a>00001281</a></td><td>請求先住所の変更依頼</td><td><a>さくら電装株式会社</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>Web</span></td>
+              <td><span class="badge amber">回答待ち</span></td><td><span class="badge gray">低</span></td>
+              <td>2026/09/17 10:00 <span class="muted" style="font-size:11px">応答済</span></td><td>高橋 健</td>
+            </tr>
+            <tr>
+              <td><a>00001298</a></td><td>操作マニュアルの最新版がほしい</td><td><a>青葉テクノ株式会社</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>Web</span></td>
+              <td><span class="badge blue">新規</span></td><td><span class="badge gray">低</span></td>
+              <td>2026/09/18 11:30</td><td>高橋 健</td>
+            </tr>
+            <tr>
+              <td><a>00001276</a></td><td>在庫引当の計算結果が合わない</td><td><a>北斗ロジスティクス株式会社</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>メール</span></td>
+              <td><span class="badge purple">対応中</span></td><td><span class="badge amber">中</span></td>
+              <td>2026/09/10 16:00 <span class="muted" style="font-size:11px">応答済</span></td><td>高橋 健</td>
+            </tr>
+            <tr>
+              <td><a>00001270</a></td><td>ユーザー追加後に権限が反映されない</td><td><a>東和フーズ株式会社</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>電話</span></td>
+              <td><span class="badge green">解決</span></td><td><span class="badge amber">中</span></td>
+              <td>2026/09/08 12:00 <span class="muted" style="font-size:11px">応答済</span></td><td>高橋 健</td>
+            </tr>
+            <tr>
+              <td><a>00001265</a></td><td>保守契約の更新時期について</td><td><a>株式会社ミナト精機</a></td>
+              <td><span class="ch"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>メール</span></td>
+              <td><span class="badge green">解決</span></td><td><span class="badge gray">低</span></td>
+              <td>2026/09/04 18:00 <span class="muted" style="font-size:11px">応答済</span></td><td>高橋 健</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="pager" style="margin-top:auto">
+          <span>1–10 / 10 件（1 ページ 50 件）</span>
+          <span>赤い行は初回応答 SLA（高 4 時間・中 1 営業日・低 3 営業日）を超過したケースです</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
