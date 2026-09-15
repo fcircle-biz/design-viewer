@@ -119,6 +119,28 @@ function labelCenterFromElk(elkEdge, fallbackRoute) {
   return undefined;
 }
 
+/**
+ * 直交ルート上のラベル中心。ルートの弧長中点は、複数の辺が合流する縦の通路（層間の曲がり角）に
+ * 落ちやすく、そこではラベルが隣のノードに食い込む。そこで各線分の中点を候補にし、
+ * 「ラベル矩形（11px 文字の見積もり）がどのノードにも重ならない」→「水平」→「線分が長い」の順で選ぶ。
+ */
+function labelOnRoute(route, label, rects) {
+  if (!route || route.length < 2) return midpointAlongRoute(route);
+  const lw = estimateTextWidth(label, 11) + 18, lh = 20;
+  let best = null;
+  for (let i = 0; i < route.length - 1; i++) {
+    const [a, b] = [route[i], route[i + 1]];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len === 0) continue;
+    const c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const hits = rects.some(r => c[0] - lw / 2 < r.x + r.w && c[0] + lw / 2 > r.x && c[1] - lh / 2 < r.y + r.h && c[1] + lh / 2 > r.y);
+    const horizontal = Math.abs(b[1] - a[1]) < 1;
+    const score = (hits ? 0 : 1e6) + (horizontal ? 1e5 : 0) + Math.min(len, 1e5 - 1);
+    if (!best || score > best.score) best = { c, score };
+  }
+  return best ? best.c : midpointAlongRoute(route);
+}
+
 // ---------- 交差カウント（concept / dfd の layered vs stress 比較用） ----------
 function segmentsIntersect(p1, p2, p3, p4) {
   function cross(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
@@ -179,20 +201,37 @@ function boundsOfPosMap(posMap) {
 const FIT_W = 1480, FIT_H = 640;
 function fitZoom(bounds) { return Math.min(FIT_W / Math.max(bounds.w, 1), FIT_H / Math.max(bounds.h, 1)); }
 
+// これ以上のフィットズームは読みやすさに効かない（ノード 240px・文字 11〜15px が等倍付近で十分読める）
+const FIT_READABLE = 0.85;
+
+/** ELK の辺ルート（折れ線）の総延長。回り込む辺ほど長くなる。ルートが無ければ中心間距離 */
+function totalRouteLength(result, posMap, edges) {
+  if (!result || !Array.isArray(result.edges)) return totalEdgeLength(posMap, edges);
+  let total = 0;
+  result.edges.forEach(re => {
+    const r = flattenSection(re.sections && re.sections[0]);
+    if (!r) return;
+    for (let i = 0; i < r.length - 1; i++) total += Math.hypot(r[i + 1][0] - r[i][0], r[i + 1][1] - r[i][1]);
+  });
+  return total;
+}
+
 /**
  * layered/stress の比較スコア（小さいほど良い）。優先順位:
  * 1) 重なり 0 件必須（重なりがあれば桁違いのペナルティ）
- * 2) フィットズームが大きい（1480x640 に収まる大きさで読みやすい）
+ * 2) フィットズームが大きい（1480x640 に収まる大きさ）。ただし FIT_READABLE を超える分は評価しない。
+ *    上限なしだと、数ノードを次の段へ折り返して辺が図全体を回り込む配置が「小さいから」選ばれる
  * 3) 交差が少ない
- * 4) 総エッジ長が短い（僅かなタイブレーク）
+ * 4) 辺の総延長（ルート長）が短い。平均的な辺の長さに対する超過分で、回り込みを減点する
  */
-function scoreCandidate(posMap, edgesIn) {
+function scoreCandidate(posMap, edgesIn, result) {
   const overlaps = countOverlaps(posMap);
   const crossings = countCrossings(posMap, edgesIn);
-  const length = totalEdgeLength(posMap, edgesIn);
+  const length = totalRouteLength(result, posMap, edgesIn);
   const bounds = boundsOfPosMap(posMap);
   const fit = fitZoom(bounds);
-  const score = overlaps * 1e6 + (2 - Math.min(fit, 2)) * 2000 + crossings * 10 + length / 500;
+  const perEdge = length / Math.max(1, edgesIn.length);
+  const score = overlaps * 1e6 + (FIT_READABLE - Math.min(fit, FIT_READABLE)) * 2000 + crossings * 10 + perEdge / 10;
   return { overlaps, crossings, length, fit, bounds, score };
 }
 
@@ -811,6 +850,7 @@ function applyPins(nodes, edges, posMap, warnings, modeName) {
 }
 
 // ---------- concept / dfd（layered vs stress を比較） ----------
+const candName = c => c.algorithm + (c.wrapped ? '(折り返し)' : '');
 async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
   const nodesIn = Array.isArray(mode.nodes) ? mode.nodes : [];
   const edgesIn = Array.isArray(mode.edges) ? mode.edges : [];
@@ -818,7 +858,13 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
     return { label: mode.label, desc: mode.desc, legend: mode.legend, steps: mode.steps, bounds: { x: 0, y: 0, w: 0, h: 0 }, nodes: [], edges: [] };
   }
 
-  async function attempt(algorithm) {
+  // 辺ラベル（エンジンは 11px 固定・左右余白 9px）が層間やノード間に収まる間隔。
+  // ELK にラベル寸法は渡さない（下記コメント参照）が、間隔が 48px のままだと短い辺のラベルが
+  // ノードに重なって読めないため、最長ラベルの幅だけ層間を空ける（上限 200px）。
+  const maxLabelW = Math.max(0, ...edgesIn.map(e => e.label ? estimateTextWidth(e.label, 11) + 18 : 0));
+  const betweenLayers = Math.round(Math.min(200, Math.max(48, maxLabelW + 28)));
+
+  async function attempt(algorithm, wrap) {
     // layered には elk.layered.wrapping.strategy を使う（fix #1）。少数ノードの鎖状グラフを
     // layered/RIGHT だけで解くと極端に横長（アスペクト比 15〜20:1）になり、1480x640 の
     // カード込みビューポートでのフィットズームが 25〜40% まで落ちてラベルが読めなくなる。
@@ -832,14 +878,13 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
     const layoutOptions = algorithm === 'layered' ? {
       'elk.algorithm': 'layered',
       'elk.direction': 'RIGHT',
-      'elk.spacing.nodeNode': '24',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '48',
-      'elk.spacing.edgeNode': '8',
-      'elk.spacing.edgeEdge': '6',
+      'elk.spacing.nodeNode': '40',
+      'elk.layered.spacing.nodeNodeBetweenLayers': String(betweenLayers),
+      'elk.spacing.edgeNode': '12',
+      'elk.spacing.edgeEdge': '10',
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.padding': '[top=20,left=20,bottom=20,right=20]',
-      'elk.layered.wrapping.strategy': 'MULTI_EDGE',
-      'elk.aspectRatio': String(FIT_W / FIT_H),
+      ...(wrap ? { 'elk.layered.wrapping.strategy': 'MULTI_EDGE', 'elk.aspectRatio': String(FIT_W / FIT_H) } : {}),
       'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
     } : {
       'elk.algorithm': 'stress',
@@ -858,23 +903,19 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
     return { result, posMap };
   }
 
-  let chosen;
-  const layeredR = await attempt('layered');
-  let stressR = null;
-  try { stressR = await attempt('stress'); } catch (e) { warnings.push(`${modeName}: stress レイアウトを試行できませんでした（${e.message}）。layered を使用します`); }
+  // 候補: layered（折り返しなし）/ layered（MULTI_EDGE 折り返し）/ stress。
+  // 折り返しは横長になりすぎる鎖状グラフには有効だが、少数ノードが次の段へ送られると
+  // そこへ入る辺が図全体を右→左に回り込む。どちらが良いかはグラフ次第なので両方を採点する。
+  const candidates = [];
+  candidates.push({ algorithm: 'layered', ...(await attempt('layered', false)) });
+  candidates.push({ algorithm: 'layered', wrapped: true, ...(await attempt('layered', true)) });
+  try { candidates.push({ algorithm: 'stress', ...(await attempt('stress')) }); } catch (e) { warnings.push(`${modeName}: stress レイアウトを試行できませんでした（${e.message}）。layered を使用します`); }
 
-  // 採否は複合スコアで決める（scoreCandidate）: 重なり 0 件必須 → フィットズーム最大 →
-  // 交差最小 → 総エッジ長最小、の優先順位。fit を最優先級に置くことで、stress が交差ゼロを
-  // 達成しても極端に細長い/大きい配置になるケースを選ばないようにする。
-  const sLayered = scoreCandidate(layeredR.posMap, edgesIn);
-  if (stressR) {
-    const sStress = scoreCandidate(stressR.posMap, edgesIn);
-    chosen = sStress.score < sLayered.score
-      ? { ...stressR, algorithm: 'stress', ...sStress, other: sLayered }
-      : { ...layeredR, algorithm: 'layered', ...sLayered, other: sStress };
-  } else {
-    chosen = { ...layeredR, algorithm: 'layered', ...sLayered, other: null };
-  }
+  // 採否は複合スコアで決める（scoreCandidate）: 重なり 0 件必須 → フィットズーム（読める倍率まで）→
+  // 交差・辺の回り込み → 総エッジ長、の優先順位。
+  candidates.forEach(c => Object.assign(c, scoreCandidate(c.posMap, edgesIn, c.result)));
+  const sorted = [...candidates].sort((a, b) => a.score - b.score);
+  const chosen = { ...sorted[0], other: sorted[1] || null };
 
   const nodes = nodesIn.map(n => {
     const p = chosen.posMap.get(n.id);
@@ -883,14 +924,17 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
     node.pin = n.pin;
     return node;
   });
+  const nodeRects = [...chosen.posMap.values()];
   const edges = (chosen.result.edges || []).map((re, i) => {
     const orig = edgesIn[i];
     const route = flattenSection(re.sections && re.sections[0]);
+    const elkLabel = re.labels && re.labels[0];
     return {
       from: orig.from, to: orig.to, label: orig.label, type: orig.type, step: orig.step,
       fromLabel: orig.fromLabel, toLabel: orig.toLabel,
       route: route || [[chosen.posMap.get(orig.from).x, chosen.posMap.get(orig.from).y], [chosen.posMap.get(orig.to).x, chosen.posMap.get(orig.to).y]],
-      labelAt: orig.label ? labelCenterFromElk(re, route) : undefined,
+      labelAt: !orig.label ? undefined
+        : (elkLabel || !route) ? labelCenterFromElk(re, route) : labelOnRoute(route, orig.label, nodeRects),
     };
   });
 
@@ -901,8 +945,8 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
   return {
     label: mode.label, desc: mode.desc, legend: mode.legend, steps: mode.steps,
     bounds, nodes: finalNodes, edges: finalEdges,
-    _algorithm: chosen.algorithm, _crossings: chosen.crossings, _overlaps: chosen.overlaps,
-    _fitZoom: chosen.fit, _other: chosen.other && { algorithm: chosen.algorithm === 'stress' ? 'layered' : 'stress', crossings: chosen.other.crossings, overlaps: chosen.other.overlaps, fitZoom: chosen.other.fit },
+    _algorithm: candName(chosen), _crossings: chosen.crossings, _overlaps: chosen.overlaps,
+    _fitZoom: chosen.fit, _other: chosen.other && { algorithm: candName(chosen.other), crossings: chosen.other.crossings, overlaps: chosen.other.overlaps, fitZoom: chosen.other.fit },
   };
 }
 
