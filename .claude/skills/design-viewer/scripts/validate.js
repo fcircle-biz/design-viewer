@@ -15,6 +15,7 @@ const path = require('path');
 
 const KNOWN_EDGE_TYPES = new Set(['user', 'system', 'nav', 'start', 'rel', 'weak', 'flow']);
 const KNOWN_CONCEPT_VARIANTS = new Set(['actor', 'entity', 'system']);
+const KNOWN_BIZ_VARIANTS = new Set(['start', 'end', 'task', 'system', 'decision']);
 const KNOWN_ER_TONES = new Set(['blue', 'amber', 'green', 'slate', 'purple', 'teal']);
 const KNOWN_DFD_VARIANTS = new Set(['ext', 'proc', 'store']);
 const KNOWN_FIELD_KEYS = new Set(['PK', 'FK', 'UK', '']);
@@ -185,6 +186,79 @@ function validateModel(model, viewerSrcDir) {
     validateGenericDiagram('concept', modes.concept, errors, warnings, {
       variantSet: KNOWN_CONCEPT_VARIANTS,
       variantField: 'variant',
+    });
+  }
+
+  // --- modes.biz ---
+  if (modes.biz) {
+    const biz = modes.biz;
+    const lanes = Array.isArray(biz.lanes) ? biz.lanes : [];
+    if (!Array.isArray(biz.lanes) || lanes.length === 0) pushErr(errors, 'modes.biz.lanes が必須です（1 件以上）');
+    const laneIds = new Set();
+    lanes.forEach((l, i) => {
+      if (!l || !l.id) { pushErr(errors, `modes.biz.lanes[${i}] に id がありません`); return; }
+      if (!l.label) pushErr(errors, `modes.biz.lanes[${i}] (${l.id}) に label がありません`);
+      laneIds.add(l.id);
+    });
+    findDuplicates(lanes, l => l && l.id).forEach(id => pushErr(errors, `modes.biz.lanes の id が重複しています: ${id}`));
+
+    const phasesArr = Array.isArray(biz.phases) ? biz.phases : [];
+    const hasPhases = phasesArr.length > 0;
+    const phaseIds = new Set();
+    phasesArr.forEach((p, i) => {
+      if (!p || !p.id) { pushErr(errors, `modes.biz.phases[${i}] に id がありません`); return; }
+      if (!p.label) pushErr(errors, `modes.biz.phases[${i}] (${p.id}) に label がありません`);
+      phaseIds.add(p.id);
+    });
+    findDuplicates(phasesArr, p => p && p.id).forEach(id => pushErr(errors, `modes.biz.phases の id が重複しています: ${id}`));
+
+    const nodesArr = Array.isArray(biz.nodes) ? biz.nodes : [];
+    const nodeIds = new Set();
+    const nodePhaseById = new Map();
+    const phaseNodeCount = new Map([...phaseIds].map(id => [id, 0]));
+    const nodeEdgeCount = new Map();
+    nodesArr.forEach((n, i) => {
+      if (!n || !n.id) { pushErr(errors, `modes.biz.nodes[${i}] に id がありません`); return; }
+      if (nodeIds.has(n.id)) pushErr(errors, `modes.biz.nodes の id が重複しています: ${n.id}`);
+      nodeIds.add(n.id);
+      nodeEdgeCount.set(n.id, 0);
+      if (!n.label) pushWarn(warnings, `modes.biz.nodes.${n.id} に label がありません`);
+      if (n.variant && !KNOWN_BIZ_VARIANTS.has(n.variant)) pushErr(errors, `modes.biz.nodes.${n.id}.variant が未知です: ${n.variant}（start | end | task | system | decision）`);
+      else if (!n.variant) pushErr(errors, `modes.biz.nodes.${n.id}.variant が必須です`);
+      if (!n.lane) pushErr(errors, `modes.biz.nodes.${n.id}.lane が必須です`);
+      else if (!laneIds.has(n.lane)) pushErr(errors, `modes.biz.nodes.${n.id}.lane が未知の lane を参照しています: ${n.lane}`);
+      if (hasPhases) {
+        if (!n.phase) pushErr(errors, `modes.biz.nodes.${n.id}.phase が必須です（phases が定義されているため）`);
+        else if (!phaseIds.has(n.phase)) pushErr(errors, `modes.biz.nodes.${n.id}.phase が未知の phase を参照しています: ${n.phase}`);
+        else { phaseNodeCount.set(n.phase, (phaseNodeCount.get(n.phase) || 0) + 1); nodePhaseById.set(n.id, n.phase); }
+      } else if (n.phase) {
+        pushWarn(warnings, `modes.biz.nodes.${n.id}.phase は phases が未定義のため無視されます`);
+      }
+      if (n.screen && !screenIds.has(n.screen)) pushWarn(warnings, `modes.biz.nodes.${n.id}.screen が未知の screen を参照しています: ${n.screen}`);
+    });
+    if (hasPhases) {
+      phasesArr.forEach(p => {
+        if (p && p.id && (phaseNodeCount.get(p.id) || 0) === 0) pushWarn(warnings, `modes.biz.phases.${p.id} に属するノードがありません`);
+      });
+    }
+
+    const edgesArr = Array.isArray(biz.edges) ? biz.edges : [];
+    edgesArr.forEach((e, i) => {
+      if (!e || !e.from || !e.to) { pushErr(errors, `modes.biz.edges[${i}] に from/to がありません`); return; }
+      if (!nodeIds.has(e.from)) pushErr(errors, `modes.biz.edges[${i}] の from が未知の id を参照しています: ${e.from}`);
+      else nodeEdgeCount.set(e.from, (nodeEdgeCount.get(e.from) || 0) + 1);
+      if (!nodeIds.has(e.to)) pushErr(errors, `modes.biz.edges[${i}] の to が未知の id を参照しています: ${e.to}`);
+      else nodeEdgeCount.set(e.to, (nodeEdgeCount.get(e.to) || 0) + 1);
+      if (e.type && !['flow', 'weak'].includes(e.type)) pushWarn(warnings, `modes.biz.edges[${i}] の type が未知です: ${e.type}（flow | weak）`);
+      if (hasPhases && nodeIds.has(e.from) && nodeIds.has(e.to)) {
+        const pf = nodePhaseById.get(e.from), pt = nodePhaseById.get(e.to);
+        if (pf && pt && pf !== pt) {
+          pushWarn(warnings, `modes.biz.edges[${i}] (${e.from} → ${e.to}) はフェーズをまたぐ辺です（${pf} → ${pt}）。フェーズをまたぐ辺はレイアウトで通路が確保されません`);
+        }
+      }
+    });
+    nodeEdgeCount.forEach((count, id) => {
+      if (count === 0) pushWarn(warnings, `modes.biz.nodes.${id} に接続する辺がありません`);
     });
   }
 

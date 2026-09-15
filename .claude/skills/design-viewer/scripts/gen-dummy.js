@@ -3,8 +3,8 @@
  * design-viewer / gen-dummy.js
  *
  * 負荷試験用のダミー viewer-src（model.json + screens/*.html）をシード固定で生成する。
- * 規模: 画面 100（group 5）・concept 60・ER 50 テーブル（各 8〜20 列・FK 辺 70 本程度）・
- *       dfd 80・辺（flow 180 本・concept 120 本・dfd 200 本）
+ * 規模: 画面 100（group 5）・concept 60・biz 40（lane 3・phase 4）・ER 50 テーブル（各 8〜20 列・FK 辺 70 本程度）・
+ *       dfd 80・辺（flow 180 本・concept 120 本・biz 約 45 本・dfd 200 本）
  *
  * 単体実行: node gen-dummy.js <出力先 viewer-src フォルダー>
  * モジュール利用: const { genDummy } = require('./gen-dummy');
@@ -125,6 +125,58 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
     conceptEdges.push({ from: a.id, to: b.id, type: pick(rng, ['rel', 'weak']), label: rng() < 0.3 ? '関連' : '' });
   }
 
+  // ---------- modes.biz ----------
+  const bizLanes = [
+    { id: 'BL1', label: '担当者', sub: '窓口・受付' },
+    { id: 'BL2', label: 'システム', sub: '自動処理' },
+    { id: 'BL3', label: '管理者', sub: '承認・確認' },
+  ];
+  const bizPhases = [
+    { id: 'BPH1', label: '① 受付する' },
+    { id: 'BPH2', label: '② 確認・審査する' },
+    { id: 'BPH3', label: '③ 処理する' },
+    { id: 'BPH4', label: '④ 完了・通知する' },
+  ];
+  const BIZ_MID_COUNT = 38; // start・end を除いた中間ノード数（合計 40 ノード）
+  const bizNodes = [{ id: 'B00', kind: 'biz', variant: 'start', lane: 'BL1', phase: 'BPH1', label: '業務開始', sub: 'ダミーの開始ノード' }];
+  for (let i = 1; i <= BIZ_MID_COUNT; i++) {
+    const phase = bizPhases[Math.min(bizPhases.length - 1, Math.floor((i - 1) * bizPhases.length / BIZ_MID_COUNT))].id;
+    const lane = bizLanes[i % bizLanes.length].id;
+    const variant = i % 6 === 0 ? 'decision' : (i % 2 === 0 ? 'system' : 'task');
+    const id = `B${String(i).padStart(2, '0')}`;
+    const node = {
+      id, kind: 'biz', variant, lane, phase,
+      label: variant === 'decision' ? `条件を満たすか ${i}` : `業務ノード ${i}`,
+      sub: variant === 'decision' ? '条件分岐のダミー' : 'ダミーの業務ノード',
+      spec: [`§biz.${i}`], info: [`補足情報 ${i}`],
+    };
+    if (i % 5 === 0) node.screen = screens[i % SCREEN_COUNT].id;
+    bizNodes.push(node);
+  }
+  bizNodes.push({ id: 'B99', kind: 'biz', variant: 'end', lane: 'BL1', phase: 'BPH4', label: '業務終了', sub: 'ダミーの終了ノード' });
+
+  // biz は phase 単位の独立したブロックにレイアウトするため（layoutBiz v2）、
+  // フェーズをまたぐ辺は作らない（validate.js が警告する想定外のケース）。
+  const bizEdges = [];
+  for (let i = 0; i < bizNodes.length - 1; i++) {
+    if (bizNodes[i].phase === bizNodes[i + 1].phase) {
+      bizEdges.push({ from: bizNodes[i].id, to: bizNodes[i + 1].id, type: 'flow', label: '' });
+    }
+  }
+  // decision ノードから少し手前へ戻す弱い辺（差し戻し・やり直し。同一フェーズ内のみ）
+  bizNodes.forEach((n, i) => {
+    if (n.variant === 'decision' && i > 2 && bizNodes[i - 2].phase === n.phase) {
+      bizEdges.push({ from: n.id, to: bizNodes[i - 2].id, type: 'weak', label: 'いいえ' });
+    }
+  });
+  let guard = 0;
+  while (bizEdges.length < 46 && guard < 5000) {
+    guard++;
+    const a = pick(rng, bizNodes), b = pick(rng, bizNodes);
+    if (a.id === b.id || a.phase !== b.phase) continue;
+    bizEdges.push({ from: a.id, to: b.id, type: pick(rng, ['flow', 'weak']), label: rng() < 0.3 ? 'はい' : '' });
+  }
+
   // ---------- modes.er ----------
   const TABLE_COUNT = 50;
   const tones = ['blue', 'amber', 'green', 'slate', 'purple', 'teal'];
@@ -180,6 +232,7 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
       flow: { label: '画面遷移', desc: 'ダミー画面遷移。', nodes: flowNodes, edges: flowEdges, legend: edgeTypes.map(t => ({ type: t, label: t })).concat([{ type: 'start', label: 'start' }]), toggles: [{ type: 'nav', label: '左ナビの移動を表示', default: false }] },
       gallery: { label: '画面イメージ', desc: 'ダミー画面のギャラリー。' },
       concept: { label: '概念図', desc: 'ダミー概念図。', nodes: conceptNodes, edges: conceptEdges, legend: [{ type: 'rel', label: '関連' }, { type: 'weak', label: '弱い関連' }] },
+      biz: { label: '業務フロー', desc: 'ダミー業務フロー。', lanes: bizLanes, phases: bizPhases, nodes: bizNodes, edges: bizEdges, legend: [{ type: 'flow', label: '業務の流れ' }, { type: 'weak', label: '差し戻し・戻り' }] },
       er: { label: 'ER 図', desc: 'ダミー ER 図。', nodes: erNodes, edges: erEdges, legend: [{ type: 'rel', label: 'FK 参照' }] },
       dfd: { label: 'データフロー', desc: 'ダミー DFD。', nodes: dfdNodes, edges: dfdEdges, legend: [{ type: 'flow', label: 'データフロー' }], steps },
     },
@@ -188,6 +241,7 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
   fs.writeFileSync(path.join(outDir, 'model.json'), JSON.stringify(model, null, 2), 'utf8');
   return {
     screens: screens.length, flowEdges: flowEdges.length, conceptNodes: conceptNodes.length, conceptEdges: conceptEdges.length,
+    bizNodes: bizNodes.length, bizEdges: bizEdges.length,
     erNodes: erNodes.length, erEdges: erEdges.length, dfdNodes: dfdNodes.length, dfdEdges: dfdEdges.length,
   };
 }

@@ -24,6 +24,7 @@ viewer-src/
     "flow":    { "label": "画面遷移",   "desc": "…", "nodes": [FlowNode], "edges": [Edge], "legend": [Legend], "toggles": [Toggle] },
     "gallery": { "label": "画面イメージ", "desc": "…" },
     "concept": { "label": "概念図",     "desc": "…", "nodes": [ConceptNode], "edges": [Edge], "legend": [Legend] },
+    "biz":     { "label": "業務フロー", "desc": "…", "lanes": [Lane], "phases": [Phase], "nodes": [BizNode], "edges": [Edge], "legend": [Legend] },
     "er":      { "label": "ER 図",      "desc": "…", "nodes": [ErNode],      "edges": [Edge], "legend": [Legend] },
     "dfd":     { "label": "データフロー", "desc": "…", "nodes": [DfdNode],     "edges": [Edge], "legend": [Legend], "steps": [Step] }
   }
@@ -32,7 +33,7 @@ viewer-src/
 
 - `meta.title` は必須。`subtitle` / `statusNote` は任意（`statusNote` は「作成中」等の一言を
   タイトルカードに表示する用途）。
-- `modes` の 5 モードはすべて省略可。無いモードはビューアのモード切替ボタンに出ない。
+- `modes` の 6 モードはすべて省略可。無いモードはビューアのモード切替ボタンに出ない。
 - `screens` / `groups` は `modes.flow` や `modes.gallery` が無くても、画面一覧・詳細パネルの
   メタ情報として使われるので用意しておくとよい。
 
@@ -151,7 +152,9 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
 画面名・グループ見出しは画面上で固定サイズの文字なので、隙間は「全体表示の想定倍率で必要な画面 px」から決め、
 縮小しても文字が隣の画面やグループに重ならないようにしている（`layout.js` の `GALLERY_PX`）。
 
-## 6. `modes.concept`（概念図）／ `modes.dfd`（データフロー）
+## 6. `modes.concept`（概念図）／ `modes.biz`（業務フロー）／ `modes.dfd`（データフロー）
+
+### 6.1 `modes.concept`（概念図）／ `modes.dfd`（データフロー）
 
 ```jsonc
 "concept": {
@@ -161,6 +164,15 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
   ],
   "edges": [ { "from": "ACTOR1", "to": "SYS1", "type": "rel", "label": "問い合わせる" } ],
   "legend": [ … ]
+}
+```
+
+```jsonc
+"dfd": {
+  "label": "データフロー", "desc": "…",
+  "nodes": [ { "id": "P1", "kind": "dfd", "variant": "proc", "code": "P1", "icon": "gear", "label": "問い合わせ登録", "sub": "…" } ],
+  "edges": [ { "from": "EXT1", "to": "P1", "type": "flow", "label": "問い合わせ内容", "step": 1 } ],
+  "steps": [ { "n": 1, "title": "利用者が入力する", "desc": "…" } ]
 }
 ```
 
@@ -175,14 +187,67 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
 - 層の間隔は最長の辺ラベルが収まる幅（上限 200px）にする。辺ラベルは、どのノードにも重ならない線分のうち
   水平で長いものの中点に置く（合流する縦の通路に置くと隣のノードに食い込むため）。
 
+### 6.2 `modes.biz`（業務フロー）
+
+担当者・システムのレーンと業務フェーズの列に、作業・分岐のノードを並べて矢印で結ぶスイムレーン図。
+
 ```jsonc
-"dfd": {
-  "label": "データフロー", "desc": "…",
-  "nodes": [ { "id": "P1", "kind": "dfd", "variant": "proc", "code": "P1", "icon": "gear", "label": "問い合わせ登録", "sub": "…" } ],
-  "edges": [ { "from": "EXT1", "to": "P1", "type": "flow", "label": "問い合わせ内容", "step": 1 } ],
-  "steps": [ { "n": 1, "title": "利用者が入力する", "desc": "…" } ]
+"biz": {
+  "label": "業務フロー", "desc": "…",
+  "lanes":  [ { "id": "L_STAFF", "label": "担当者", "sub": "管理者・スタッフ" } ],   // 配列順に上→下
+  "phases": [ { "id": "PH1", "label": "① 商品を登録・公開する" } ],              // 任意。配列順に左→右
+  "nodes": [
+    { "id": "B01", "kind": "biz", "variant": "start", "lane": "L_STAFF", "phase": "PH1",
+      "label": "新商品を扱う", "sub": "任意の補足", "screen": "S05", "spec": ["§5.1"], "info": ["…"] }
+  ],
+  "edges": [ { "from": "B01", "to": "B02", "type": "flow", "label": "任意（分岐は はい/いいえ）" } ],
+  "legend": [ { "type": "flow", "label": "業務の流れ" } ]
 }
 ```
+
+`lanes[]`（レーン）:
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | ○ | レーンの一意 id |
+| `label` | string | ○ | レーン見出し |
+| `sub` | string | - | 見出しの下に小さく出す補足（例: 担当の内訳） |
+
+`phases[]`（業務フェーズ。任意）:
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | ○ | フェーズの一意 id |
+| `label` | string | ○ | フェーズ見出し |
+
+`nodes[]`（業務ノード）:
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | ○ | ノードの一意 id |
+| `kind` | string | - | 省略可（`biz` とみなす） |
+| `variant` | string | ○ | `start`（開始）\| `end`（終了）\| `task`（人の作業）\| `system`（システムの処理）\| `decision`（分岐） |
+| `lane` | string | ○ | `lanes[].id` を参照 |
+| `phase` | string | `phases` があるとき○ | `phases[].id` を参照 |
+| `label` | string | ○ | ノードの見出し |
+| `sub` | string | - | 補足 |
+| `screen` | string | - | 関連画面（`screens[].id`）。詳細パネルに表示し、クリックでその画面のプレビューを開ける |
+| `spec` | string[] | - | 関連仕様書の節番号（詳細パネルに表示） |
+| `info` | string[] | - | 補足情報（詳細パネルに表示） |
+
+`edges[].type` は `flow`（実線。業務の流れ）| `weak`（破線。差し戻し・戻り）。
+
+レイアウト（layout.js v2）:
+
+- フェーズごとに**独立したスイムレーンのブロック**を作る。ブロックにはそのフェーズでノードを持つレーンだけを積む（空のレーンは出さない）。`phases` を省略すると全ノードを 1 ブロックにまとめる。
+- ブロックは記述順に左→右・上→下の格子に詰める。列数は 1〜ブロック数を総当たりし、想定表示領域に対する全体表示の倍率が最大になる列数を採用する（フェーズ数が増えても文字が小さくなりすぎないようにするため）。
+- ブロック内の各ノードの列（フェーズ内での左右位置）は、そのフェーズ内でノードが持つ最長経路の長さ順で決まる。同じ列（同じレーン・フェーズのセル）に複数ノードがあるときは縦に積む。
+- 列と列の間隔（隙間）は、その隙間から出る辺のラベル幅に合わせて個別に決める（ラベルが長い隙間ほど広く取る）。
+- `type: "weak"` の辺は列（層）の決定には使わない（配置後に描くだけ）。差し戻し・やり直しの矢印を `weak` にすると、主な流れが列の並びを乱さない。
+- 分岐（`variant: "decision"`）から出る辺は、行き先ごとに異なる辺（上下左右）から出し、ラベルは分岐の近くに置く。
+- レーン見出し欄の幅は 190px 固定。
+- 辺のルートは直交（水平・垂直の折れ線）で、他ノードを避ける経路の候補から選ぶ。辺が多いレーン・フェーズでは通路が重なることがある（既知の制約は `SKILL.md` 参照）。
+- 全体表示など低倍率でノード・レーン・フェーズの文字が読めなくなる縮尺では、ラスタ化した図形とは別に画面上で固定サイズ（読める最小限の px）のラベルを重ねて描く。
 
 ## 7. `modes.er`（ER 図）
 
@@ -286,6 +351,11 @@ v1 の `data.js` からの移植時はこの 2 プロパティを削除してよ
   エラーにしない — 同じ id が複数モードに出てくるとビューアはモード切替時にその
   ノードをトゥイーンする仕様のため）
 - 未知の id を参照する辺（`from`/`to`）
+- concept ノードの `variant` が未知の値
+- biz ノードの `variant` が未知の値、`lane` が `lanes[].id` に、`phase`（`phases` があるとき）が
+  `phases[].id` に存在しない
+- biz ノードの `screen` が `screens[].id` に存在しない（警告のみ）
+- `phases` を定義したのにノードが 1 つも属さないフェーズがある（警告のみ）
 - ER の `fromField` / `toField` が対応ノードの `fields[].name` に存在しない
 - dfd の `edges[].step` が `steps[].n` に存在しない
 - `screens[].group` / flow ノードの `group` が `groups[].id` に存在しない

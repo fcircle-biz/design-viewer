@@ -9,9 +9,9 @@
   // ---------------------------------------------------------
   // 定数
   // ---------------------------------------------------------
-  var MODE_KEYS = ['flow','gallery','concept','er','dfd'];
-  var MODE_LABEL_JA = { flow:'画面遷移', gallery:'画面イメージ', concept:'概念図', er:'ER 図', dfd:'データフロー' };
-  var MODE_MAX_K = { flow:0.6, gallery:0.6, concept:1.4, er:1.4, dfd:1.4 };
+  var MODE_KEYS = ['flow','gallery','concept','biz','er','dfd'];
+  var MODE_LABEL_JA = { flow:'画面遷移', gallery:'画面イメージ', concept:'概念図', biz:'業務フロー', er:'ER 図', dfd:'データフロー' };
+  var MODE_MAX_K = { flow:0.6, gallery:0.6, concept:1.4, biz:1.4, er:1.4, dfd:1.4 };
   var MIN_K = 0.02, MAX_K = 4.0;
   var EDGE_COLOR = {
     user:'#3B6FF5', system:'#8B5CF6', nav:'#A3ABB9', start:'#64748B',
@@ -21,10 +21,10 @@
     system:[7,6], weak:[7,6], nav:[1.5,7]
   };
   var EDGE_ALPHA = { start:0.72 };
-  var KIND_LABEL_JA = { pill:'開始点', concept:'概念', er:'テーブル（リスト）', dfd:'処理・データストア・外部' };
+  var KIND_LABEL_JA = { pill:'開始点', concept:'概念', biz:'業務ステップ', er:'テーブル（リスト）', dfd:'処理・データストア・外部' };
   var LOD_BUCKETS = [0.25,0.5,1,2];
   var LIVE_MIN_PX = 300;      // 画面ノードの表示幅（デバイス px）がこれ以上で「大」サムネイル
-  var TEXT_MIN_SCALE = 0.3;   // concept/er/dfd: 表示倍率×DPR がこれ未満なら文字を描かず箱だけ
+  var TEXT_MIN_SCALE = 0.3;   // concept/biz/er/dfd: 表示倍率×DPR がこれ未満なら文字を描かず箱だけ
   var EDGE_LABEL_MIN_K = 0.14;
   var CARD_TITLE_MIN_PX = 12;  // layout: "elk" の画面カード見出しの最小文字サイズ（これ未満ならカード上に出す）
   var RASTER_CACHE_MAX = 300;
@@ -138,6 +138,32 @@
     return lo<=0 ? ell : text.slice(0,lo)+ell;
   }
 
+  // 文字単位の折り返し（biz ノードの label / decision の label 用。最大 maxLines 行、
+  // あふれた最終行は truncateText と同じ省略記号で切る。日本語はスペース区切りが
+  // 無いことが多いため、単語単位ではなく 1 文字ずつ計測して詰める）
+  function wrapCharLines(ctx, text, font, maxWidth, maxLines){
+    text = esc(text);
+    var prevFont = ctx.font;
+    if(ctx.font!==font) ctx.font = font;
+    var lines = [];
+    var start = 0;
+    while(start<text.length && lines.length<maxLines){
+      var lo=start+1, hi=text.length, best=start+1;
+      while(lo<=hi){
+        var mid=(lo+hi)>>1;
+        var w = measureCached(ctx, text.slice(start,mid), font);
+        if(w<=maxWidth){ best=mid; lo=mid+1; } else { hi=mid-1; }
+      }
+      lines.push(text.slice(start,best));
+      start = best;
+    }
+    if(start<text.length && lines.length){
+      lines[lines.length-1] = truncateText(ctx, lines[lines.length-1]+text.slice(start), font, maxWidth);
+    }
+    if(ctx.font!==prevFont) ctx.font = prevFont;
+    return lines;
+  }
+
   // ---------------------------------------------------------
   // 性能計測（試験用。常時 ON）
   // ---------------------------------------------------------
@@ -209,6 +235,7 @@
     currentNodeIds: [],              // 現在モードのノード id（描画順）
     currentEdges: [],                // 現在モードの辺（検証済み）
     currentGroups: [],
+    currentPhases: [],
     modeBounds: { x:0,y:0,w:1000,h:1000 },
     dfdStep: null,
     autoplayTimer: null,
@@ -314,21 +341,42 @@
     return { x:minX, y:minY, w:Math.max(1,maxX-minX), h:Math.max(1,maxY-minY) };
   }
 
-  function fitView(bbox, maxK){
+  // 全体表示の候補領域を1つ作る。belowTitle: タイトルカードの下（全幅）、
+  // rightOfTitle: タイトルカードの右（全高）。どちらも右のステップカード・
+  // 下のツールバーとは重ならないよう詰める（狭い画面ではタイトルカードを避けるだけ）。
+  function fitViewRegion(pinTitleToTop){
     var left=60, right=cssW-60, top=60, bottom=cssH-60;
     if(cssW>900){
       var tc = document.getElementById('titleCard');
-      if(tc) top = Math.max(top, tc.getBoundingClientRect().bottom + 24);
+      if(tc){
+        var tcRect = tc.getBoundingClientRect();
+        if(pinTitleToTop) top = Math.max(top, tcRect.bottom + 24);
+        else left = Math.max(left, tcRect.right + 24);
+      }
       var sc = document.getElementById('stepsCard');
       if(sc && !sc.hidden) right = Math.min(right, sc.getBoundingClientRect().left - 24);
       var tb = document.getElementById('toolbar');
       if(tb) bottom = Math.min(bottom, tb.getBoundingClientRect().top - 24);
     }
-    var availW = Math.max(80, right-left), availH = Math.max(80, bottom-top);
-    var k = Math.min(availW/bbox.w, availH/bbox.h);
-    k = clamp(k, MIN_K, Math.min(maxK||1.4, MAX_K));
+    return { left:left, right:right, top:top, bottom:bottom };
+  }
+
+  // 全体表示: 「タイトルカードの下・全幅」と「タイトルカードの右・全高」の
+  // 2 つの候補領域それぞれで倍率を計算し、大きい方（＝より大きく表示できる方）を
+  // 採用する。全モード共通の改善（図の縦横比によってどちらが有利かが変わるため）。
+  function fitView(bbox, maxK){
+    var regions = cssW>900 ? [fitViewRegion(true), fitViewRegion(false)] : [fitViewRegion(true)];
+    var best=null, bestK=-1;
+    for(var i=0;i<regions.length;i++){
+      var reg = regions[i];
+      var availW = Math.max(80, reg.right-reg.left), availH = Math.max(80, reg.bottom-reg.top);
+      var k = Math.min(availW/bbox.w, availH/bbox.h);
+      k = clamp(k, MIN_K, Math.min(maxK||1.4, MAX_K));
+      if(k>bestK){ bestK=k; best=reg; }
+    }
+    var k = bestK;
     var cx = bbox.x+bbox.w/2, cy = bbox.y+bbox.h/2;
-    return { x:(left+right)/2 - cx*k, y:(top+bottom)/2 - cy*k, k:k };
+    return { x:(best.left+best.right)/2 - cx*k, y:(best.top+best.bottom)/2 - cy*k, k:k };
   }
 
   // 辺の経路の点も全体表示の範囲に含める（ノードの外側を回る線が画面外に切れないように）
@@ -344,6 +392,12 @@
     var list = [];
     registry.forEach(function(entry){ if(entry.modePos[modeKey]) list.push(entry.modePos[modeKey]); });
     return list;
+  }
+
+  // biz モードのフェーズ: v2 は phases[].block（見出し帯＋レーンのカード全体）を
+  // 持つのでそちらを全体表示の範囲に含める。block が無ければ見出し帯そのもの（v1）。
+  function phaseRects(modeObj){
+    return ((modeObj && modeObj.phases) || []).map(function(p){ return p.block || p; });
   }
 
   // ---------------------------------------------------------
@@ -402,6 +456,7 @@
 
     var modeObj = VIEWER_DATA.modes[modeKey];
     state.currentGroups = modeObj.groups || [];
+    state.currentPhases = modeObj.phases || [];
     state.currentEdges = prepareEdgesForMode(modeKey);
     state.currentNodeIds = (modeObj.nodes||[]).map(function(n){ return n.id; }).filter(function(id){ return registry.has(id); });
     rebuildLegendAndToggles(modeObj);
@@ -426,7 +481,7 @@
       }
     });
 
-    var bbox = computeBBox(modeNodeRects(modeKey).concat(routeRects(modeObj)), modeObj.groups||[]);
+    var bbox = computeBBox(modeNodeRects(modeKey).concat(routeRects(modeObj)), (modeObj.groups||[]).concat(phaseRects(modeObj)));
     state.modeBounds = bbox;
     var maxK = MODE_MAX_K[modeKey] || 1.4;
     var toView = fitView(bbox, maxK);
@@ -438,7 +493,7 @@
 
   function fitCurrentMode(animate){
     var modeObj = VIEWER_DATA.modes[state.mode];
-    var bbox = computeBBox(modeNodeRects(state.mode).concat(routeRects(modeObj)), modeObj.groups||[]);
+    var bbox = computeBBox(modeNodeRects(state.mode).concat(routeRects(modeObj)), (modeObj.groups||[]).concat(phaseRects(modeObj)));
     var maxK = MODE_MAX_K[state.mode] || 1.4;
     var toView = fitView(bbox, maxK);
     startAnim({ duration: animate?500:0, fromView:{x:state.view.x,y:state.view.y,k:state.view.k}, toView:toView, nodeAnims:[] });
@@ -552,14 +607,17 @@
   function rebuildSearchIndex(){
     searchIndex = state.currentNodeIds.map(function(id){
       var entry = registry.get(id);
-      return { id:id, label: nodeLabel(entry) };
+      var mp = entry.modePos[state.mode];
+      var sub = (entry.kind!=='screen' && mp && mp.node && mp.node.sub) || '';
+      return { id:id, label: nodeLabel(entry), sub: sub };
     });
   }
   function runSearch(q){
     q = (q||'').trim().toLowerCase();
     if(!q){ searchResultsEl.classList.remove('v-open'); searchResultsEl.innerHTML=''; return; }
     var hits = searchIndex.filter(function(it){
-      return it.id.toLowerCase().indexOf(q)>=0 || it.label.toLowerCase().indexOf(q)>=0;
+      return it.id.toLowerCase().indexOf(q)>=0 || it.label.toLowerCase().indexOf(q)>=0 ||
+        (it.sub && it.sub.toLowerCase().indexOf(q)>=0);
     }).slice(0,30);
     searchResultsEl.classList.add('v-open');
     if(!hits.length){ searchResultsEl.innerHTML = '<div class="v-search-empty">該当なし</div>'; return; }
@@ -599,11 +657,13 @@
     bctx.fillStyle = '#F6F7FA';
     bctx.fillRect(0,0,geom.mw,geom.mh);
     var ids = state.currentNodeIds;
-    bctx.fillStyle = 'rgba(47,91,234,.55)';
+    var defaultFill = 'rgba(47,91,234,.55)';
+    bctx.fillStyle = defaultFill;
     for(var i=0;i<ids.length;i++){
       var entry = registry.get(ids[i]);
       var p = entry.modePos[state.mode];
       if(!p) continue;
+      bctx.fillStyle = entry.kind==='biz' ? (BIZ_MINIMAP_COLOR[(p.node&&p.node.variant)||'task'] || defaultFill) : defaultFill;
       var x = geom.offX + p.x*geom.scale, y = geom.offY + p.y*geom.scale;
       var w = Math.max(1, p.w*geom.scale), h = Math.max(1, p.h*geom.scale);
       bctx.fillRect(x,y,w,h);
@@ -642,7 +702,7 @@
   }
 
   // ---------------------------------------------------------
-  // ノードのラスタキャッシュ（concept / er / dfd / pill）
+  // ノードのラスタキャッシュ（concept / biz / er / dfd / pill）
   // ---------------------------------------------------------
   var rasterCache = new Map(); // key -> {canvas,w,h}
   function pickBucket(viewK, dpr){
@@ -654,7 +714,7 @@
   // 一斉に変わっても、1 フレームに全ノード分を作り直して落ち込まないようにするため。
   // 予算切れのノードは「前のバケットのラスタ（あれば）」→ 呼び出し側のフォールバック
   // （色付きの箱・軽い代替画像など）の順に描かれ、数フレームのうちに自然に作り直される。
-  // ノードの図形（concept/er/dfd/pill）は 1 件あたりの構築コストが高い（テキスト行の描画等）ため
+  // ノードの図形（concept/biz/er/dfd/pill）は 1 件あたりの構築コストが高い（テキスト行の描画等）ため
   // 予算を絞り、画面サムネイルは drawImage 1 回で済み安いため別枠で多めに与える。
   var RASTER_BUILD_BUDGET_PER_FRAME = 1;                 // 図形ノード: 件数ベース（1 件あたりのコストがほぼ一定なため）
   var SCREEN_RASTER_BUILD_BUDGET_PER_FRAME = 900000;      // 画面サムネイル: 面積（px）ベース。解像度は落とさず同時構築枚数で絞る
@@ -707,9 +767,13 @@
     return rec;
   }
 
-  function getRaster(entry, w, h, bucket){
-    return buildRasterGeneric(rasterCache, entry.id, w, h, bucket, RASTER_MAX_PIXELS, 0, nodeRasterBudget, function(cctx){
-      drawNodeRasterContent(cctx, entry, w, h);
+  // noText: このズームではノード内の文字を screen-fixed オーバーレイで別途描く
+  // （drawBizLabelOverlay）ので、ラスタ側には文字を焼き込まない（二重描画防止）。
+  // キャッシュキーに含めて「文字あり」バケットと衝突しないようにする。
+  function getRaster(entry, w, h, bucket, noText){
+    var idPrefix = entry.id + (noText ? '|noText' : '');
+    return buildRasterGeneric(rasterCache, idPrefix, w, h, bucket, RASTER_MAX_PIXELS, 0, nodeRasterBudget, function(cctx){
+      drawNodeRasterContent(cctx, entry, w, h, noText);
     });
   }
 
@@ -736,11 +800,12 @@
     });
   }
 
-  function drawNodeRasterContent(ctx, entry, w, h){
+  function drawNodeRasterContent(ctx, entry, w, h, noText){
     var mp = entry.modePos[state.mode];
     var n = (mp && mp.node) || {};
     if(entry.kind==='pill') drawPillContent(ctx, n, w, h);
     else if(entry.kind==='concept') drawConceptContent(ctx, n, w, h);
+    else if(entry.kind==='biz') drawBizContent(ctx, n, w, h, noText);
     else if(entry.kind==='er') drawErContent(ctx, n, w, h);
     else if(entry.kind==='dfd') drawDfdContent(ctx, n, w, h);
   }
@@ -775,6 +840,126 @@
       ctx.fillText(truncateText(ctx, n.sub, ctx.font, w-40), w/2, h/2+22);
       ctx.globalAlpha = 1;
     }
+  }
+
+  // biz（業務フロー）ノード。variant: start | end | task | system | decision
+  var BIZ_VARIANT_COLOR = {
+    task:    { bg:'#FFFFFF', border:'#CBD5E1', bar:'#2F6DFF' },
+    system:  { bg:'#F3EEFF', border:'#C4B5FD', bar:'#7C3AED' },
+    decision:{ bg:'#FFF7E0', border:'#F2B84B' },
+    start:   { bg:'#1A2029' },
+    end:     { bg:'#FFFFFF', border:'#1A2029' }
+  };
+  // ミニマップの塗り色（variant ごと。淡色の箱色と揃える）
+  var BIZ_MINIMAP_COLOR = {
+    task:'rgba(47,109,255,.55)', system:'rgba(124,58,237,.55)',
+    decision:'rgba(242,184,75,.7)', start:'rgba(26,32,41,.7)', end:'rgba(26,32,41,.45)'
+  };
+  // 縮小時（TEXT_MIN_SCALE 未満）の単色の箱の色。variant ごとのアクセント色を代表させる
+  var BIZ_DOT_COLOR = { task:'#2F6DFF', system:'#7C3AED', decision:'#F2B84B', start:'#1A2029', end:'#1A2029' };
+  // variant ごとの主ラベルのワールド基準フォントサイズ（画面固定オーバーレイの
+  // 表示要否をこのサイズ × k で判定する。drawBizLabelOverlay の色もここに合わせる）
+  var BIZ_LABEL_WORLD_PX = { task:15, system:15, decision:13, start:15, end:15 };
+  var BIZ_LABEL_OVERLAY_COLOR = { task:'#1A2029', system:'#1A2029', decision:'#1A2029', start:'#fff', end:'#1A2029' };
+
+  // noText: true のときはラスタに文字（label / sub / 「システム」タグ / 画面バッジの
+  // 文字）を焼き込まない。呼び出し側（drawCacheableNode）がこのズームでは画面固定サイズの
+  // オーバーレイラベルを別途重ねて描くため、ここで描くと二重描画になる。形（枠・地色・
+  // 色帯）はそのまま描く。
+  function drawBizContent(ctx, n, w, h, noText){
+    var variant = n.variant||'task';
+    var col = BIZ_VARIANT_COLOR[variant] || BIZ_VARIANT_COLOR.task;
+
+    if(variant==='start' || variant==='end'){
+      roundRectPath(ctx,0,0,w,h,h/2);
+      ctx.fillStyle = col.bg; ctx.fill();
+      if(variant==='end'){ ctx.lineWidth=2.5; ctx.strokeStyle=col.border; ctx.stroke(); }
+      if(!noText){
+        ctx.fillStyle = variant==='start' ? '#fff' : '#1A2029';
+        ctx.font = '800 15px '+FONT_STACK;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(truncateText(ctx, n.label||'', ctx.font, w-28), w/2, h/2);
+      }
+      return;
+    }
+
+    if(variant==='decision'){
+      ctx.beginPath();
+      ctx.moveTo(w/2,1.5); ctx.lineTo(w-1.5,h/2); ctx.lineTo(w/2,h-1.5); ctx.lineTo(1.5,h/2);
+      ctx.closePath();
+      ctx.fillStyle = col.bg; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = col.border; ctx.stroke();
+      if(!noText){
+        ctx.fillStyle = '#1A2029';
+        ctx.font = '700 13px '+FONT_STACK;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        var dLines = wrapCharLines(ctx, n.label||'', ctx.font, w*0.62, 2);
+        var dlh = 16, dTop = h/2-(dLines.length-1)*dlh/2;
+        dLines.forEach(function(line,i){ ctx.fillText(line, w/2, dTop+i*dlh); });
+      }
+      return;
+    }
+
+    // task / system: 白（または淡紫）地・角丸・左に色帯
+    roundRectPath(ctx,0,0,w,h,12);
+    ctx.fillStyle = col.bg; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = col.border; ctx.stroke();
+    roundRectPath(ctx,0,0,4,h,2);
+    ctx.fillStyle = col.bar; ctx.fill();
+
+    if(noText) return;
+
+    if(variant==='system'){
+      ctx.font = '700 10px '+FONT_STACK;
+      ctx.fillStyle = col.bar; ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+      ctx.fillText('システム', w-12, 18);
+      ctx.textAlign='left';
+    }
+
+    var padX = 16, maxTextW = w-padX-14;
+    ctx.font = '700 15px '+FONT_STACK;
+    var lines = wrapCharLines(ctx, n.label||'', ctx.font, maxTextW, 2);
+    var lh = 18;
+    var blockH = lines.length*lh + (n.sub? 16:0);
+    var top = Math.max(14, h/2-blockH/2);
+    ctx.fillStyle = '#1A2029'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    lines.forEach(function(line,i){ ctx.fillText(line, padX, top+lh*(i+1)-4); });
+    if(n.sub){
+      ctx.fillStyle = '#8A93A3'; ctx.font = '400 11px '+FONT_STACK;
+      ctx.fillText(truncateText(ctx, n.sub, ctx.font, maxTextW), padX, top+lines.length*lh+12);
+    }
+
+    if(variant==='task' && n.screen){
+      ctx.font = '800 10px '+FONT_STACK;
+      var bw = Math.max(30, measureCached(ctx, n.screen, ctx.font)+14);
+      var bh = 18, bx = w-12-bw, by = h-12-bh;
+      roundRectPath(ctx, bx, by, bw, bh, 6);
+      ctx.fillStyle = '#EAF0FF'; ctx.fill();
+      ctx.fillStyle = '#2F5BEA'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(n.screen, bx+bw/2, by+bh/2+0.5);
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    }
+  }
+
+  // ノードの縮小時ラベル（biz）: ラスタ内の label が画面上で読めなくなる倍率で、
+  // 画面固定 10〜11px のラベルをノード中央に重ねて描く（noText ラスタとセットで使う）。
+  // ノードの画面幅が 44px 未満なら描かない。
+  function drawBizLabelOverlay(ctx, n, sr){
+    if(sr.w<44) return;
+    var variant = n.variant||'task';
+    ctx.save();
+    ctx.font = '800 11px '+FONT_STACK;
+    ctx.fillStyle = BIZ_LABEL_OVERLAY_COLOR[variant] || '#1A2029';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    // 高さに余裕があれば 2 行に折り返す（1 行で省略すると全体表示でラベルが読めないため）。
+    // ひし形は内接する幅が狭いので横幅を 7 割に絞る
+    var lineH = 13;
+    var maxW = (variant==='decision' ? sr.w*0.7 : sr.w-12);
+    var maxLines = clamp(Math.floor((sr.h-4)/lineH), 1, 2);
+    var lines = wrapCharLines(ctx, n.label||'', ctx.font, maxW, maxLines);
+    var y0 = sr.y+sr.h/2 - (lines.length-1)*lineH/2;
+    for(var i=0;i<lines.length;i++) ctx.fillText(lines[i], sr.x+sr.w/2, y0+i*lineH);
+    ctx.restore();
   }
 
   var CONCEPT_VARIANT_COLOR = {
@@ -1094,44 +1279,147 @@
 
   function drawGroups(ctx, cull){
     groupLabelHitRects = [];
+    // フェーズのブロックカードはレーンの下地（背景）なので先に描く
+    drawPhases(ctx, cull);
     var groups = state.currentGroups || [];
     ctx.save();
     for(var i=0;i<groups.length;i++){
       var g = groups[i];
       var r = { x:g.x, y:g.y, w:g.w, h:g.h };
       if(!rectIntersects(r, cull)) continue;
-      var sr = worldRectToScreen(r);
-      ctx.strokeStyle = 'rgba(90,100,120,.28)';
-      ctx.setLineDash([6,5]);
-      ctx.lineWidth = 1;
-      roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, 20);
-      ctx.fillStyle = 'rgba(255,255,255,.35)';
+      if(g.style==='swimlane') drawSwimlaneGroup(ctx, g, r);
+      else drawDashedGroup(ctx, g, r);
+    }
+    ctx.restore();
+  }
+
+  // 既存の破線グループ枠（画面遷移・画面イメージのグルーピング用）
+  function drawDashedGroup(ctx, g, r){
+    var sr = worldRectToScreen(r);
+    ctx.strokeStyle = 'rgba(90,100,120,.28)';
+    ctx.setLineDash([6,5]);
+    ctx.lineWidth = 1;
+    roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, 20);
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if(g.label){
+      ctx.font = '700 12.5px '+FONT_STACK;
+      var padX=10, th=20;
+      var tw = measureCached(ctx, g.label, ctx.font)+padX*2;
+      // 見出し帯（グループ上端〜最初のノード上端）が画面上で狭いときは、
+      // 画面ノードの見出しと重ならないようグループ枠の外側（上）に出す
+      if(g.__band==null){
+        var minTop = Infinity;
+        registry.forEach(function(en){
+          var p = en.modePos[state.mode];
+          if(p && p.x>=g.x && p.x<g.x+g.w && p.y>=g.y && p.y<g.y+g.h) minTop = Math.min(minTop, p.y);
+        });
+        g.__band = isFinite(minTop) ? minTop-g.y : g.h;
+      }
+      var lx = sr.x+16;
+      var ly = (g.__band*state.view.k >= th+12+34) ? sr.y+12 : sr.y-th-6;
+      ctx.fillStyle = 'rgba(238,240,244,.9)';
+      roundRectPath(ctx, lx, ly, tw, th, 8);
       ctx.fill();
+      ctx.fillStyle = '#5B6472';
+      ctx.textAlign='left'; ctx.textBaseline='middle';
+      ctx.fillText(g.label, lx+padX, ly+th/2+1);
+      groupLabelHitRects.push({ x:lx, y:ly, w:tw, h:th, group:g });
+    }
+  }
+
+  // フェーズ・レーンの見出し文字サイズ（画面 px）。ワールド基準 × 倍率だが、
+  // 縮小しても 11px を下回らず（消さない）、拡大しても 16px で頭打ちにする。
+  // 見出し欄の幅に収まらない分は truncateText が省略記号で切る。
+  function headerFontPx(worldBase){ return clamp(worldBase*state.view.k, 11, 16); }
+
+  // スイムレーン（biz モード）。帯を交互の淡色で塗り、境界に実線。
+  // 左端の見出し欄（headerW）は少し濃い地に label（太字）と sub（小さく灰色）。
+  function drawSwimlaneGroup(ctx, g, r){
+    var sr = worldRectToScreen(r);
+    var idx = g.index!=null ? g.index : 0;
+    ctx.fillStyle = idx%2===0 ? '#F7F8FB' : '#EFF2F7';
+    ctx.fillRect(sr.x, sr.y, sr.w, sr.h);
+    ctx.strokeStyle = '#D8DEE8';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sr.x, Math.round(sr.y)+0.5); ctx.lineTo(sr.x+sr.w, Math.round(sr.y)+0.5);
+    ctx.moveTo(sr.x, Math.round(sr.y+sr.h)+0.5); ctx.lineTo(sr.x+sr.w, Math.round(sr.y+sr.h)+0.5);
+    ctx.stroke();
+
+    var headerW = (g.headerW||150)*state.view.k;
+    ctx.fillStyle = '#E7EAF1';
+    ctx.fillRect(sr.x, sr.y, headerW, sr.h);
+    ctx.strokeStyle = '#C7D0DC';
+    ctx.beginPath();
+    ctx.moveTo(Math.round(sr.x+headerW)+0.5, sr.y); ctx.lineTo(Math.round(sr.x+headerW)+0.5, sr.y+sr.h);
+    ctx.stroke();
+
+    var labelPx = headerFontPx(15), subPx = headerFontPx(11), gap = 4*state.view.k;
+    var padX = 14;
+    var maxTextW = Math.max(4, headerW-padX*2);
+    ctx.font = '700 '+labelPx.toFixed(2)+'px '+FONT_STACK;
+    // 見出し欄の幅に label が収まらない場合は 1 行で省略せず 2 行に折り返す
+    // （読める字数を確保するため）。sub はそれでも空きがあるときだけ下に添える。
+    var rawLabel = g.label||'';
+    var lines = measureCached(ctx, esc(rawLabel), ctx.font) <= maxTextW
+      ? [esc(rawLabel)]
+      : wrapCharLines(ctx, rawLabel, ctx.font, maxTextW, 2);
+    var lineH = labelPx*1.15;
+    var labelBlockH = lines.length*lineH;
+    var availH = Math.max(0, sr.h-16);
+    var showSub = !!g.sub && (labelBlockH+gap+subPx) <= availH;
+    var blockH = labelBlockH + (showSub ? gap+subPx : 0);
+    var top = sr.y + sr.h/2 - blockH/2;
+    ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillStyle = '#1A2029';
+    for(var li=0; li<lines.length; li++){
+      ctx.fillText(lines[li], sr.x+padX, top+li*lineH);
+    }
+    if(showSub){
+      ctx.font = '400 '+subPx.toFixed(2)+'px '+FONT_STACK;
+      ctx.fillStyle = '#8A93A3';
+      ctx.fillText(truncateText(ctx, g.sub, ctx.font, maxTextW), sr.x+padX, top+labelBlockH+gap);
+    }
+    ctx.textBaseline = 'alphabetic';
+    groupLabelHitRects.push({ x:sr.x, y:sr.y, w:headerW, h:sr.h, group:g });
+  }
+
+  // フェーズのブロックカード（biz モード v2。phases が無ければ何もしない）。
+  // 各 phases[].block を白地半透明・角丸のカードとして描き、その上端に見出し帯を重ねる。
+  // レーンはこのカードの内側に別途 drawSwimlaneGroup で描かれる。
+  var PHASE_CARD_RADIUS = 14;
+  function drawPhases(ctx, cull){
+    var phases = state.currentPhases || [];
+    if(!phases.length) return;
+    ctx.save();
+    for(var i=0;i<phases.length;i++){
+      var ph = phases[i];
+      var block = ph.block || { x:ph.x, y:ph.y, w:ph.w, h:ph.h };
+      if(!rectIntersects(block, cull)) continue;
+      var sb = worldRectToScreen(block);
+      roundRectPath(ctx, sb.x, sb.y, sb.w, sb.h, PHASE_CARD_RADIUS);
+      ctx.fillStyle = 'rgba(255,255,255,.6)';
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#D5DDE7';
       ctx.stroke();
-      ctx.setLineDash([]);
-      if(g.label){
-        ctx.font = '700 12.5px '+FONT_STACK;
-        var padX=10, padY=6, th=20;
-        var tw = measureCached(ctx, g.label, ctx.font)+padX*2;
-        // 見出し帯（グループ上端〜最初のノード上端）が画面上で狭いときは、
-        // 画面ノードの見出しと重ならないようグループ枠の外側（上）に出す
-        if(g.__band==null){
-          var minTop = Infinity;
-          registry.forEach(function(en){
-            var p = en.modePos[state.mode];
-            if(p && p.x>=g.x && p.x<g.x+g.w && p.y>=g.y && p.y<g.y+g.h) minTop = Math.min(minTop, p.y);
-          });
-          g.__band = isFinite(minTop) ? minTop-g.y : g.h;
-        }
-        var lx = sr.x+16;
-        var ly = (g.__band*state.view.k >= th+12+34) ? sr.y+12 : sr.y-th-6;
-        ctx.fillStyle = 'rgba(238,240,244,.9)';
-        roundRectPath(ctx, lx, ly, tw, th, 8);
+
+      if(ph.h>0){
+        var sr = worldRectToScreen({ x:ph.x, y:ph.y, w:ph.w, h:ph.h });
+        topRoundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, PHASE_CARD_RADIUS);
+        ctx.fillStyle = '#F1F3F7';
         ctx.fill();
-        ctx.fillStyle = '#5B6472';
-        ctx.textAlign='left'; ctx.textBaseline='middle';
-        ctx.fillText(g.label, lx+padX, ly+th/2+1);
-        groupLabelHitRects.push({ x:lx, y:ly, w:tw, h:th, group:g });
+        if(ph.label){
+          var labelPx = headerFontPx(14);
+          ctx.font = '700 '+labelPx.toFixed(2)+'px '+FONT_STACK;
+          ctx.fillStyle = '#5B6472';
+          ctx.textAlign='left'; ctx.textBaseline='middle';
+          ctx.fillText(truncateText(ctx, ph.label, ctx.font, Math.max(4,sr.w-16)), sr.x+8, sr.y+sr.h/2);
+          ctx.textBaseline='alphabetic';
+        }
       }
     }
     ctx.restore();
@@ -1474,24 +1762,38 @@
     var fill = '#2F5BEA';
     if(entry.kind==='er') fill = (ER_TONE_GRAD[n.tone]||ER_TONE_GRAD.slate)[0];
     else if(entry.kind==='concept') fill = (CONCEPT_VARIANT_COLOR[n.variant]||CONCEPT_VARIANT_COLOR.entity).fg;
+    else if(entry.kind==='biz') fill = BIZ_DOT_COLOR[n.variant] || BIZ_DOT_COLOR.task;
     else if(entry.kind==='dfd') fill = (DFD_VARIANT_COLOR[n.variant]||DFD_VARIANT_COLOR.proc).fg;
     else if(entry.kind==='pill') fill = '#1A2029';
     roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, Math.min(10, sr.w/4));
     ctx.fillStyle = fill; ctx.fill();
   }
+  var BIZ_LABEL_OVERLAY_MIN_PX = 10; // 画面上でこれ未満になったらラスタ文字→オーバーレイに切り替え
   function drawCacheableNode(ctx, entry, sr, c){
     var mp = entry.modePos[state.mode];
-    var unit = (mp && mp.node && mp.node.unit) || 1;   // layout: "elk" の起点ノードは文字も unit 倍で大きい
+    var n = (mp && mp.node) || {};
+    var unit = n.unit || 1;   // layout: "elk" の起点ノードは文字も unit 倍で大きい
     var deviceScale = state.view.k*dprCur*unit;
     if(deviceScale < TEXT_MIN_SCALE){
       // 文字を描かず色付きの箱だけ
       drawSimpleBox(ctx, entry, sr);
       return;
     }
+    // biz: ラスタ内の label が画面上で読めなくなる倍率では、ラスタは文字なしで
+    // 作り直し、代わりに画面固定サイズのオーバーレイラベルを重ねて描く（二重描画防止）。
+    var noText = false, overlayNode = null;
+    if(entry.kind==='biz'){
+      var labelWorldPx = BIZ_LABEL_WORLD_PX[n.variant] || 15;
+      if(labelWorldPx*state.view.k < BIZ_LABEL_OVERLAY_MIN_PX){
+        noText = true;
+        if(sr.w>=44) overlayNode = n;
+      }
+    }
     var bucket = pickBucket(state.view.k, dprCur);
-    var rec = getRaster(entry, c.w, c.h, bucket);
+    var rec = getRaster(entry, c.w, c.h, bucket, noText);
     if(!rec){ drawSimpleBox(ctx, entry, sr); return; }
     ctx.drawImage(rec.canvas, 0,0, rec.w, rec.h, sr.x, sr.y, sr.w, sr.h);
+    if(overlayNode) drawBizLabelOverlay(ctx, overlayNode, sr);
   }
 
   function drawHighlights(ctx){
@@ -1630,11 +1932,42 @@
     panelBodyEl.innerHTML = html;
     attachPanelHandlers();
   }
+  function renderBizPanel(entry){
+    var mp = entry.modePos[state.mode] || entry.modePos[Object.keys(entry.modePos)[0]];
+    var n = (mp && mp.node) || {};
+    var modeObj = VIEWER_DATA.modes[state.mode] || {};
+    // v1: group.id はレーン id そのもの。v2: group.id はフェーズごとの複合 id（"PH1:L_STAFF"）
+    // なので group.lane / group.phase で照合する（フェーズ無し入力の group.phase は "_all"）。
+    var lane = (modeObj.groups||[]).filter(function(g){
+      return g.lane!=null ? (g.lane===n.lane && (n.phase==null || g.phase===n.phase)) : g.id===n.lane;
+    })[0];
+    var phase = (modeObj.phases||[]).filter(function(p){ return p.id===n.phase; })[0];
+    var html = '<div class="v-panel-kicker">'+escHtml(entry.id)+' ・ '+escHtml(KIND_LABEL_JA.biz||'業務ステップ')+'</div>'+
+      '<div class="v-panel-title">'+escHtml(n.label||entry.id)+'</div>';
+    var tags = [];
+    if(lane) tags.push('<span class="v-tag">'+escHtml(lane.label)+'</span>');
+    if(phase) tags.push('<span class="v-tag v-tag-slate">'+escHtml(phase.label)+'</span>');
+    if(tags.length) html += '<div class="v-tag-row">'+tags.join('')+'</div>';
+    if(n.sub){ html += section('補足', '<div class="v-section-p">'+escHtml(n.sub)+'</div>'); }
+    if(n.screen){
+      var scr = screensById.get(n.screen);
+      html += section('関連画面', scr
+        ? '<button class="v-open-screen-btn" type="button" data-id="'+escHtml(n.screen)+'">'+escHtml(n.screen)+' '+escHtml(scr.title||'')+' を開く</button>'
+        : emptyHtml());
+    }
+    html += listSection('仕様', n.spec);
+    html += listSection('補足情報', n.info);
+    html += transitionsSection(entry.id, '前後の工程');
+    panelBodyEl.innerHTML = html;
+    attachPanelHandlers();
+  }
   function renderPanel(){
     if(!state.selected){ detailPanelEl.hidden=true; return; }
     var entry = registry.get(state.selected);
     if(!entry){ detailPanelEl.hidden=true; return; }
-    if(entry.kind==='screen') renderScreenPanel(entry); else renderNodePanel(entry);
+    if(entry.kind==='screen') renderScreenPanel(entry);
+    else if(entry.kind==='biz') renderBizPanel(entry);
+    else renderNodePanel(entry);
   }
 
   // ---------------------------------------------------------
@@ -1846,7 +2179,7 @@
       var tag = e.target && e.target.tagName;
       if(tag==='INPUT' || tag==='TEXTAREA') return;
       if(e.key==='/'){ e.preventDefault(); searchInputEl.focus(); return; }
-      if(e.key>='1' && e.key<='5'){ setMode(MODE_KEYS[Number(e.key)-1]); return; }
+      if(e.key>='1' && e.key<='6'){ setMode(MODE_KEYS[Number(e.key)-1]); return; }
       if(e.key==='f' || e.key==='F'){ fitCurrentMode(true); return; }
       if(e.key==='+' || e.key==='='){ zoomStep(1); return; }
       if(e.key==='-' || e.key==='_'){ zoomStep(-1); return; }
