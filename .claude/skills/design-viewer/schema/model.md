@@ -525,8 +525,8 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
   "nodes": [
     { "id": "T_CUSTOMER", "kind": "er", "tone": "blue", "label": "顧客", "sub": "fc_Customer", "info": ["…"],
       "fields": [
-        { "name": "id", "type": "int", "key": "PK", "note": "主キー" },
-        { "name": "name", "type": "string", "key": "", "note": "" }
+        { "label": "顧客ID", "name": "id", "type": "int", "key": "PK", "note": "主キー" },
+        { "label": "顧客名", "name": "name", "type": "string", "key": "", "note": "" }
       ] }
   ],
   "edges": [
@@ -536,10 +536,23 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
 ```
 
 - `tone` は `blue | amber | green | slate | purple | teal`（ヘッダー色）。
+- **論理名と物理名**: テーブルも列も両方を持たせる。
+
+  | | 論理名 | 物理名 |
+  | --- | --- | --- |
+  | テーブル | `nodes[].label`（例: `顧客`） | `nodes[].sub`（例: `fc_Customer`） |
+  | 列 | `fields[].label`（例: `顧客ID`） | `fields[].name`（例: `id`） |
+
+  **ER 図（キャンバス）に描くのは論理名**（テーブルは `label` を大きく・`sub` を
+  その下に小さく、列は `label` だけ）。物理名は詳細パネルの「列」表に
+  キー｜論理名｜物理名｜型｜備考 の形で出る。
+  `fields[].label` を省いた列は ER 図に物理名（`name`）がそのまま出る（`validate.js` が警告）。
+- `fields[].name`（物理名）は必須で、テーブル内で一意にする。辺の `fromField` / `toField`
+  が参照するのはこの**物理名**で、論理名ではない。
 - `fields[].key` は `PK | FK | UK | ""`（バッジ表示に使う。`""` または省略でバッジ無し）。
 - `fromField` / `toField` を指定すると、その行の左右中央（`y = 56 + 30×行番号 + 15`）に
   ELK の固定位置ポートを作り、そこに辺を接続する（**必ず `fromField`/`toField` は対応する
-  ノードの `fields[].name` と一致させること**。一致しないと `validate.js` がエラーにする）。
+  ノードの `fields[].name`（物理名）と一致させること**。一致しないと `validate.js` がエラーにする）。
   省略した場合はノード全体（自動位置）につなぐ。
 - ノードサイズは自動計算: 幅 420、高さ `56 + 30 × fields.length`（ヘッダー 56px、行 30px）。
 - **層方向のヒューリスティック**: `layout.js` は ER 辺の `from`（FK を持つ側）を東（右）側の
@@ -554,7 +567,7 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
 
 ```jsonc
 { "from": "…", "to": "…", "label": "…", "type": "user|system|nav|start|rel|weak|flow|ng",   // ng は jobflow のみ
-  "fromField": "…", "toField": "…",     // er のみ
+  "fromField": "…", "toField": "…",     // er のみ。列の**物理名**（fields[].name）で書く
   "fromLabel": "…", "toLabel": "…",     // 端点近くの小さな補助ラベル（任意）
   "step": 1                              // dfd のみ。modes.dfd.steps[].n を参照
 }
@@ -628,7 +641,8 @@ v1 の `data.js` からの移植時はこの 2 プロパティを削除してよ
 - `batches` の id の欠落・重複、`screens` の id との重複、各モードのノード id との重複、`group` が `groups[].id` に存在しない（エラー）。
   `status` の未知の値、`schedule` の欠落、`arrange: "table"` で `status` の無いバッチ（警告）
 - `phases` を定義したのにノードが 1 つも属さないフェーズがある（警告のみ。行は高さ 110px の空行として出る）
-- ER の `fromField` / `toField` が対応ノードの `fields[].name` に存在しない
+- ER の `fromField` / `toField` が対応ノードの `fields[].name`（物理名）に存在しない
+- ER の `fields[].name`（物理名）が無い（エラー）、`fields[].label`（論理名）が無い（警告）
 - dfd の `edges[].step` が `steps[].n` に存在しない
 - `modes.gallery.arrange` の未知の値（エラー）、`screens[].status` の未知の値（警告）、`arrange: "table"` で `status` の無い画面がある（警告）
 - `modes.dfd.arrange` の未知の値、`arrange: "steps"` なのに `steps` が無い（エラー）、`arrange: "steps"` で step の無い辺がある（警告）

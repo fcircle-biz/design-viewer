@@ -267,7 +267,7 @@
         lx += measureScaled(ctx, sec.label, '800', lpx) + 12*k + 4; // 小さい文字は基準フォントの比例より幅が出るので固定の余白を足す
         ctx.font = scaledFont('600', 13*k);
         ctx.fillStyle = '#6B7482';
-        var cnt = sec.count+' 画面';
+        var cnt = sec.count+' '+(sec.unit||'画面');
         ctx.fillText(cnt, lx, ly);
         lx += measureScaled(ctx, cnt, '600', 13*k) + 16*k + 4;
         Object.keys(t.statuses).forEach(function(key){
@@ -355,6 +355,8 @@
     return null;
   }
 
+  // 辺ラベルの枠・文字の色（線の色に合わせる type だけ。ほかは灰色）
+  var EDGE_LABEL_TONE = { system:{ border:'#DCCBFB', fg:'#6D28D9' }, ng:{ border:'#FECACA', fg:'#B91C1C' } };
   function drawEdges(ctx, cull, visSet, connected, focusId){
     var edges = state.currentEdges;
     var placedLabels = [];
@@ -449,9 +451,9 @@
           roundRectPath(ctx, lrect.x, lrect.y, lrect.w, lrect.h, 999);
           ctx.fillStyle = '#fff';
           ctx.fill();
-          ctx.lineWidth=1; ctx.strokeStyle = e.type==='system' ? '#DCCBFB' : '#E2E6ED';
+          ctx.lineWidth=1; ctx.strokeStyle = EDGE_LABEL_TONE[e.type] ? EDGE_LABEL_TONE[e.type].border : '#E2E6ED';
           ctx.stroke();
-          ctx.fillStyle = e.type==='system' ? '#6D28D9' : '#5B6472';
+          ctx.fillStyle = EDGE_LABEL_TONE[e.type] ? EDGE_LABEL_TONE[e.type].fg : '#5B6472';
           ctx.textAlign='center'; ctx.textBaseline='middle';
           ctx.fillText(e.label, lp.x, lp.y+1);
           ctx.restore();

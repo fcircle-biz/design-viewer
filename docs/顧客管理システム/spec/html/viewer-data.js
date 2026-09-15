@@ -1,6 +1,6 @@
 window.VIEWER_DATA = {
   "version": 2,
-  "generatedAt": "2026-09-15T22:48:27.513Z",
+  "generatedAt": "2026-09-15T23:06:18.819Z",
   "meta": {
     "title": "顧客管理システム（Circle CRM）",
     "subtitle": "リード獲得 → 商談・見積 → 受注 → 問い合わせ対応までを 1 つで管理する B2B 向け CRM",
@@ -5679,16 +5679,19 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "ロールID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "ロール名",
               "name": "name",
               "type": "varchar",
               "note": "営業担当／営業マネージャー／サポート担当／システム管理者"
             },
             {
+              "label": "親ロールID",
               "name": "parent_role_id",
               "type": "bigint",
               "key": "FK",
@@ -5708,15 +5711,18 @@ window.VIEWER_DATA = {
           "sub": "teams",
           "fields": [
             {
+              "label": "チームID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "チーム名",
               "name": "name",
               "type": "varchar"
             },
             {
+              "label": "マネージャーID",
               "name": "manager_id",
               "type": "bigint",
               "key": "FK",
@@ -5740,45 +5746,52 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "ユーザーID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "氏名",
               "name": "name",
               "type": "varchar"
             },
             {
+              "label": "メールアドレス",
               "name": "email",
               "type": "varchar",
               "key": "UK"
             },
             {
+              "label": "ロールID",
               "name": "role_id",
               "type": "bigint",
               "key": "FK",
               "note": "roles.id"
             },
             {
+              "label": "チームID",
               "name": "team_id",
               "type": "bigint",
               "key": "FK",
               "note": "teams.id"
             },
             {
+              "label": "上司ID",
               "name": "manager_id",
               "type": "bigint",
               "key": "FK",
               "note": "users.id（自己参照）"
             },
             {
+              "label": "有効フラグ",
               "name": "is_active",
               "type": "boolean"
             },
             {
+              "label": "ロック解除日時",
               "name": "locked_until",
-              "type": "datetime",
-              "note": "ロック解除日時"
+              "type": "datetime"
             }
           ]
         },
@@ -5797,65 +5810,78 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "リードID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "会社名",
               "name": "company",
               "type": "varchar"
             },
             {
+              "label": "氏名",
               "name": "name",
               "type": "varchar"
             },
             {
+              "label": "メールアドレス",
               "name": "email",
               "type": "varchar"
             },
             {
+              "label": "電話番号",
               "name": "phone",
               "type": "varchar"
             },
             {
+              "label": "都道府県",
               "name": "prefecture",
               "type": "varchar",
               "note": "割り当てルールに使う"
             },
             {
+              "label": "獲得元",
               "name": "source",
               "type": "varchar",
               "note": "Web など"
             },
             {
+              "label": "ステータス",
               "name": "status",
               "type": "varchar",
               "note": "新規／対応中／評価済み／不適格"
             },
             {
+              "label": "不適格理由",
               "name": "disqualify_reason",
               "type": "varchar",
               "note": "不適格時は必須"
             },
             {
+              "label": "所有者ID",
               "name": "owner_id",
               "type": "bigint",
               "key": "FK",
               "note": "users.id"
             },
             {
+              "label": "変換先取引先ID",
               "name": "converted_account_id",
               "type": "bigint",
               "key": "FK",
               "note": "accounts.id"
             },
             {
+              "label": "変換先責任者ID",
               "name": "converted_contact_id",
               "type": "bigint",
               "key": "FK",
               "note": "contacts.id"
             },
             {
+              "label": "変換先商談ID",
               "name": "converted_opportunity_id",
               "type": "bigint",
               "key": "FK",
@@ -5878,38 +5904,45 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "取引先ID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "取引先名",
               "name": "name",
               "type": "varchar",
               "note": "必須"
             },
             {
+              "label": "法人番号",
               "name": "corporate_number",
               "type": "char(13)",
               "key": "UK",
               "note": "任意・重複不可"
             },
             {
+              "label": "業種",
               "name": "industry",
               "type": "varchar"
             },
             {
+              "label": "親取引先ID",
               "name": "parent_account_id",
               "type": "bigint",
               "key": "FK",
               "note": "accounts.id（自己参照）"
             },
             {
+              "label": "所有者ID",
               "name": "owner_id",
               "type": "bigint",
               "key": "FK",
               "note": "users.id"
             },
             {
+              "label": "取引先コード",
               "name": "account_code",
               "type": "varchar",
               "note": "受注データ出力に使う"
@@ -5928,34 +5961,40 @@ window.VIEWER_DATA = {
           "sub": "contacts",
           "fields": [
             {
+              "label": "責任者ID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "取引先ID",
               "name": "account_id",
               "type": "bigint",
               "key": "FK",
               "note": "accounts.id（必須）"
             },
             {
+              "label": "氏名",
               "name": "name",
               "type": "varchar"
             },
             {
+              "label": "役職",
               "name": "title",
-              "type": "varchar",
-              "note": "役職"
+              "type": "varchar"
             },
             {
+              "label": "メールアドレス",
               "name": "email",
               "type": "varchar"
             },
             {
+              "label": "電話番号",
               "name": "phone",
               "type": "varchar"
             },
             {
+              "label": "所有者ID",
               "name": "owner_id",
               "type": "bigint",
               "key": "FK",
@@ -5975,60 +6014,69 @@ window.VIEWER_DATA = {
           "sub": "opportunities",
           "fields": [
             {
+              "label": "商談ID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "取引先ID",
               "name": "account_id",
               "type": "bigint",
               "key": "FK",
               "note": "accounts.id"
             },
             {
+              "label": "商談名",
               "name": "name",
               "type": "varchar"
             },
             {
+              "label": "フェーズ",
               "name": "stage",
               "type": "varchar",
               "note": "見込み〜受注／失注"
             },
             {
+              "label": "確度",
               "name": "probability",
               "type": "int",
               "note": "確度 %"
             },
             {
+              "label": "金額",
               "name": "amount",
               "type": "decimal",
               "note": "明細合計（無ければ手入力）"
             },
             {
+              "label": "完了予定日",
               "name": "close_date",
-              "type": "date",
-              "note": "完了予定日"
+              "type": "date"
             },
             {
+              "label": "失注理由",
               "name": "lost_reason",
               "type": "varchar",
               "note": "失注時は必須"
             },
             {
+              "label": "競合",
               "name": "competitor",
               "type": "varchar",
               "note": "失注時は必須"
             },
             {
+              "label": "所有者ID",
               "name": "owner_id",
               "type": "bigint",
               "key": "FK",
               "note": "users.id"
             },
             {
+              "label": "受注データ出力日時",
               "name": "exported_at",
-              "type": "datetime",
-              "note": "受注データ出力日時"
+              "type": "datetime"
             }
           ]
         },
@@ -6044,31 +6092,37 @@ window.VIEWER_DATA = {
           "sub": "opportunity_line_items",
           "fields": [
             {
+              "label": "商談商品ID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "商談ID",
               "name": "opportunity_id",
               "type": "bigint",
               "key": "FK",
               "note": "opportunities.id"
             },
             {
+              "label": "商品ID",
               "name": "product_id",
               "type": "bigint",
               "key": "FK",
               "note": "products.id"
             },
             {
+              "label": "数量",
               "name": "quantity",
               "type": "int"
             },
             {
+              "label": "単価",
               "name": "unit_price",
               "type": "decimal"
             },
             {
+              "label": "割引率",
               "name": "discount_rate",
               "type": "decimal"
             }
@@ -6089,24 +6143,29 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "商品ID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "商品コード",
               "name": "code",
               "type": "varchar",
               "key": "UK"
             },
             {
+              "label": "商品名",
               "name": "name",
               "type": "varchar"
             },
             {
+              "label": "標準価格",
               "name": "list_price",
               "type": "decimal"
             },
             {
+              "label": "有効フラグ",
               "name": "is_active",
               "type": "boolean"
             }
@@ -6127,38 +6186,45 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "見積ID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "商談ID",
               "name": "opportunity_id",
               "type": "bigint",
               "key": "FK",
               "note": "opportunities.id"
             },
             {
+              "label": "見積番号",
               "name": "quote_no",
               "type": "varchar",
               "key": "UK",
               "note": "Q-年-連番 5 桁"
             },
             {
+              "label": "ステータス",
               "name": "status",
               "type": "varchar",
               "note": "承認待ち など"
             },
             {
+              "label": "同期フラグ",
               "name": "is_synced",
               "type": "boolean",
               "note": "同期中"
             },
             {
+              "label": "有効期限",
               "name": "expires_on",
               "type": "date",
               "note": "既定は発行日 + 30 日"
             },
             {
+              "label": "承認者ID",
               "name": "approved_by",
               "type": "bigint",
               "key": "FK",
@@ -6178,31 +6244,37 @@ window.VIEWER_DATA = {
           "sub": "quote_line_items",
           "fields": [
             {
+              "label": "見積明細ID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "見積ID",
               "name": "quote_id",
               "type": "bigint",
               "key": "FK",
               "note": "quotes.id"
             },
             {
+              "label": "商品ID",
               "name": "product_id",
               "type": "bigint",
               "key": "FK",
               "note": "products.id"
             },
             {
+              "label": "数量",
               "name": "quantity",
               "type": "int"
             },
             {
+              "label": "単価",
               "name": "unit_price",
               "type": "decimal"
             },
             {
+              "label": "割引率",
               "name": "discount_rate",
               "type": "decimal",
               "note": "20% 超は承認が必要"
@@ -6224,47 +6296,57 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "活動ID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "種別",
               "name": "type",
               "type": "varchar",
               "note": "task／event"
             },
             {
+              "label": "件名",
               "name": "subject",
               "type": "varchar"
             },
             {
+              "label": "期日",
               "name": "due_date",
               "type": "date",
               "note": "ToDo は必須"
             },
             {
+              "label": "開始日時",
               "name": "start_at",
               "type": "datetime",
               "note": "行動は必須"
             },
             {
+              "label": "終了日時",
               "name": "end_at",
               "type": "datetime",
               "note": "開始より後"
             },
             {
+              "label": "ステータス",
               "name": "status",
               "type": "varchar"
             },
             {
+              "label": "関連先種別",
               "name": "related_type",
               "type": "varchar"
             },
             {
+              "label": "関連先ID",
               "name": "related_id",
               "type": "bigint"
             },
             {
+              "label": "所有者ID",
               "name": "owner_id",
               "type": "bigint",
               "key": "FK",
@@ -6284,11 +6366,13 @@ window.VIEWER_DATA = {
           "sub": "queues",
           "fields": [
             {
+              "label": "キューID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "キュー名",
               "name": "name",
               "type": "varchar",
               "note": "未割り当て／一次サポート／二次サポート 等"
@@ -6307,64 +6391,76 @@ window.VIEWER_DATA = {
           "sub": "cases",
           "fields": [
             {
+              "label": "ケースID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "ケース番号",
               "name": "case_no",
               "type": "varchar",
               "key": "UK"
             },
             {
+              "label": "取引先ID",
               "name": "account_id",
               "type": "bigint",
               "key": "FK",
               "note": "accounts.id"
             },
             {
+              "label": "取引先責任者ID",
               "name": "contact_id",
               "type": "bigint",
               "key": "FK",
               "note": "contacts.id"
             },
             {
+              "label": "受付チャネル",
               "name": "channel",
               "type": "varchar",
               "note": "電話／メール／Web"
             },
             {
+              "label": "ステータス",
               "name": "status",
               "type": "varchar",
               "note": "新規〜クローズ"
             },
             {
+              "label": "優先度",
               "name": "priority",
               "type": "varchar",
               "note": "高／中／低"
             },
             {
+              "label": "件名",
               "name": "subject",
               "type": "varchar"
             },
             {
+              "label": "キューID",
               "name": "queue_id",
               "type": "bigint",
               "key": "FK",
               "note": "queues.id"
             },
             {
+              "label": "所有者ID",
               "name": "owner_id",
               "type": "bigint",
               "key": "FK",
               "note": "users.id"
             },
             {
+              "label": "初回応答期限",
               "name": "first_response_due",
               "type": "datetime",
               "note": "初回応答期限（SLA）"
             },
             {
+              "label": "解決日時",
               "name": "resolved_at",
               "type": "datetime",
               "note": "7 日後に自動クローズ"
@@ -6383,32 +6479,38 @@ window.VIEWER_DATA = {
           "sub": "case_comments",
           "fields": [
             {
+              "label": "コメントID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "ケースID",
               "name": "case_id",
               "type": "bigint",
               "key": "FK",
               "note": "cases.id"
             },
             {
+              "label": "本文",
               "name": "body",
               "type": "text"
             },
             {
+              "label": "公開フラグ",
               "name": "is_public",
               "type": "boolean",
               "note": "公開／社内のみ"
             },
             {
+              "label": "登録者ID",
               "name": "created_by",
               "type": "bigint",
               "key": "FK",
               "note": "users.id"
             },
             {
+              "label": "登録日時",
               "name": "created_at",
               "type": "datetime"
             }
@@ -6426,32 +6528,39 @@ window.VIEWER_DATA = {
           "sub": "import_jobs",
           "fields": [
             {
+              "label": "ジョブID",
               "name": "id",
               "type": "bigint",
               "key": "PK"
             },
             {
+              "label": "対象オブジェクト",
               "name": "object_type",
               "type": "varchar",
               "note": "取引先／取引先責任者／リード"
             },
             {
+              "label": "ファイル名",
               "name": "file_name",
               "type": "varchar"
             },
             {
+              "label": "総行数",
               "name": "total_rows",
               "type": "int"
             },
             {
+              "label": "エラー行数",
               "name": "error_rows",
               "type": "int"
             },
             {
+              "label": "ステータス",
               "name": "status",
               "type": "varchar"
             },
             {
+              "label": "登録者ID",
               "name": "created_by",
               "type": "bigint",
               "key": "FK",

@@ -120,6 +120,7 @@
       setDfdStep(Number(item.getAttribute('data-step')));
     });
     stepPlayEl.addEventListener('click', toggleAutoplay);
+    DV.jobFilterSelectEl.addEventListener('change', function(){ DV.setJobFilter(DV.jobFilterSelectEl.value); });
 
     // 検索
     searchInputEl.addEventListener('input', function(){ runSearch(searchInputEl.value); });
@@ -228,7 +229,7 @@
 
     window.addEventListener('keydown', function(e){
       var tag = e.target && e.target.tagName;
-      if(tag==='INPUT' || tag==='TEXTAREA') return;
+      if(tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT') return;
       if(e.key==='/'){ e.preventDefault(); searchInputEl.focus(); return; }
       if(e.key>='1' && e.key<='9'){ var mk = visibleModeKeys()[Number(e.key)-1]; if(mk) setMode(mk); return; }
       if(e.key==='f' || e.key==='F'){ fitCurrentMode(true); return; }
