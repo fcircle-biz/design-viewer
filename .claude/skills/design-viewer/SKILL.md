@@ -62,7 +62,10 @@ user-invocable: true
 - 画面遷移の方式を選ぶ: 役割・チャネルごとに帯で分けたいなら既定の `lanes`。画面数が少なく（〜20 画面程度）、
   画面のつながりを 1 枚の流れ図として見せたいなら `modes.flow.layout: "elk"`（`docs/design-viewer-elk.html` の見た目。
   起点ノードは `attachTo`、段分けは `nudge` で調整する。model.md §4.1）。
-- 画面の `purpose / ops / reads / writes / notes / tasks / spec` は詳細パネルに出る。仕様書の節番号・タスク ID を入れておくと追跡しやすい。
+- 画面の `purpose / ops / reads / writes / notes / tasks / spec` は詳細パネルに出る。**ビューアの利用者は仕様書を手元に開いていない前提で書く。**
+  `spec` には節番号（`§5.2` など）だけを書かず、関係する記述を「出典の名前: 転記した内容」の形で転記する
+  （例: `"業務ルール（在庫）: 出庫によって在庫数が 0 未満になる場合はエラーとする。"`）。
+  `notes` などの本文で出典を示すときも、番号ではなく節の名前（「（非機能要件）」など）で書く。
 
 ### 3. `viewer-src/screens/<ID>.html` を書く
 - 1 画面 1 ファイルの完全な HTML 文書。`<div id="screen">` を `screens[].w × h`（既定 1440×900）で作り、共通 CSS は `_shared.css` に置いて相対リンクする。
