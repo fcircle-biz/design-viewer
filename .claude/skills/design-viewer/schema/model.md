@@ -17,7 +17,7 @@ viewer-src/
 
 ```jsonc
 {
-  "meta": { "title": "…", "subtitle": "…", "statusNote": "…（任意）" },
+  "meta": { "title": "…", "subtitle": "…", "statusNote": "…（任意）", "modeOrder": ["concept", "biz", "gallery", "flow", "er", "dfd"] },
   "screens": [ Screen, … ],
   "groups": [ Group, … ],
   "modes": {
@@ -34,6 +34,8 @@ viewer-src/
 - `meta.title` は必須。`subtitle` / `statusNote` は任意（`statusNote` は「作成中」等の一言を
   タイトルカードに表示する用途）。
 - `modes` の 6 モードはすべて省略可。無いモードはビューアのモード切替ボタンに出ない。
+- モード切替ボタンの表示名は各モードの `label`。並び順は `meta.modeOrder`（任意。モードのキーの配列）で指定でき、
+  書かなかったモードは既定順（flow, gallery, concept, biz, er, dfd）で後ろに続く。数字キー 1〜n はボタンの並び順に対応する。
 - `screens` / `groups` は `modes.flow` や `modes.gallery` が無くても、画面一覧・詳細パネルの
   メタ情報として使われるので用意しておくとよい。
 

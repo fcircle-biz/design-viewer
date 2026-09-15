@@ -71,6 +71,14 @@ function validateModel(model, viewerSrcDir) {
   } else if (!model.meta.title) {
     pushErr(errors, 'meta.title が必須です');
   }
+  if (model.meta && model.meta.modeOrder !== undefined) {
+    const known = ['flow', 'gallery', 'concept', 'biz', 'er', 'dfd'];
+    if (!Array.isArray(model.meta.modeOrder)) {
+      pushWarn(warnings, 'meta.modeOrder は配列で指定してください（例: ["concept","biz","gallery","flow","er","dfd"]）');
+    } else {
+      model.meta.modeOrder.filter(k => !known.includes(k)).forEach(k => pushWarn(warnings, `meta.modeOrder の未知のモード: ${k}`));
+    }
+  }
 
   // --- groups ---
   const groups = Array.isArray(model.groups) ? model.groups : [];
