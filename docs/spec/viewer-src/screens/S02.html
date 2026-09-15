@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S02 ダッシュボード</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <header class="header">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+        <path d="M3.27 6.96 12 12l8.73-5.04"/>
+        <path d="M12 22.08V12"/>
+      </svg>
+      商品管理
+    </div>
+    <nav class="nav">
+      <a class="active">ダッシュボード</a>
+      <a>商品</a>
+      <a>カテゴリ</a>
+      <a>入出庫</a>
+      <a>ユーザー</a>
+    </nav>
+    <div class="header-user">
+      山田 花子
+      <span class="avatar">山</span>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">ダッシュボード</h1>
+      <div class="page-actions">
+        <button class="btn btn-secondary">入出庫登録</button>
+        <button class="btn btn-primary">商品一覧へ</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">登録商品数</div>
+        <div class="kpi-value">312</div>
+        <div class="kpi-sub muted">全カテゴリ合計</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">公開中</div>
+        <div class="kpi-value">268</div>
+        <div class="kpi-sub muted">全体の85.9%</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">在庫少</div>
+        <div class="kpi-value">14</div>
+        <div class="kpi-sub muted">閾値以下</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">在庫切れ</div>
+        <div class="kpi-value">5</div>
+        <div class="kpi-sub muted">在庫数 0</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">在庫切れ・在庫少の商品</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>商品名</th>
+              <th>在庫数</th>
+              <th>閾値</th>
+              <th>状態</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="is-error">
+              <td class="mono">ZK-1001</td>
+              <td>ガラス花瓶 S</td>
+              <td class="text-right">0</td>
+              <td class="text-right">5</td>
+              <td><span class="badge badge-red">在庫切れ</span></td>
+            </tr>
+            <tr class="is-error">
+              <td class="mono">ZK-1042</td>
+              <td>木製コースター 4枚組</td>
+              <td class="text-right">0</td>
+              <td class="text-right">10</td>
+              <td><span class="badge badge-red">在庫切れ</span></td>
+            </tr>
+            <tr>
+              <td class="mono">ZK-1077</td>
+              <td>陶器マグカップ 白</td>
+              <td class="text-right">3</td>
+              <td class="text-right">5</td>
+              <td><span class="badge badge-amber">在庫少</span></td>
+            </tr>
+            <tr>
+              <td class="mono">ZK-1120</td>
+              <td>麻編みバスケット M</td>
+              <td class="text-right">2</td>
+              <td class="text-right">8</td>
+              <td><span class="badge badge-amber">在庫少</span></td>
+            </tr>
+            <tr>
+              <td class="mono">ZK-1183</td>
+              <td>アロマキャンドル ラベンダー</td>
+              <td class="text-right">4</td>
+              <td class="text-right">10</td>
+              <td><span class="badge badge-amber">在庫少</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title">直近の入出庫</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>日時</th>
+              <th>商品</th>
+              <th>区分</th>
+              <th>数量</th>
+              <th>登録者</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">09/15 10:20</td>
+              <td>ガラス花瓶 S</td>
+              <td><span class="badge badge-red">出庫</span></td>
+              <td class="text-right">3</td>
+              <td>山田 花子</td>
+            </tr>
+            <tr>
+              <td class="mono">09/15 09:45</td>
+              <td>陶器マグカップ 白</td>
+              <td><span class="badge badge-green">入庫</span></td>
+              <td class="text-right">20</td>
+              <td>佐藤 健</td>
+            </tr>
+            <tr>
+              <td class="mono">09/14 17:10</td>
+              <td>木製コースター 4枚組</td>
+              <td><span class="badge badge-red">出庫</span></td>
+              <td class="text-right">6</td>
+              <td>山田 花子</td>
+            </tr>
+            <tr>
+              <td class="mono">09/14 15:32</td>
+              <td>麻編みバスケット M</td>
+              <td><span class="badge badge-blue">調整</span></td>
+              <td class="text-right">-1</td>
+              <td>佐藤 健</td>
+            </tr>
+            <tr>
+              <td class="mono">09/14 11:05</td>
+              <td>アロマキャンドル ラベンダー</td>
+              <td><span class="badge badge-green">入庫</span></td>
+              <td class="text-right">30</td>
+              <td>山田 花子</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+</body>
+</html>

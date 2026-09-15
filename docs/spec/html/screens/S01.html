@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S01 ログイン</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  #screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #eef2f7 0%, #e4e9f2 100%);
+  }
+  .login-brand-icon {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="row" style="justify-content:center; margin-bottom: 24px;">
+        <span class="login-brand-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+            <path d="M3.27 6.96 12 12l8.73-5.04"/>
+            <path d="M12 22.08V12"/>
+          </svg>
+        </span>
+        <h1 class="page-title" style="margin-left:10px;">商品管理システム</h1>
+      </div>
+
+      <div class="alert alert-info" style="margin-bottom:20px;">
+        サンプル雑貨店 管理画面へようこそ
+      </div>
+
+      <form class="stack" style="gap:16px;">
+        <div class="field full">
+          <label>メールアドレス <span class="required">*</span></label>
+          <input class="input" type="email" placeholder="yamada@sample-zakka.jp" value="yamada@sample-zakka.jp">
+        </div>
+        <div class="field full">
+          <label>パスワード <span class="required">*</span></label>
+          <input class="input" type="password" placeholder="••••••••" value="••••••••">
+          <div class="help">パスワードは8文字以上</div>
+        </div>
+
+        <button type="button" class="btn btn-primary" style="width:100%; margin-top:8px;">ログイン</button>
+
+        <div class="row" style="justify-content:center; margin-top:4px;">
+          <a href="#" class="muted" style="font-size:13px;">パスワードをお忘れですか？</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>カテゴリ管理</title>
+<link rel="stylesheet" href="_shared.css" />
+<style>
+  .del-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .del-note {
+    font-size: 11px;
+    color: #9ca3af;
+  }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        商品管理
+      </div>
+      <nav class="nav">
+        <a>ダッシュボード</a>
+        <a>商品</a>
+        <a class="active">カテゴリ</a>
+        <a>入出庫</a>
+        <a>ユーザー</a>
+      </nav>
+      <div class="header-user">
+        山田 花子
+        <span class="avatar">山</span>
+      </div>
+    </header>
+    <main class="main">
+      <div class="page-head">
+        <h1 class="page-title">カテゴリ管理</h1>
+        <div class="page-actions">
+          <button class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            カテゴリ追加
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width: 90px">表示順</th>
+              <th>カテゴリ名</th>
+              <th class="text-right" style="width: 100px">商品数</th>
+              <th style="width: 220px">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">1</td>
+              <td>キッチン雑貨</td>
+              <td class="text-right mono">24</td>
+              <td>
+                <div class="del-cell">
+                  <div class="row" style="gap: 6px">
+                    <button class="btn btn-sm btn-secondary">編集</button>
+                    <button class="btn btn-sm" disabled style="opacity: 0.45; cursor: not-allowed">削除</button>
+                  </div>
+                  <span class="del-note">商品が紐づいているため削除不可</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">2</td>
+              <td>
+                <input class="input" style="height: 28px; font-size: 12px" value="インテリア" />
+              </td>
+              <td class="text-right mono">15</td>
+              <td>
+                <div class="row" style="gap: 6px">
+                  <button class="btn btn-sm btn-primary">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    保存
+                  </button>
+                  <button class="btn btn-sm btn-ghost">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    取消
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">3</td>
+              <td>文房具</td>
+              <td class="text-right mono">0</td>
+              <td>
+                <div class="row" style="gap: 6px">
+                  <button class="btn btn-sm btn-secondary">編集</button>
+                  <button class="btn btn-sm btn-secondary">削除</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">4</td>
+              <td>アクセサリー</td>
+              <td class="text-right mono">8</td>
+              <td>
+                <div class="del-cell">
+                  <div class="row" style="gap: 6px">
+                    <button class="btn btn-sm btn-secondary">編集</button>
+                    <button class="btn btn-sm" disabled style="opacity: 0.45; cursor: not-allowed">削除</button>
+                  </div>
+                  <span class="del-note">商品が紐づいているため削除不可</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">5</td>
+              <td>ステーショナリー</td>
+              <td class="text-right mono">3</td>
+              <td>
+                <div class="del-cell">
+                  <div class="row" style="gap: 6px">
+                    <button class="btn btn-sm btn-secondary">編集</button>
+                    <button class="btn btn-sm" disabled style="opacity: 0.45; cursor: not-allowed">削除</button>
+                  </div>
+                  <span class="del-note">商品が紐づいているため削除不可</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">6</td>
+              <td>ギフト</td>
+              <td class="text-right mono">0</td>
+              <td>
+                <div class="row" style="gap: 6px">
+                  <button class="btn btn-sm btn-secondary">編集</button>
+                  <button class="btn btn-sm btn-secondary">削除</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,266 @@
+/* ============================================================
+   design-viewer engine — ビューア本体スタイル
+   描画は #stage canvas 1 枚（Canvas 2D）。浮いている UI（カード類）だけ HTML/CSS。
+   クラス名はすべて v- で始める。
+   ============================================================ */
+
+:root{
+  --v-bg: #EEF0F4;
+  --v-dot: #C7CDD9;
+  --v-panel: #FFFFFF;
+  --v-ink: #1A2029;
+  --v-ink-soft: #5B6472;
+  --v-ink-faint: #8A93A3;
+  --v-border: #E2E6ED;
+  --v-shadow: 0 8px 28px rgba(20,30,50,.14), 0 1px 3px rgba(20,30,50,.08);
+  --v-shadow-sm: 0 2px 10px rgba(20,30,50,.10);
+  --v-accent: #2F5BEA;
+  --v-accent-soft: #EAF0FF;
+  --v-amber: #B46C00;
+  --v-amber-bg: #FFF3DE;
+  --v-amber-border: #F4CE8B;
+
+  --v-edge-user: #3B6FF5;
+  --v-edge-system: #8B5CF6;
+  --v-edge-nav: #A3ABB9;
+  --v-edge-start: #64748B;
+  --v-edge-rel: #475569;
+  --v-edge-weak: #94A3B8;
+  --v-edge-flow: #2F5BEA;
+
+  --v-teams: #5B5FC7;
+
+  --v-radius: 12px;
+  --v-font: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo",system-ui,sans-serif;
+}
+
+*{ box-sizing: border-box; }
+
+html,body{
+  margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+  background: var(--v-bg);
+  font-family: var(--v-font);
+  color: var(--v-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app{ position:fixed; inset:0; overflow:hidden; }
+
+#stage{
+  position:absolute; inset:0; display:block;
+  width:100%; height:100%;
+  cursor: grab;
+  touch-action:none;
+  outline:none;
+}
+#stage.v-panning{ cursor: grabbing; }
+
+/* ---------- 汎用カード ---------- */
+.v-card{
+  position:absolute;
+  background: var(--v-panel);
+  border-radius: var(--v-radius);
+  box-shadow: var(--v-shadow);
+  border: 1px solid rgba(20,30,50,.05);
+  z-index: 5;
+}
+.v-card-heading{
+  font-size:12px; font-weight:700; color:var(--v-ink-soft);
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:8px; letter-spacing:.02em;
+}
+.v-icon-btn{
+  appearance:none; border:1px solid var(--v-border); background:#fff;
+  color:var(--v-ink); border-radius:8px; width:28px; height:28px;
+  font-size:14px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition: background .12s, border-color .12s;
+}
+.v-icon-btn:hover{ background: var(--v-accent-soft); border-color: var(--v-accent); }
+.v-icon-btn.v-active{ background: var(--v-accent); border-color: var(--v-accent); color:#fff; }
+
+/* ---------- タイトルカード ---------- */
+#titleCard{
+  left:20px; top:20px; max-width:420px;
+  padding:16px 18px;
+}
+.v-title{ font-size:17px; font-weight:800; color:var(--v-ink); }
+.v-subtitle{ font-size:12.5px; color:var(--v-ink-soft); margin-top:4px; }
+.v-status{
+  display:inline-block; margin-top:10px; font-size:11.5px; font-weight:700;
+  color:var(--v-amber); background:var(--v-amber-bg); border:1px solid var(--v-amber-border);
+  border-radius:999px; padding:3px 10px;
+}
+.v-mode-desc{
+  margin-top:10px; padding-top:10px; border-top:1px dashed var(--v-border);
+  font-size:12px; color:var(--v-ink-soft); line-height:1.5;
+}
+
+/* ---------- 検索 ---------- */
+#searchCard{
+  left:50%; top:20px; transform:translateX(-50%); width:340px; padding:8px 10px;
+}
+.v-search-row{ display:flex; align-items:center; gap:8px; }
+.v-search-icon{ flex:none; color:var(--v-ink-faint); width:16px; height:16px; }
+#searchInput{
+  flex:1; border:none; outline:none; font-family:var(--v-font); font-size:13px; color:var(--v-ink);
+  background:transparent; min-width:0;
+}
+#searchInput::placeholder{ color:var(--v-ink-faint); }
+.v-search-results{
+  margin-top:6px; max-height:260px; overflow-y:auto; border-top:1px dashed var(--v-border);
+  padding-top:6px; display:none; flex-direction:column; gap:2px;
+}
+.v-search-results.v-open{ display:flex; }
+.v-search-item{
+  padding:6px 8px; border-radius:8px; cursor:pointer; font-size:12.5px; color:var(--v-ink);
+  display:flex; align-items:center; gap:8px;
+}
+.v-search-item:hover, .v-search-item.v-sel{ background: var(--v-accent-soft); }
+.v-search-item .v-search-id{ color:var(--v-ink-faint); font-weight:700; flex:none; }
+.v-search-item .v-search-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v-search-empty{ font-size:12px; color:var(--v-ink-faint); padding:6px 8px; }
+
+/* ---------- 凡例 ---------- */
+#legendCard{
+  left:20px; bottom:20px; width:236px; padding:14px 16px;
+}
+.v-legend-list{ display:flex; flex-direction:column; gap:6px; }
+.v-legend-item{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--v-ink-soft); }
+.v-legend-swatch{ width:20px; height:0; border-top-width:2.5px; border-top-style:solid; flex:none; }
+.v-legend-swatch.v-dash{ border-top-style:dashed; }
+.v-legend-swatch.v-dot{ border-top-style:dotted; border-top-width:3px; }
+.v-toggle-list{ display:flex; flex-direction:column; gap:6px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--v-border); }
+.v-toggle-item{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--v-ink-soft); cursor:pointer; }
+.v-toggle-item input{ accent-color: var(--v-accent); width:14px; height:14px; }
+
+/* ---------- ステップカード（DFD） ---------- */
+#stepsCard{
+  right:20px; top:20px; width:260px; max-height:calc(100vh - 140px); padding:14px 16px;
+  display:flex; flex-direction:column;
+}
+#stepsCard[hidden]{ display:none; }
+.v-step-list{ overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+.v-step-item{
+  border:1px solid var(--v-border); border-radius:10px; padding:8px 10px; cursor:pointer;
+  background:#fff; transition: background .12s, border-color .12s;
+}
+.v-step-item:hover{ background: var(--v-accent-soft); }
+.v-step-item.v-active{ border-color: var(--v-accent); background: var(--v-accent-soft); }
+.v-step-num{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:18px; height:18px; border-radius:50%; background:var(--v-edge-flow); color:#fff;
+  font-size:10.5px; font-weight:700; margin-right:6px;
+}
+.v-step-title{ font-size:12.5px; font-weight:700; color:var(--v-ink); }
+.v-step-desc{ font-size:11px; color:var(--v-ink-faint); margin-top:2px; margin-left:24px; }
+
+/* ---------- ミニマップ ---------- */
+#minimapCard{
+  right:20px; bottom:20px; width:220px; height:150px; padding:6px;
+}
+#minimapCard[hidden]{ display:none; }
+#minimapCanvas{ display:block; width:100%; height:100%; border-radius:8px; cursor:pointer; }
+
+/* ---------- 詳細パネル ---------- */
+#detailPanel{
+  right:0; top:0; bottom:0; width:400px; max-width:92vw;
+  border-radius:0; border-left:1px solid var(--v-border);
+  box-shadow: -10px 0 28px rgba(20,30,50,.10);
+  overflow-y:auto; padding:20px;
+}
+#detailPanel[hidden]{ display:none; }
+.v-panel-close{ position:absolute; right:14px; top:14px; }
+.v-panel-body{ padding-right:6px; }
+.v-panel-kicker{ font-size:11px; font-weight:700; color:var(--v-ink-faint); letter-spacing:.04em; }
+.v-panel-title{ font-size:19px; font-weight:800; margin-top:4px; margin-bottom:10px; line-height:1.35; }
+.v-tag-row{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+.v-tag{
+  font-size:11px; font-weight:700; border-radius:999px; padding:3px 10px;
+  background: var(--v-accent-soft); color: var(--v-accent); border:1px solid rgba(47,91,234,.18);
+}
+.v-tag.v-tag-slate{ background:#F1F3F7; color:var(--v-ink-soft); border-color:var(--v-border); }
+.v-open-screen-btn{
+  appearance:none; border:1px solid var(--v-accent); background:var(--v-accent-soft); color:var(--v-accent);
+  font-family:var(--v-font); font-size:12px; font-weight:700; padding:6px 12px; border-radius:8px;
+  cursor:pointer; margin-bottom:16px; pointer-events:auto;
+}
+.v-open-screen-btn:hover{ background:var(--v-accent); color:#fff; }
+.v-section{ margin-bottom:16px; }
+.v-section-h{ font-size:11.5px; font-weight:700; color:var(--v-ink-soft); margin-bottom:6px; letter-spacing:.02em; }
+.v-section-p{ font-size:13px; line-height:1.6; color:var(--v-ink); white-space:pre-wrap; }
+.v-section ul{ margin:0; padding-left:18px; }
+.v-section li{ font-size:12.5px; line-height:1.7; color:var(--v-ink); }
+.v-empty{ font-size:12px; color:var(--v-ink-faint); }
+.v-trans-list{ display:flex; flex-direction:column; gap:6px; }
+.v-trans-item{
+  display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--v-border);
+  border-radius:10px; font-size:12px; cursor:pointer; background:#fff; pointer-events:auto;
+}
+.v-trans-item:hover{ background: var(--v-accent-soft); border-color: var(--v-accent); }
+.v-trans-dir{ font-weight:700; color: var(--v-accent); flex:none; }
+.v-trans-label{ color:var(--v-ink-faint); flex:none; }
+.v-trans-node{ font-weight:700; }
+
+/* ---------- ツールバー ---------- */
+#toolbar{
+  left:50%; bottom:20px; transform:translateX(-50%);
+  display:flex; align-items:center; gap:10px; padding:8px;
+  flex-wrap:wrap; justify-content:center; max-width:94vw;
+}
+.v-seg{ display:flex; gap:2px; background:#F1F3F7; border-radius:10px; padding:3px; }
+.v-seg-btn{
+  appearance:none; border:none; background:transparent; color:var(--v-ink-soft);
+  font-family:var(--v-font); font-size:12.5px; font-weight:600; padding:7px 12px;
+  border-radius:8px; cursor:pointer; white-space:nowrap;
+}
+.v-seg-btn:hover{ color:var(--v-ink); }
+.v-seg-btn.v-active{ background:#fff; color:var(--v-accent); box-shadow: var(--v-shadow-sm); }
+.v-toolbar-sep{ width:1px; height:24px; background:var(--v-border); flex:none; }
+.v-zoom{ display:flex; align-items:center; gap:6px; }
+.v-zoom-pct{ width:44px; text-align:center; font-size:12px; color:var(--v-ink-soft); font-variant-numeric: tabular-nums; }
+.v-fit-btn, .v-neighbor-btn{
+  appearance:none; border:1px solid var(--v-border); background:#fff; color:var(--v-ink);
+  font-family:var(--v-font); font-size:12px; font-weight:600; padding:0 12px; height:28px;
+  border-radius:8px; cursor:pointer; white-space:nowrap;
+}
+.v-fit-btn:hover, .v-neighbor-btn:hover{ background: var(--v-accent-soft); border-color: var(--v-accent); }
+.v-neighbor-btn.v-active{ background: var(--v-accent); border-color: var(--v-accent); color:#fff; }
+
+/* ---------- 等倍プレビュー モーダル ---------- */
+#previewModal{
+  position:fixed; inset:0; background:rgba(20,24,32,.55); display:none;
+  align-items:center; justify-content:center; z-index:50; padding:32px;
+}
+#previewModal.v-open{ display:flex; }
+.v-modal-box{
+  background:#fff; border-radius:14px; box-shadow:var(--v-shadow); overflow:hidden;
+  display:flex; flex-direction:column; max-width:96vw; max-height:96vh;
+}
+.v-modal-head{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:10px 14px; border-bottom:1px solid var(--v-border); background:#F6F7FA;
+}
+.v-modal-title{ font-size:13px; font-weight:700; color:var(--v-ink); }
+.v-modal-actions{ display:flex; align-items:center; gap:8px; }
+.v-modal-scale-btn{
+  appearance:none; border:1px solid var(--v-border); background:#fff; color:var(--v-ink);
+  font-family:var(--v-font); font-size:11.5px; font-weight:600; padding:0 10px; height:26px;
+  border-radius:7px; cursor:pointer;
+}
+.v-modal-scale-btn.v-active{ background:var(--v-accent); border-color:var(--v-accent); color:#fff; }
+.v-modal-body{ overflow:auto; background:#EEF0F4; display:flex; align-items:flex-start; justify-content:center; }
+.v-modal-body iframe{ border:none; display:block; background:#fff; flex:none; }
+
+/* ---------- レスポンシブ ---------- */
+@media (max-width: 720px){
+  #titleCard{ max-width: 72vw; padding:12px 14px; }
+  .v-title{ font-size:15px; }
+  #searchCard{ width:min(72vw,300px); }
+  #legendCard{ width: 60vw; max-width:220px; }
+  #stepsCard{ width: 60vw; max-width:240px; top:auto; bottom:96px; max-height:40vh; }
+  #detailPanel{ width:100vw; }
+  #minimapCard{ width:150px; height:104px; }
+  #toolbar{ gap:6px; padding:6px; }
+  .v-seg-btn{ padding:6px 8px; font-size:11px; }
+  .v-fit-btn, .v-neighbor-btn{ padding:0 8px; font-size:11px; }
+}
