@@ -1,6 +1,6 @@
 window.VIEWER_DATA = {
   "version": 2,
-  "generatedAt": "2026-09-15T21:55:58.897Z",
+  "generatedAt": "2026-09-15T23:06:18.090Z",
   "meta": {
     "title": "商品管理システム",
     "subtitle": "設計ビューア（docs/product-management-spec.md）",
@@ -375,6 +375,7 @@ window.VIEWER_DATA = {
       }
     }
   ],
+  "batches": [],
   "thumbs": {
     "S01": {
       "l": "thumbs/S01.jpg",
@@ -2979,48 +2980,53 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "ユーザーID",
               "name": "id",
               "type": "bigint",
               "key": "PK",
               "note": "主キー"
             },
             {
+              "label": "氏名",
               "name": "name",
               "type": "varchar(50)",
-              "key": "",
-              "note": "氏名"
+              "key": ""
             },
             {
+              "label": "メールアドレス",
               "name": "email",
               "type": "varchar(255)",
               "key": "UK",
               "note": "ログイン ID（一意）"
             },
             {
+              "label": "パスワードハッシュ",
               "name": "password_hash",
               "type": "varchar(255)",
-              "key": "",
-              "note": "パスワードハッシュ"
+              "key": ""
             },
             {
+              "label": "権限",
               "name": "role",
               "type": "varchar(10)",
               "key": "",
               "note": "admin / staff"
             },
             {
+              "label": "有効フラグ",
               "name": "is_active",
               "type": "boolean",
-              "key": "",
-              "note": "有効フラグ"
+              "key": ""
             },
             {
+              "label": "登録日時",
               "name": "created_at",
               "type": "timestamp",
               "key": "",
               "note": ""
             },
             {
+              "label": "更新日時",
               "name": "updated_at",
               "type": "timestamp",
               "key": "",
@@ -3043,30 +3049,34 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "カテゴリID",
               "name": "id",
               "type": "bigint",
               "key": "PK",
               "note": "主キー"
             },
             {
+              "label": "カテゴリ名",
               "name": "name",
               "type": "varchar(50)",
               "key": "UK",
               "note": "カテゴリ名（一意）"
             },
             {
+              "label": "表示順",
               "name": "sort_order",
               "type": "int",
-              "key": "",
-              "note": "表示順"
+              "key": ""
             },
             {
+              "label": "登録日時",
               "name": "created_at",
               "type": "timestamp",
               "key": "",
               "note": ""
             },
             {
+              "label": "更新日時",
               "name": "updated_at",
               "type": "timestamp",
               "key": "",
@@ -3091,72 +3101,81 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "商品ID",
               "name": "id",
               "type": "bigint",
               "key": "PK",
               "note": "主キー"
             },
             {
+              "label": "商品コード",
               "name": "sku",
               "type": "varchar(32)",
               "key": "UK",
               "note": "商品コード（一意）"
             },
             {
+              "label": "商品名",
               "name": "name",
               "type": "varchar(100)",
-              "key": "",
-              "note": "商品名"
+              "key": ""
             },
             {
+              "label": "カテゴリID",
               "name": "category_id",
               "type": "bigint",
               "key": "FK",
               "note": "FK → categories.id"
             },
             {
+              "label": "販売価格",
               "name": "price",
               "type": "int",
               "key": "",
               "note": "販売価格（税込、円、0以上）"
             },
             {
+              "label": "説明",
               "name": "description",
               "type": "text",
-              "key": "",
-              "note": "説明"
+              "key": ""
             },
             {
+              "label": "ステータス",
               "name": "status",
               "type": "varchar(10)",
               "key": "",
               "note": "draft / published / archived"
             },
             {
+              "label": "現在在庫数",
               "name": "stock_quantity",
               "type": "int",
               "key": "",
               "note": "現在在庫数（0以上）"
             },
             {
+              "label": "在庫少アラート閾値",
               "name": "low_stock_threshold",
               "type": "int",
               "key": "",
               "note": "在庫少アラートの閾値（初期値5）"
             },
             {
+              "label": "論理削除日時",
               "name": "deleted_at",
               "type": "timestamp",
-              "key": "",
-              "note": "論理削除日時"
+              "key": ""
             },
             {
+              "label": "登録日時",
               "name": "created_at",
               "type": "timestamp",
               "key": "",
               "note": ""
             },
             {
+              "label": "更新日時",
               "name": "updated_at",
               "type": "timestamp",
               "key": "",
@@ -3180,24 +3199,27 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "画像ID",
               "name": "id",
               "type": "bigint",
               "key": "PK",
               "note": "主キー"
             },
             {
+              "label": "商品ID",
               "name": "product_id",
               "type": "bigint",
               "key": "FK",
               "note": "FK → products.id"
             },
             {
+              "label": "画像URL",
               "name": "url",
               "type": "varchar(500)",
-              "key": "",
-              "note": "画像URL"
+              "key": ""
             },
             {
+              "label": "表示順",
               "name": "sort_order",
               "type": "int",
               "key": "",
@@ -3222,52 +3244,58 @@ window.VIEWER_DATA = {
           ],
           "fields": [
             {
+              "label": "入出庫ID",
               "name": "id",
               "type": "bigint",
               "key": "PK",
               "note": "主キー"
             },
             {
+              "label": "商品ID",
               "name": "product_id",
               "type": "bigint",
               "key": "FK",
               "note": "FK → products.id"
             },
             {
+              "label": "入出庫区分",
               "name": "type",
               "type": "varchar(10)",
               "key": "",
               "note": "in（入庫）/ out（出庫）/ adjust（調整）"
             },
             {
+              "label": "数量",
               "name": "quantity",
               "type": "int",
               "key": "",
               "note": "数量（in/outは正数、adjustは増減値）"
             },
             {
+              "label": "登録後在庫数",
               "name": "quantity_after",
               "type": "int",
               "key": "",
               "note": "登録後の在庫数"
             },
             {
+              "label": "メモ",
               "name": "note",
               "type": "varchar(255)",
-              "key": "",
-              "note": "メモ"
+              "key": ""
             },
             {
+              "label": "登録者ID",
               "name": "user_id",
               "type": "bigint",
               "key": "FK",
               "note": "FK → users.id（登録者）"
             },
             {
+              "label": "登録日時",
               "name": "created_at",
               "type": "timestamp",
-              "key": "",
-              "note": "登録日時"
+              "key": ""
             }
           ]
         }

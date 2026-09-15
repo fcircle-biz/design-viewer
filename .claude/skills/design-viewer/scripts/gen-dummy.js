@@ -183,7 +183,7 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
   const erNodesById = new Map();
   const erNodes = Array.from({ length: TABLE_COUNT }, (_, i) => {
     const id = `T${String(i + 1).padStart(2, '0')}`;
-    const n = { id, kind: 'er', tone: tones[i % tones.length], label: `テーブル${i + 1}`, sub: `dummy_table_${i + 1}`, info: [], fields: [{ name: 'id', type: 'int', key: 'PK', note: '主キー' }] };
+    const n = { id, kind: 'er', tone: tones[i % tones.length], label: `テーブル${i + 1}`, sub: `dummy_table_${i + 1}`, info: [], fields: [{ label: 'ID', name: 'id', type: 'int', key: 'PK', note: '主キー' }] };
     erNodesById.set(id, n);
     return n;
   });
@@ -194,7 +194,7 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
     let toNode = pick(rng, erNodes);
     if (toNode.id === fromNode.id) toNode = erNodes[(erNodes.indexOf(fromNode) + 1) % erNodes.length];
     const fieldName = `${toNode.sub}_ref${i}_id`;
-    fromNode.fields.push({ name: fieldName, type: 'int', key: 'FK', note: `${toNode.label} への参照` });
+    fromNode.fields.push({ label: `${toNode.label}（参照${i}）`, name: fieldName, type: 'int', key: 'FK', note: `${toNode.label} への参照` });
     erEdges.push({ from: fromNode.id, to: toNode.id, type: 'rel', label: '', fromField: fieldName, toField: 'id' });
   }
   // 8〜20 列になるよう一般列で埋める
@@ -202,7 +202,7 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
     const target = 8 + ((i * 7) % 13); // 8..20 の決定的な分布
     let k = 1;
     while (n.fields.length < target) {
-      n.fields.push({ name: `col_${k}`, type: fieldTypes[k % fieldTypes.length], key: '', note: '' });
+      n.fields.push({ label: `ダミー列${k}`, name: `col_${k}`, type: fieldTypes[k % fieldTypes.length], key: '', note: '' });
       k++;
     }
   });

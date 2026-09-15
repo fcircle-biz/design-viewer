@@ -170,7 +170,7 @@
     var chips = arr.map(function(x){ return '<span class="v-chip">'+escHtml(x)+'</span>'; }).join('');
     return section('関連タスク', '<div class="v-chip-row">'+chips+'</div>');
   }
-  // ER の列：キー｜列名｜型｜備考のテーブル（PK=金・FK=青バッジ）。
+  // ER の列：キー｜論理名｜物理名｜型｜備考のテーブル（PK=金・FK=青バッジ）。
   function fieldsSection(fields){
     if(!fields || !fields.length) return '';
     var rows = fields.map(function(f){
@@ -178,10 +178,12 @@
       if(f.key==='PK') keyBadge = '<span class="v-badge v-badge-pk">PK</span>';
       else if(f.key==='FK') keyBadge = '<span class="v-badge v-badge-fk">FK</span>';
       else if(f.key) keyBadge = '<span class="v-badge v-badge-key">'+escHtml(f.key)+'</span>';
-      return '<tr><td>'+keyBadge+'</td><td>'+escHtml(f.name)+'</td><td>'+escHtml(f.type||'')+'</td><td>'+escHtml(f.note||'')+'</td></tr>';
+      return '<tr><td>'+keyBadge+'</td><td>'+escHtml(f.label||f.name)+'</td>'+
+        '<td class="v-field-phys">'+escHtml(f.name||'')+'</td>'+
+        '<td>'+escHtml(f.type||'')+'</td><td>'+escHtml(f.note||'')+'</td></tr>';
     }).join('');
     return section('列', '<div class="v-table-wrap"><table class="v-table v-field-table">'+
-      '<thead><tr><th>キー</th><th>列名</th><th>型</th><th>備考</th></tr></thead>'+
+      '<thead><tr><th>キー</th><th>論理名</th><th>物理名</th><th>型</th><th>備考</th></tr></thead>'+
       '<tbody>'+rows+'</tbody></table></div>');
   }
   // 遷移：方向（→出／←入）｜相手ノード｜ラベルの一覧。クリックでフォーカスする。

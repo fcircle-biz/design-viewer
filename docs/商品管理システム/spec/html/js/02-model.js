@@ -20,6 +20,7 @@
   var detailPanelEl, closePanelBtn, panelBodyEl;
   var modeSegEl, zoomOutBtn, zoomInBtn, zoomFitBtn, zoomPctEl, neighborToggleBtn;
   var minimapCardEl;
+  var jobFilterCardEl, jobFilterSelectEl;
   var previewModalEl, modalTitleEl, modalBodyEl, modalCloseBtn, modalScale100Btn, modalScaleFitBtn;
 
   function cacheDom(){
@@ -48,6 +49,8 @@
     zoomFitBtn = document.getElementById('zoomFit');
     zoomPctEl = document.getElementById('zoomPct');
     neighborToggleBtn = document.getElementById('neighborToggle');
+    jobFilterCardEl = document.getElementById('jobFilterCard');
+    jobFilterSelectEl = document.getElementById('jobFilterSelect');
     previewModalEl = document.getElementById('previewModal');
     modalTitleEl = document.getElementById('modalTitle');
     modalBodyEl = document.getElementById('modalBody');
@@ -62,6 +65,7 @@
     DV.detailPanelEl = detailPanelEl; DV.closePanelBtn = closePanelBtn; DV.panelBodyEl = panelBodyEl; // [split]
     DV.modeSegEl = modeSegEl; DV.zoomOutBtn = zoomOutBtn; DV.zoomInBtn = zoomInBtn; DV.zoomFitBtn = zoomFitBtn; DV.zoomPctEl = zoomPctEl; DV.neighborToggleBtn = neighborToggleBtn; // [split]
     DV.minimapCardEl = minimapCardEl; // [split]
+    DV.jobFilterCardEl = jobFilterCardEl; DV.jobFilterSelectEl = jobFilterSelectEl; // [split]
     DV.previewModalEl = previewModalEl; DV.modalTitleEl = modalTitleEl; DV.modalBodyEl = modalBodyEl; DV.modalCloseBtn = modalCloseBtn; DV.modalScale100Btn = modalScale100Btn; DV.modalScaleFitBtn = modalScaleFitBtn; // [split]
   }
 
@@ -70,6 +74,7 @@
   // ---------------------------------------------------------
   var registry = new Map();          // id -> entry
   var screensById = new Map();
+  var batchesById = new Map();       // batches[]（バッチ機能）。機能一覧のカード・詳細パネルで使う
   var state = {
     mode: null,
     view: { x:0, y:0, k:1 },
@@ -83,6 +88,7 @@
     currentTable: null,
     modeBounds: { x:0,y:0,w:1000,h:1000 },
     dfdStep: null,
+    jobFilter: '',                   // ジョブフローの機能の絞り込み（batches[].id。'' はすべて）
     autoplayTimer: null,
     anim: null,
     nodeAnim: null,                  // モード切替時のノード移動・フェード（view の anim とは独立）
@@ -94,6 +100,7 @@
   // ---------------------------------------------------------
   function buildRegistry(){
     (VIEWER_DATA.screens||[]).forEach(function(s){ screensById.set(s.id, s); });
+    (VIEWER_DATA.batches||[]).forEach(function(b){ batchesById.set(b.id, b); });
     var modes = VIEWER_DATA.modes||{};
     Object.keys(modes).forEach(function(modeKey){
       var mode = modes[modeKey];
@@ -128,6 +135,10 @@
     if(entry.kind==='screen'){
       var s = screensById.get(entry.id);
       return s ? (entry.id+' '+s.title) : entry.id;
+    }
+    if(entry.kind==='batch'){
+      var b = batchesById.get(entry.id);
+      return b ? (entry.id+' '+b.title) : entry.id;
     }
     var mp = entry.modePos[modeKey||state.mode] || entry.modePos[Object.keys(entry.modePos)[0]];
     var n = mp && mp.node;
@@ -200,6 +211,9 @@
       }
       var sc = document.getElementById('stepsCard');
       if(sc && !sc.hidden) right = Math.min(right, sc.getBoundingClientRect().left - 24);
+      // 機能の絞り込みカード（右上・背が低い）は、タイトルカードの右の領域でだけ上端を下げて避ける
+      var jf = document.getElementById('jobFilterCard');
+      if(jf && !jf.hidden && !pinTitleToTop) top = Math.max(top, jf.getBoundingClientRect().bottom + 24);
       var tb = document.getElementById('toolbar');
       if(tb) bottom = Math.min(bottom, tb.getBoundingClientRect().top - 24);
     }
@@ -245,5 +259,5 @@
   }
   // --- body end ---
   // --- export ---
-  DV.cacheDom = cacheDom; DV.registry = registry; DV.screensById = screensById; DV.state = state; DV.buildRegistry = buildRegistry; DV.nodeLabel = nodeLabel; DV.resizeStage = resizeStage; DV.worldToScreen = worldToScreen; DV.screenToWorld = screenToWorld; DV.worldRectToScreen = worldRectToScreen; DV.computeBBox = computeBBox; DV.fitView = fitView; DV.routeRects = routeRects; DV.modeNodeRects = modeNodeRects; DV.phaseRects = phaseRects; DV.stageEl = stageEl; DV.stageCtx = stageCtx; DV.minimapEl = minimapEl; DV.minimapCtx = minimapCtx; DV.titleTextEl = titleTextEl; DV.subtitleTextEl = subtitleTextEl; DV.statusNoteEl = statusNoteEl; DV.modeDescEl = modeDescEl; DV.searchInputEl = searchInputEl; DV.searchResultsEl = searchResultsEl; DV.legendListEl = legendListEl; DV.toggleListEl = toggleListEl; DV.stepsCardEl = stepsCardEl; DV.stepPlayEl = stepPlayEl; DV.stepListEl = stepListEl; DV.detailPanelEl = detailPanelEl; DV.closePanelBtn = closePanelBtn; DV.panelBodyEl = panelBodyEl; DV.modeSegEl = modeSegEl; DV.zoomOutBtn = zoomOutBtn; DV.zoomInBtn = zoomInBtn; DV.zoomFitBtn = zoomFitBtn; DV.zoomPctEl = zoomPctEl; DV.neighborToggleBtn = neighborToggleBtn; DV.minimapCardEl = minimapCardEl; DV.previewModalEl = previewModalEl; DV.modalTitleEl = modalTitleEl; DV.modalBodyEl = modalBodyEl; DV.modalCloseBtn = modalCloseBtn; DV.modalScale100Btn = modalScale100Btn; DV.modalScaleFitBtn = modalScaleFitBtn;
+  DV.cacheDom = cacheDom; DV.registry = registry; DV.screensById = screensById; DV.batchesById = batchesById; DV.state = state; DV.buildRegistry = buildRegistry; DV.nodeLabel = nodeLabel; DV.resizeStage = resizeStage; DV.worldToScreen = worldToScreen; DV.screenToWorld = screenToWorld; DV.worldRectToScreen = worldRectToScreen; DV.computeBBox = computeBBox; DV.fitView = fitView; DV.routeRects = routeRects; DV.modeNodeRects = modeNodeRects; DV.phaseRects = phaseRects; DV.stageEl = stageEl; DV.stageCtx = stageCtx; DV.minimapEl = minimapEl; DV.minimapCtx = minimapCtx; DV.titleTextEl = titleTextEl; DV.subtitleTextEl = subtitleTextEl; DV.statusNoteEl = statusNoteEl; DV.modeDescEl = modeDescEl; DV.searchInputEl = searchInputEl; DV.searchResultsEl = searchResultsEl; DV.legendListEl = legendListEl; DV.toggleListEl = toggleListEl; DV.stepsCardEl = stepsCardEl; DV.stepPlayEl = stepPlayEl; DV.stepListEl = stepListEl; DV.detailPanelEl = detailPanelEl; DV.closePanelBtn = closePanelBtn; DV.panelBodyEl = panelBodyEl; DV.modeSegEl = modeSegEl; DV.zoomOutBtn = zoomOutBtn; DV.zoomInBtn = zoomInBtn; DV.zoomFitBtn = zoomFitBtn; DV.zoomPctEl = zoomPctEl; DV.neighborToggleBtn = neighborToggleBtn; DV.minimapCardEl = minimapCardEl; DV.previewModalEl = previewModalEl; DV.modalTitleEl = modalTitleEl; DV.modalBodyEl = modalBodyEl; DV.modalCloseBtn = modalCloseBtn; DV.modalScale100Btn = modalScale100Btn; DV.modalScaleFitBtn = modalScaleFitBtn;
 })();

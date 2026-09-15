@@ -265,9 +265,10 @@ function validateModel(model, viewerSrcDir) {
       const fields = Array.isArray(n.fields) ? n.fields : [];
       const fieldNames = new Set();
       fields.forEach((f, fi) => {
-        if (!f || !f.name) { pushErr(errors, `modes.er.nodes.${n.id}.fields[${fi}] に name がありません`); return; }
+        if (!f || !f.name) { pushErr(errors, `modes.er.nodes.${n.id}.fields[${fi}] に name（物理名）がありません`); return; }
         if (fieldNames.has(f.name)) pushWarn(warnings, `modes.er.nodes.${n.id}.fields に重複した name があります: ${f.name}`);
         fieldNames.add(f.name);
+        if (!f.label) pushWarn(warnings, `modes.er.nodes.${n.id}.fields.${f.name} に label（論理名）がありません。ER図には物理名が出ます`);
         if (f.key && !KNOWN_FIELD_KEYS.has(f.key)) pushWarn(warnings, `modes.er.nodes.${n.id}.fields.${f.name}.key が未知です: ${f.key}`);
       });
     });

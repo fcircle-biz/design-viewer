@@ -318,7 +318,8 @@
       var typeW = f.type ? Math.min(150, measureCached(ctx, f.type, '400 11px '+FONT_STACK)+8) : 0;
       var noteW = f.note ? 14 : 0;
       var nameMaxW = Math.max(10, w-nameX-typeW-noteW-12);
-      ctx.fillText(truncateText(ctx,f.name||'',ctx.font,nameMaxW), nameX, ry+rowH/2+4);
+      // ER 図には論理名（label）を出す。物理名（name）は詳細パネルの列表で見せる
+      ctx.fillText(truncateText(ctx,f.label||f.name||'',ctx.font,nameMaxW), nameX, ry+rowH/2+4);
       if(f.type){
         ctx.fillStyle = '#8A93A3'; ctx.font = '400 11px '+FONT_STACK;
         ctx.textAlign='right';
