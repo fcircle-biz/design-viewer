@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { pathToFileURL } = require('url');
-const { readModel } = require('./validate');
+const { readModel } = require('./lib/load-model');
 
 const LARGE_W = 1080;
 const SMALL_W = 270;

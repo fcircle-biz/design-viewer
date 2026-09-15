@@ -2,9 +2,11 @@
 /**
  * design-viewer / assemble.js
  *
- * engine/（index.html・viewer.css・viewer.js）と、layout.js が書いた <out>/.layout.json、
+ * engine/（index.html・viewer.css・js/*.js）と、layout.js が書いた <out>/.layout.json、
  * thumbs.js が書いた <out>/thumbs/.manifest.json、viewer-src/screens/* を <out> にまとめ、
  * <out>/viewer-data.js（window.VIEWER_DATA = {...}）を書き出す。
+ * engine/js/*.js（ビューア本体。01-core.js 〜 11-main.js の順に読み込む分割ファイル群）は
+ * <out>/js/ にそのままコピーする。
  *
  * <out> 内の既存ファイル（v1 の残骸を含む）は、このビルドが置くもの以外は削除しない
  * （削除するかどうかは人が判断する）。置いたファイルの一覧は最後に表示する。
@@ -36,9 +38,9 @@ function assemble(viewerSrcDir, outDir, opts) {
   const warnings = [];
   fs.mkdirSync(outDir, { recursive: true });
 
-  // 1. engine/ のコピー（index.html / viewer.css / viewer.js）
+  // 1. engine/ のコピー（index.html / viewer.css / js/*.js）
   const engineDir = opts.engineDir || path.join(__dirname, '..', 'engine');
-  const engineFiles = ['index.html', 'viewer.css', 'viewer.js'];
+  const engineFiles = ['index.html', 'viewer.css'];
   if (!fs.existsSync(engineDir)) {
     warnings.push(`engine/ が見つかりません（${engineDir}）。ビューア本体のコピーをスキップしました`);
   } else {
@@ -48,6 +50,26 @@ function assemble(viewerSrcDir, outDir, opts) {
       const d = path.join(outDir, f);
       fs.copyFileSync(s, d);
       placed.push(d);
+    }
+    // engine/js/*.js（ビューア本体。01-core.js 〜 11-main.js）を <out>/js/ にコピーする。
+    // 読み込み順は index.html 側の <script> の並びで決まるため、ここではソートせず
+    // ディレクトリの内容をそのまま置く（ファイル名が既に 01〜11 の連番）。
+    const engineJsDir = path.join(engineDir, 'js');
+    if (!fs.existsSync(engineJsDir)) {
+      warnings.push(`engine/js/ が見つかりません（${engineJsDir}）。ビューア本体のコピーをスキップしました`);
+    } else {
+      const jsFiles = fs.readdirSync(engineJsDir).filter((f) => f.endsWith('.js')).sort();
+      if (jsFiles.length === 0) {
+        warnings.push(`engine/js/ に .js ファイルが見つかりません（${engineJsDir}）`);
+      }
+      const outJsDir = path.join(outDir, 'js');
+      fs.mkdirSync(outJsDir, { recursive: true });
+      for (const f of jsFiles) {
+        const s = path.join(engineJsDir, f);
+        const d = path.join(outJsDir, f);
+        fs.copyFileSync(s, d);
+        placed.push(d);
+      }
     }
   }
 

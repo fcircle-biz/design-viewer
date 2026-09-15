@@ -13,17 +13,63 @@ viewer-src/
 `viewer-data.js` として出力する。人（または AI）が手で座標を調整する必要はない
 （どうしても固定したいノードだけ `pin` で指定できる。後述）。
 
+## 1.1 `model.json` の分割（`model/` ディレクトリ）
+
+`model.json` が肥大化する場合は、1 ファイルの代わりに `model/` ディレクトリ配下へ複数の
+`*.json` に分割できる（サブディレクトリも可）。
+
+```
+viewer-src/
+  model/
+    10-meta.json          ← { "meta": {…} }
+    20-screens.json       ← { "screens": […] }
+    30-groups.json        ← { "groups": […] }
+    modes/
+      10-flow.json        ← { "modes": { "flow": {…} } }
+      20-gallery.json     ← { "modes": { "gallery": {…} } }
+      30-concept.json     ← { "modes": { "concept": {…} } }
+      40-biz.json         ← { "modes": { "biz": {…} } }
+      50-er.json          ← { "modes": { "er": {…} } }
+      60-dfd.json         ← { "modes": { "dfd": {…} } }
+```
+
+- 入力は **`model.json` か `model/` のどちらか一方**。両方存在する場合はどちらを使うか
+  曖昧なためエラーになる。
+- 各ファイルの中身は「`model.json` の一部分」と同じ形のオブジェクト（トップレベルの
+  キーだけを持つ部分木でよい。上記の分け方は一例で、必須の分割単位ではない）。
+- 読み込み順は `model/` からの相対パスを `/` 区切りの文字列としてそのまま辞書順に
+  比較した順（OS のパス区切り文字に依存しない）。**ELK.js はノード・辺の記述順を
+  ある程度尊重する**ため、複数ファイルにまたがって順序を制御したい場合は、上記の例の
+  ように `10-` のような数字接頭辞をファイル名に付けて明示的に順序を決める。
+- マージ規則（深いマージ）:
+  1. 同じキーの値が両方ともオブジェクトなら再帰的にマージする。
+  2. 同じキーの値が両方とも配列なら、読み込み順で後ろに連結する（要素同士はマージしない）。
+  3. それ以外の組み合わせ（片方または両方がオブジェクト・配列でない、あるいは型が
+     違う）で同じキーが複数ファイルに現れた場合はエラーにする（キーのパスと関与した
+     ファイル名を示す）。例えば `meta.title` を 2 つのファイルに書いたり、あるファイルで
+     `modes.biz` をオブジェクト、別のファイルで文字列にしたりすると失敗する。
+  4. JSON のパースに失敗したファイルは、そのファイル名付きでエラーになる。
+- `screens[]` は将来画面数が増えたら、グループ別など複数ファイル（例:
+  `model/screens/10-staff.json`、`model/screens/20-admin.json`）に分けられる
+  （このスキルの split 実装は screens 配列を単一ファイルに限定しない。上の「配列は
+  連結」の規則がそのまま使える）。
+- 実装は `scripts/lib/load-model.js`（`readModel(viewerSrcDir)`）。`validate.js` /
+  `layout.js` / `thumbs.js` はすべてこの共通ローダー経由で `model.json` / `model/` を読む。
+- `gen-dummy.js` は従来どおり単一の `model.json` を出力する（`model/` 分割形式では出力しない。
+  ローダーは `model.json` を後方互換として読めるため、そのまま使える）。
+
 ## 1. 全体構造
 
 ```jsonc
 {
-  "meta": { "title": "…", "subtitle": "…", "statusNote": "…（任意）" },
+  "meta": { "title": "…", "subtitle": "…", "statusNote": "…（任意）", "modeOrder": ["concept", "biz", "gallery", "flow", "er", "dfd"] },
   "screens": [ Screen, … ],
   "groups": [ Group, … ],
   "modes": {
     "flow":    { "label": "画面遷移",   "desc": "…", "nodes": [FlowNode], "edges": [Edge], "legend": [Legend], "toggles": [Toggle] },
     "gallery": { "label": "画面イメージ", "desc": "…" },
     "concept": { "label": "概念図",     "desc": "…", "nodes": [ConceptNode], "edges": [Edge], "legend": [Legend] },
+    "biz":     { "label": "業務フロー", "desc": "…", "lanes": [Lane], "phases": [Phase], "nodes": [BizNode], "edges": [Edge], "legend": [Legend] },
     "er":      { "label": "ER 図",      "desc": "…", "nodes": [ErNode],      "edges": [Edge], "legend": [Legend] },
     "dfd":     { "label": "データフロー", "desc": "…", "nodes": [DfdNode],     "edges": [Edge], "legend": [Legend], "steps": [Step] }
   }
@@ -32,7 +78,9 @@ viewer-src/
 
 - `meta.title` は必須。`subtitle` / `statusNote` は任意（`statusNote` は「作成中」等の一言を
   タイトルカードに表示する用途）。
-- `modes` の 5 モードはすべて省略可。無いモードはビューアのモード切替ボタンに出ない。
+- `modes` の 6 モードはすべて省略可。無いモードはビューアのモード切替ボタンに出ない。
+- モード切替ボタンの表示名は各モードの `label`。並び順は `meta.modeOrder`（任意。モードのキーの配列）で指定でき、
+  書かなかったモードは既定順（flow, gallery, concept, biz, er, dfd）で後ろに続く。数字キー 1〜n はボタンの並び順に対応する。
 - `screens` / `groups` は `modes.flow` や `modes.gallery` が無くても、画面一覧・詳細パネルの
   メタ情報として使われるので用意しておくとよい。
 
@@ -47,12 +95,13 @@ viewer-src/
 | `group` | string | 推奨 | `groups[].id` を参照。未設定でも動くが flow/gallery で「(未分類)」レーンに入る |
 | `w` / `h` | number | - | 画面の幅・高さ（px）。省略時 `1440 × 900` |
 | `tasks` | string[] | - | 関連タスク ID（詳細パネルに表示） |
-| `spec` | string[] | - | 関連仕様書の節番号（詳細パネルに表示） |
+| `spec` | string[] | - | 関係する仕様書の記述の転記。1 要素 1 項目で「出典の名前: 内容」（例: `"業務ルール（在庫）: 出庫によって在庫数が 0 未満になる場合はエラーとする。"`）。節番号だけにしない（詳細パネルに表示） |
 | `purpose` | string | - | 画面の目的（詳細パネルに表示） |
 | `ops` | string[] | - | 主な操作（詳細パネルに表示） |
 | `reads` / `writes` | string[] | - | 読み取り／書き込みするデータ（詳細パネルに表示） |
 | `notes` | string[] | - | 注意事項（詳細パネルに表示） |
-| `pin` | `{x,y}` | - | このノードの最終座標を固定する（§7 参照） |
+| `pin` | `{x,y}` | - | このノードの最終座標を固定する（§9 参照） |
+| `nudge` | `{dx,dy}` | - | `modes.flow.layout: "elk"` のとき、配置後に flow 上の位置をずらす（§4.1） |
 
 `screens[]` に列挙した画面は、`modes.flow` があれば flow モードのノードとして、
 `modes.gallery` があれば gallery モードのノードとして**自動的に**追加される
@@ -65,7 +114,7 @@ viewer-src/
 | `id` | string | ○ | グループの一意 id |
 | `label` | string | ○ | レーン見出しに表示するラベル |
 | `order` | number | ○ | 表示順（小さい方が上／先）。flow はこの順に上から積んだ横帯（レーン）になり、
-gallery はこの順に見出し帯として並ぶ |
+gallery はこの順に左→右（棚詰めで折り返し）のブロックとして並ぶ |
 
 `screens[].group` と `modes.flow.nodes[].group` から参照される。
 どちらのモードにも属さない（`flow` も `gallery` も無い）プロジェクトでは省略してよい。
@@ -92,9 +141,50 @@ gallery はこの順に見出し帯として並ぶ |
 - `edges[]`: `from`/`to` は画面 id（`screens[]`）または `nodes[]` の id を参照する。
   `type` は `user | system | nav | start | rel | weak | flow` のいずれか（未指定・未知の値でも
   動くが、v1 と同じ配色・線種に対応させたいなら上記を使う。色は engine 側で固定）。
-- レーン（横帯）は `groups[].order` の順に上から積む。**同一レーン内は ELK の layered
-  アルゴリズム（左→右）で自動配置し、レーンをまたぐ辺だけ後から手動の直交ルートで
+- `layout`: `"lanes"`（既定）または `"elk"`。下記の 2 方式を切り替える。
+- **`lanes`**: レーン（横帯）は `groups[].order` の順に上から積む。**同一レーン内は
+  記述順の安定位相ソートで 1 行に並べ、レーンをまたぐ辺は後から手動の直交ルートで
   つなぐ**（`layout.js` の設計判断。詳細はスクリプト冒頭のコメントを参照）。
+
+### 4.1 `layout: "elk"`（全体 ELK ＋ カード ＋ 曲線）
+
+`docs/design-viewer-elk.html` と同じ見た目にする方式。レーンを作らず、全ノードを
+1 回の ELK layered（左→右）で配置する。役割・チャネルの区別はカードのバッジで示す。
+
+```jsonc
+"flow": {
+  "label": "画面遷移", "layout": "elk",
+  "edgeStyle": "curve",                                  // 任意。curve（既定）| orthogonal
+  "layoutOptions": { "spacing.nodeNode": 520 },          // 任意。ELK オプションの上書き（ワールド px）
+  "nodes": [
+    { "id": "START", "kind": "pill", "label": "アプリ起動", "sub": "Power Apps / deep link", "attachTo": "S01" }
+  ],
+  "edges": [ … ]
+}
+// screens 側: { "id": "T01", …, "nudge": { "dy": -720 } }
+```
+
+| 項目 | 説明 |
+|---|---|
+| 画面ノード | 白い角丸カード（上部に「ID タイトル」と `platform / role` バッジ、下にサムネイル）。寸法は幅 360px のカードを基準にした参照 px の 4 倍（1440 幅の画面ならカード 1520×1116） |
+| `edgeStyle: "curve"` | 辺の向き（中心間の dx/dy の大きい方）で出る側・入る側を決め、3 次ベジェで結ぶ。同じ側に複数の辺が付くと相手の位置順に散らすので、往復の辺も重ならない |
+| `edgeStyle: "orthogonal"` | ELK の直交ルートをそのまま使う |
+| `layoutOptions` | 既定値は参照 HTML と同じ間隔（参照 px: nodeNode 130・層間 230・edgeNode 80・edgeEdge 40・componentComponent 220・padding 100）の 4 倍。キーは `elk.` を省略可 |
+| `nudge: {dx, dy}` | ELK 配置後にノードをずらす（ワールド px。`screens[]` と `nodes[]` に書ける）。「T 系の画面は上、FAQ 系は下」のような見た目上の段分けに使う |
+| `attachTo` / `attachSide` / `attachGap` | そのノードを ELK に渡さず、`attachTo` のノードの横（`left` 既定 \| `right` \| `top` \| `bottom`）に `attachGap`（参照 px、既定 130）空けて置く。起点ノード向け。起点を ELK に含めると層が 1 つ増えて全体の並びが変わるため。相手が `pin` 済みなら固定後の座標を基準にする |
+
+- `group` は使わない（書いてもよいが flow では無視。gallery では従来どおり使う）。
+- **`type: "weak"` の辺は層の決定に使わない**（配置後に描くだけ）。「保存後に詳細へ戻る」のような逆向きの
+  遷移は `weak` にする。`user` のまま往復の辺を書くと ELK が層順を入れ替え、主な流れ（左→右）が読めなくなる。
+  既定で隠したい場合は `toggles: [{ "type": "weak", "label": "戻る遷移を表示", "default": false }]`。
+- ハブ型（ダッシュボードから各機能へ放射状に分かれる）で、長い辺がカードの下を通る場合は、
+  全画面を `pin` で格子に置くほうが読みやすい（列の間隔を行の間隔より広くすると、辺が上下でなく左右から出入りしてカード見出しを避ける）。
+- nudge / attachTo / pin の結果ノードが重なると、`layout.js` が警告を出す。
+- 辺ラベル・線幅はズームに比例する。ラベルは 10〜13px に収め、全体表示でも消さない。画面カードの見出しは
+  12px 未満になるとカードの上に固定 12px で表示する（全体表示で遷移を読めるようにするため）。
+- `screens[].platform` はカードのバッジに出る（`teams` → Teams、`app` / 未指定 → App、それ以外は値をそのまま表示）。
+- 辺が多く入り組んだグラフ（1 画面あたり 3 本超など）は曲線が交差して読みにくくなる。
+  その場合は `lanes` を使うか、`edgeStyle: "orthogonal"` を試す。
 
 ## 5. `modes.gallery`（画面イメージ）
 
@@ -103,9 +193,15 @@ gallery はこの順に見出し帯として並ぶ |
 ```
 
 `nodes` / `edges` は書かない（書いても無視され、`validate.js` が警告する）。
-`screens[]` を `groups[].order` → 出現順で group ごとに見出し帯へ格子状に並べる。
+`screens[]` を `groups[].order` → 出現順で group ごとのブロック（格子）にまとめ、ブロックを左→右に
+棚詰めする。ブロックの行数と棚の幅は、全体表示の倍率が最も大きくなる組み合わせを自動で選ぶ
+（表示領域は横長なので、グループを縦に積むより横に並べるほうが大きく見える）。
+画面名・グループ見出しは画面上で固定サイズの文字なので、隙間は「全体表示の想定倍率で必要な画面 px」から決め、
+縮小しても文字が隣の画面やグループに重ならないようにしている（`layout.js` の `GALLERY_PX`）。
 
-## 6. `modes.concept`（概念図）／ `modes.dfd`（データフロー）
+## 6. `modes.concept`（概念図）／ `modes.biz`（業務フロー）／ `modes.dfd`（データフロー）
+
+### 6.1 `modes.concept`（概念図）／ `modes.dfd`（データフロー）
 
 ```jsonc
 "concept": {
@@ -118,14 +214,6 @@ gallery はこの順に見出し帯として並ぶ |
 }
 ```
 
-- concept: `variant` は `actor | entity | system`。ノードサイズは 240×88 固定。
-- dfd は `variant` が `ext | proc | store`（外部エンティティ／プロセス／データストア）で、
-  `code`（例: `P1`）を持てる。ノードサイズは 240×92 固定。`edges[].step` を使うと
-  `steps[]`（`{n, title, desc}` の配列）の手順と紐づき、ビューアの DFD ステップカードから
-  該当する辺だけをハイライトできる。
-- 両モードとも layout.js は ELK の `layered`（左→右）と `stress` を両方試し、辺の交差が
-  少ない方を自動採用する。
-
 ```jsonc
 "dfd": {
   "label": "データフロー", "desc": "…",
@@ -134,6 +222,87 @@ gallery はこの順に見出し帯として並ぶ |
   "steps": [ { "n": 1, "title": "利用者が入力する", "desc": "…" } ]
 }
 ```
+
+- concept: `variant` は `actor | entity | system | file`（`file` は外部ファイル。CSV／帳票など、
+  システムの外から入出力されるファイルを表す。人・仕組み・情報とは別の形・色・破線枠のカードで描く）。
+  ノードサイズは 240×88 固定。
+- dfd は `variant` が `ext | proc | store`（外部エンティティ／プロセス／データストア）で、
+  `code`（例: `P1`）を持てる。ノードサイズは 240×92 固定。`edges[].step` を使うと
+  `steps[]`（`{n, title, desc}` の配列）の手順と紐づき、ビューアの DFD ステップカードから
+  該当する辺だけをハイライトできる。
+- concept の `legend[]` は、辺の線種（`{ "type": "rel", "label": "関係" }`）に加えて
+  ノード種別の凡例を `{ "variant": "actor" | "entity" | "system" | "file", "label": "…" }` の形で書ける。
+  この形式を書くと、ビューアは線の見本ではなくそのノード種別のカードの形・色の見本を凡例に出す
+  （例: `{ "variant": "file", "label": "外部ファイル" }`）。
+- 両モードとも layout.js は ELK の `layered`（左→右。折り返しなし／MULTI_EDGE 折り返しあり）と `stress` を試し、
+  重なり 0 → フィットズーム（85% までを評価。それ以上は読みやすさに効かない）→ 交差 → 辺の総延長・逆走（層の流れと
+  逆向きに戻る辺の長さ。折り返しが図全体を回り込ませていないかの指標） の順で採点して選ぶ。
+  折り返しは数ノードを次の段へ送って辺を図全体に回り込ませることがあるため、折り返しなしと比べて決める。
+- 層の間隔は最長の辺ラベルが収まる幅＋辺ラベルと矢じりの間隔（18px。矢じりの大きさ＋余白）ぶん広げた幅
+  （上限 240px）にする。辺ラベルは、どのノードにも重ならない線分のうち水平で長いものの中点付近に置く
+  （終点の矢じりに食い込まないよう手前で止め、既に置いた他のラベルとも重ねない）。
+
+### 6.2 `modes.biz`（業務フロー）
+
+担当者・システムのレーンと業務フェーズの列に、作業・分岐のノードを並べて矢印で結ぶスイムレーン図。
+
+```jsonc
+"biz": {
+  "label": "業務フロー", "desc": "…",
+  "lanes":  [ { "id": "L_STAFF", "label": "担当者", "sub": "管理者・スタッフ" } ],   // 配列順に上→下
+  "phases": [ { "id": "PH1", "label": "① 商品を登録・公開する" } ],              // 任意。配列順に左→右
+  "nodes": [
+    { "id": "B01", "kind": "biz", "variant": "start", "lane": "L_STAFF", "phase": "PH1",
+      "label": "新商品を扱う", "sub": "任意の補足", "screen": "S05", "spec": ["業務ルール（商品）: SKU は英数字とハイフンのみ、重複不可。"], "info": ["…"] }
+  ],
+  "edges": [ { "from": "B01", "to": "B02", "type": "flow", "label": "任意（分岐は はい/いいえ）" } ],
+  "legend": [ { "type": "flow", "label": "業務の流れ" } ]
+}
+```
+
+`lanes[]`（レーン）:
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | ○ | レーンの一意 id |
+| `label` | string | ○ | レーン見出し |
+| `sub` | string | - | 見出しの下に小さく出す補足（例: 担当の内訳） |
+
+`phases[]`（業務フェーズ。任意）:
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | ○ | フェーズの一意 id |
+| `label` | string | ○ | フェーズ見出し |
+
+`nodes[]`（業務ノード）:
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | ○ | ノードの一意 id |
+| `kind` | string | - | 省略可（`biz` とみなす） |
+| `variant` | string | ○ | `start`（開始）\| `end`（終了）\| `task`（人の作業）\| `system`（システムの処理）\| `decision`（分岐） |
+| `lane` | string | ○ | `lanes[].id` を参照 |
+| `phase` | string | `phases` があるとき○ | `phases[].id` を参照 |
+| `label` | string | ○ | ノードの見出し |
+| `sub` | string | - | 補足 |
+| `screen` | string | - | 関連画面（`screens[].id`）。詳細パネルに表示し、クリックでその画面のプレビューを開ける |
+| `spec` | string[] | - | 関係する仕様書の記述の転記。1 要素 1 項目で「出典の名前: 内容」（例: `"業務ルール（在庫）: 出庫によって在庫数が 0 未満になる場合はエラーとする。"`）。節番号だけにしない（詳細パネルに表示） |
+| `info` | string[] | - | 補足情報（詳細パネルに表示） |
+
+`edges[].type` は `flow`（実線。業務の流れ）| `weak`（破線。差し戻し・戻り）。
+
+レイアウト（layout.js v2）:
+
+- フェーズごとに**独立したスイムレーンのブロック**を作る。ブロックにはそのフェーズでノードを持つレーンだけを積む（空のレーンは出さない）。`phases` を省略すると全ノードを 1 ブロックにまとめる。
+- ブロックは記述順に左→右・上→下の格子に詰める。列数は 1〜ブロック数を総当たりし、想定表示領域に対する全体表示の倍率が最大になる列数を採用する（フェーズ数が増えても文字が小さくなりすぎないようにするため）。
+- ブロック内の各ノードの列（フェーズ内での左右位置）は、そのフェーズ内でノードが持つ最長経路の長さ順で決まる。同じ列（同じレーン・フェーズのセル）に複数ノードがあるときは縦に積む。
+- 列と列の間隔（隙間）は、その隙間から出る辺のラベル幅に合わせて個別に決める（ラベルが長い隙間ほど広く取る）。
+- `type: "weak"` の辺は列（層）の決定には使わない（配置後に描くだけ）。差し戻し・やり直しの矢印を `weak` にすると、主な流れが列の並びを乱さない。
+- 分岐（`variant: "decision"`）から出る辺は、行き先ごとに異なる辺（上下左右）から出し、ラベルは分岐の近くに置く。
+- レーン見出し欄の幅は 190px 固定。
+- 辺のルートは直交（水平・垂直の折れ線）で、他ノードを避ける経路の候補から選ぶ。辺が多いレーン・フェーズでは通路が重なることがある（既知の制約は `SKILL.md` 参照）。
+- 全体表示など低倍率でノード・レーン・フェーズの文字が読めなくなる縮尺では、ラスタ化した図形とは別に画面上で固定サイズ（読める最小限の px）のラベルを重ねて描く。
 
 ## 7. `modes.er`（ER 図）
 
@@ -237,9 +406,16 @@ v1 の `data.js` からの移植時はこの 2 プロパティを削除してよ
   エラーにしない — 同じ id が複数モードに出てくるとビューアはモード切替時にその
   ノードをトゥイーンする仕様のため）
 - 未知の id を参照する辺（`from`/`to`）
+- concept ノードの `variant` が未知の値
+- biz ノードの `variant` が未知の値、`lane` が `lanes[].id` に、`phase`（`phases` があるとき）が
+  `phases[].id` に存在しない
+- biz ノードの `screen` が `screens[].id` に存在しない（警告のみ）
+- `phases` を定義したのにノードが 1 つも属さないフェーズがある（警告のみ）
 - ER の `fromField` / `toField` が対応ノードの `fields[].name` に存在しない
 - dfd の `edges[].step` が `steps[].n` に存在しない
 - `screens[].group` / flow ノードの `group` が `groups[].id` に存在しない
+- `modes.flow.layout` / `edgeStyle` / `attachSide` の未知の値、`nudge` / `attachGap` / `layoutOptions` の型違い、
+  `attachTo` の未知 id・連鎖（`layout: "elk"` 以外で使うと警告）
 - `screens/<ID>.html` が無い（警告のみ）
 - 必須項目（`meta.title`、`screens[].id/title`、`groups[].id/label`、各ノードの `id` など）の欠落
 

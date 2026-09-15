@@ -1,0 +1,24 @@
+{
+  "groups": [
+    {
+      "id": "g_common",
+      "label": "共通",
+      "order": 1
+    },
+    {
+      "id": "g_product",
+      "label": "商品",
+      "order": 2
+    },
+    {
+      "id": "g_stock",
+      "label": "在庫",
+      "order": 3
+    },
+    {
+      "id": "g_admin",
+      "label": "管理",
+      "order": 4
+    }
+  ]
+}

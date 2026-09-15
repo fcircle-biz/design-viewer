@@ -1,0 +1,222 @@
+{
+  "modes": {
+    "concept": {
+      "label": "概念図",
+      "desc": "利用者（管理者・スタッフ）と商品管理システム、主要な情報（商品・カテゴリ・在庫など）の関係。矢印は「矢印の元が先を〜する」の向きに読む。形と色でノードの種類（人・仕組み・情報・外部ファイル）を区別する。",
+      "nodes": [
+        {
+          "id": "A_ADMIN",
+          "kind": "concept",
+          "variant": "actor",
+          "icon": "shield",
+          "label": "管理者",
+          "sub": "システム全体の管理者",
+          "info": [
+            "権限: 全機能、ユーザー管理（対象ユーザー）",
+            "商品削除（論理削除）は管理者のみ（機能一覧 F-05）"
+          ]
+        },
+        {
+          "id": "A_STAFF",
+          "kind": "concept",
+          "variant": "actor",
+          "icon": "user",
+          "label": "スタッフ",
+          "sub": "商品・在庫を扱う担当者",
+          "info": [
+            "権限: 商品・カテゴリ・在庫の参照／登録／更新（削除不可）（対象ユーザー）"
+          ]
+        },
+        {
+          "id": "E_USER",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "team",
+          "label": "ユーザー",
+          "sub": "users",
+          "info": [
+            "role: admin / staff（テーブル定義）",
+            "登録／編集／無効化は管理者のみ（機能一覧 F-10）"
+          ]
+        },
+        {
+          "id": "SYS",
+          "kind": "concept",
+          "variant": "system",
+          "icon": "apps",
+          "label": "商品管理システム",
+          "sub": "小規模 EC／店舗向け",
+          "info": [
+            "商品・カテゴリ・在庫を登録・更新し、入出庫の履歴を追跡する（概要）",
+            "対象外: 受注・決済・配送、複数倉庫、外部 EC 連携",
+            "セッション認証。30 分無操作でログアウト（非機能要件）"
+          ]
+        },
+        {
+          "id": "E_CSV",
+          "kind": "concept",
+          "variant": "file",
+          "icon": "doc",
+          "label": "CSVファイル",
+          "sub": "商品の一括登録・出力",
+          "info": [
+            "UTF-8（BOM 可）、1 回 1,000 行まで（業務ルール（CSV 取込））",
+            "既存 SKU は更新、新規 SKU は登録。在庫数は取り込まない（業務ルール（CSV 取込））",
+            "1 行でもエラーがあれば全件取り込まない（業務ルール（CSV 取込））",
+            "出力の仕様は未確定"
+          ]
+        },
+        {
+          "id": "E_MOVEMENT",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "inbox",
+          "label": "入出庫履歴",
+          "sub": "stock_movements",
+          "info": [
+            "区分: 入庫 / 出庫 / 調整（テーブル定義）",
+            "商品ごとに記録する（product_id → products、テーブル定義）。登録者は user_id で記録する",
+            "在庫数の更新と同一トランザクションで登録（業務ルール（在庫））",
+            "商品削除後も履歴は残す（業務ルール（商品））"
+          ]
+        },
+        {
+          "id": "E_PRODUCT",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "tag",
+          "label": "商品",
+          "sub": "products",
+          "info": [
+            "SKU は英数字とハイフンのみ・重複不可・登録後変更不可（業務ルール（商品））",
+            "status: draft / published / archived（テーブル定義）",
+            "published にするには商品名・価格・カテゴリ・画像 1 枚以上が必要（業務ルール（商品））",
+            "削除は論理削除（業務ルール（商品））"
+          ]
+        },
+        {
+          "id": "E_STOCK",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "db",
+          "label": "在庫",
+          "sub": "商品ごとの現在在庫数",
+          "info": [
+            "products.stock_quantity（現在在庫数、0 以上）と low_stock_threshold（在庫少アラートの閾値、初期値 5）で表す（テーブル定義）",
+            "在庫数は入出庫登録でのみ変更する（業務ルール（在庫））",
+            "0 未満になる出庫はエラー（業務ルール（在庫））",
+            "閾値以下で「在庫少」、0 で「在庫切れ」（業務ルール（在庫））"
+          ]
+        },
+        {
+          "id": "E_IMAGE",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "spark",
+          "label": "商品画像",
+          "sub": "product_images",
+          "info": [
+            "1 商品 5 枚まで。JPEG / PNG、1 枚 5MB 以下（業務ルール（商品））",
+            "sort_order 0 がメイン画像（テーブル定義）"
+          ]
+        },
+        {
+          "id": "E_CATEGORY",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "list",
+          "label": "カテゴリ",
+          "sub": "categories",
+          "info": [
+            "カテゴリ名は一意（テーブル定義）",
+            "商品が紐づいているカテゴリは削除できない（業務ルール（カテゴリ））"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "A_ADMIN",
+          "to": "SYS",
+          "type": "rel",
+          "label": "全機能を使う"
+        },
+        {
+          "from": "A_STAFF",
+          "to": "SYS",
+          "type": "rel",
+          "label": "参照・登録・更新"
+        },
+        {
+          "from": "A_ADMIN",
+          "to": "E_USER",
+          "type": "rel",
+          "label": "管理する"
+        },
+        {
+          "from": "SYS",
+          "to": "E_PRODUCT",
+          "type": "rel",
+          "label": "管理する"
+        },
+        {
+          "from": "E_CSV",
+          "to": "E_PRODUCT",
+          "type": "rel",
+          "label": "一括登録・出力"
+        },
+        {
+          "from": "E_USER",
+          "to": "E_MOVEMENT",
+          "type": "rel",
+          "label": "登録する"
+        },
+        {
+          "from": "E_MOVEMENT",
+          "to": "E_STOCK",
+          "type": "rel",
+          "label": "在庫数を更新"
+        },
+        {
+          "from": "E_PRODUCT",
+          "to": "E_STOCK",
+          "type": "rel",
+          "label": "在庫数を持つ"
+        },
+        {
+          "from": "E_PRODUCT",
+          "to": "E_IMAGE",
+          "type": "rel",
+          "label": "持つ"
+        },
+        {
+          "from": "E_PRODUCT",
+          "to": "E_CATEGORY",
+          "type": "rel",
+          "label": "分類される"
+        }
+      ],
+      "legend": [
+        {
+          "variant": "actor",
+          "label": "人（利用者）"
+        },
+        {
+          "variant": "system",
+          "label": "仕組み（システム）"
+        },
+        {
+          "variant": "entity",
+          "label": "情報（データ）"
+        },
+        {
+          "variant": "file",
+          "label": "外部ファイル"
+        },
+        {
+          "type": "rel",
+          "label": "関係（矢印の向きに読む）"
+        }
+      ]
+    }
+  }
+}

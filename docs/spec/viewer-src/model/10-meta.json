@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "title": "商品管理システム",
+    "subtitle": "設計ビューア（docs/product-management-spec.md）",
+    "statusNote": "仕様書に記載のない事項（ログアウト操作の配置、商品削除・CSV 出力の操作場所、キャンセル時の戻り先の一部、監査記録の保存先など）は「未確定」",
+    "modeOrder": [
+      "concept",
+      "biz",
+      "gallery",
+      "flow",
+      "er",
+      "dfd"
+    ]
+  }
+}

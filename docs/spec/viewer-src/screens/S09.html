@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S09 CSV取込</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .main-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    height: 100%;
+    min-height: 0;
+  }
+  .dropzone-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .table-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+  }
+  .table-scroll .table th {
+    position: sticky;
+    top: 0;
+  }
+  .table-scroll .table {
+    border-radius: 0;
+  }
+</style>
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <header class="header">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+        <path d="M3.27 6.96 12 12l8.73-5.04"/>
+        <path d="M12 22.08V12"/>
+      </svg>
+      商品管理
+    </div>
+    <nav class="nav">
+      <a>ダッシュボード</a>
+      <a class="active">商品</a>
+      <a>カテゴリ</a>
+      <a>入出庫</a>
+      <a>ユーザー</a>
+    </nav>
+    <div class="header-user">
+      山田 花子（管理者）
+      <span class="avatar">山</span>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="main-flow">
+      <div>
+        <div class="breadcrumb">商品 &gt; CSV取込</div>
+        <div class="page-head" style="margin-bottom:0;">
+          <h1 class="page-title">CSV取込</h1>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">ファイル選択</div>
+        <div class="dropzone">
+          <div class="dropzone-inner">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+              <path d="M7 9l5-5 5 5"/>
+              <path d="M12 4v12"/>
+            </svg>
+            <div style="font-weight:700; color:#374151;">products_20260915.csv <span class="muted" style="font-weight:400;">（12行）</span></div>
+            <button type="button" class="btn btn-secondary btn-sm">ファイルを変更</button>
+          </div>
+        </div>
+        <div class="help" style="margin-top:8px;">UTF-8（BOM可）・1回1,000行まで・列: sku, name, category_name, price, status, description・在庫数は取り込みません</div>
+      </div>
+
+      <div class="alert alert-error">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>3行にエラーがあるため取り込めません。すべてのエラーを解消してから再度実行してください。</span>
+      </div>
+
+      <div class="card" style="flex:1; display:flex; flex-direction:column; min-height:0; padding-bottom:12px;">
+        <div class="card-title">プレビュー（12行）</div>
+        <div class="table-scroll">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>行</th>
+                <th>sku</th>
+                <th>name</th>
+                <th>category_name</th>
+                <th class="text-right">price</th>
+                <th>status</th>
+                <th>判定</th>
+                <th>エラー内容</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">1</td>
+                <td class="mono">SKU-1024</td>
+                <td>ステンレスマグ 350ml</td>
+                <td>キッチン</td>
+                <td class="text-right mono">1,800</td>
+                <td>published</td>
+                <td><span class="badge badge-blue">更新</span></td>
+                <td class="muted">―</td>
+              </tr>
+              <tr>
+                <td class="mono">2</td>
+                <td class="mono">SKU-1031</td>
+                <td>麻の生成りトートバッグ</td>
+                <td>バッグ</td>
+                <td class="text-right mono">3,200</td>
+                <td>published</td>
+                <td><span class="badge badge-green">新規</span></td>
+                <td class="muted">―</td>
+              </tr>
+              <tr class="is-error">
+                <td class="mono">3</td>
+                <td class="mono">SKU-1042</td>
+                <td class="muted">（空）</td>
+                <td>キッチン雑貨</td>
+                <td class="text-right mono">2,400</td>
+                <td>published</td>
+                <td><span class="badge badge-red">エラー</span></td>
+                <td class="error-text">name（商品名）は必須です</td>
+              </tr>
+              <tr>
+                <td class="mono">4</td>
+                <td class="mono">SKU-1050</td>
+                <td>陶器の一輪挿し</td>
+                <td>インテリア</td>
+                <td class="text-right mono">1,500</td>
+                <td>draft</td>
+                <td><span class="badge badge-green">新規</span></td>
+                <td class="muted">―</td>
+              </tr>
+              <tr class="is-error">
+                <td class="mono">5</td>
+                <td class="mono">SKU-1057</td>
+                <td>ガラス保存容器 3点セット</td>
+                <td>キッチン</td>
+                <td class="text-right mono">-500</td>
+                <td>published</td>
+                <td><span class="badge badge-red">エラー</span></td>
+                <td class="error-text">価格が負の値です</td>
+              </tr>
+              <tr>
+                <td class="mono">6</td>
+                <td class="mono">SKU-1063</td>
+                <td>コットン刺繍クッションカバー</td>
+                <td>インテリア</td>
+                <td class="text-right mono">2,800</td>
+                <td>published</td>
+                <td><span class="badge badge-blue">更新</span></td>
+                <td class="muted">―</td>
+              </tr>
+              <tr class="is-error">
+                <td class="mono">7</td>
+                <td class="mono">SKU-10@7#</td>
+                <td>竹製カトラリーセット</td>
+                <td>キッチン</td>
+                <td class="text-right mono">1,200</td>
+                <td>published</td>
+                <td><span class="badge badge-red">エラー</span></td>
+                <td class="error-text">SKUに使用できない文字が含まれています</td>
+              </tr>
+              <tr>
+                <td class="mono">8</td>
+                <td class="mono">SKU-1088</td>
+                <td>キャンドルホルダー</td>
+                <td>インテリア</td>
+                <td class="text-right mono">1,900</td>
+                <td>archived</td>
+                <td><span class="badge badge-blue">更新</span></td>
+                <td class="muted">―</td>
+              </tr>
+              <tr>
+                <td class="mono">9</td>
+                <td class="mono">SKU-1091</td>
+                <td>フェルトコースター 4枚組</td>
+                <td>キッチン</td>
+                <td class="text-right mono">900</td>
+                <td>published</td>
+                <td><span class="badge badge-green">新規</span></td>
+                <td class="muted">―</td>
+              </tr>
+              <tr>
+                <td class="mono">10</td>
+                <td class="mono">SKU-1099</td>
+                <td>アロマディフューザー</td>
+                <td>インテリア</td>
+                <td class="text-right mono">3,600</td>
+                <td>draft</td>
+                <td><span class="badge badge-green">新規</span></td>
+                <td class="muted">―</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="row" style="justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary">キャンセル</button>
+        <button type="button" class="btn btn-primary" disabled style="opacity:0.5; cursor:not-allowed;">取込実行</button>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+</body>
+</html>

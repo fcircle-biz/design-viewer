@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S07 入出庫登録</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .selected-product-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .selected-product-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+  }
+</style>
+</head>
+<body>
+<div id="screen">
+<div class="app">
+  <header class="header">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+        <path d="M3.27 6.96 12 12l8.73-5.04"/>
+        <path d="M12 22.08V12"/>
+      </svg>
+      商品管理
+    </div>
+    <nav class="nav">
+      <a>ダッシュボード</a>
+      <a>商品</a>
+      <a>カテゴリ</a>
+      <a class="active">入出庫</a>
+      <a>ユーザー</a>
+    </nav>
+    <div class="header-user">
+      山田 花子（管理者）
+      <span class="avatar">山</span>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title">入出庫登録</h1>
+    </div>
+
+    <div class="grid-2">
+      <!-- Left: form -->
+      <div class="card">
+        <div class="card-title">入出庫情報</div>
+        <div class="stack" style="gap:18px;">
+          <div class="field full">
+            <label>商品 <span class="required"></span></label>
+            <div class="row">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;">
+                <circle cx="11" cy="11" r="7"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input class="input mono" value="SKU-1024 ステンレスマグ 350ml" readonly style="flex:1;">
+              <button type="button" class="btn btn-secondary btn-sm">変更</button>
+            </div>
+          </div>
+
+          <div class="field full">
+            <label>区分 <span class="required"></span></label>
+            <div class="segmented">
+              <span>入庫</span>
+              <span class="active">出庫</span>
+              <span>調整</span>
+            </div>
+          </div>
+
+          <div class="field full">
+            <label>数量 <span class="required"></span></label>
+            <input class="input is-error" type="number" value="10">
+            <div class="error-text">在庫数が0未満になるため登録できません（現在在庫 3）</div>
+            <div class="help">調整は増減値を入力（例: -2）</div>
+          </div>
+
+          <div class="field full">
+            <label>メモ</label>
+            <textarea class="textarea" style="min-height:72px;">定期棚卸前の出荷分</textarea>
+          </div>
+
+          <div class="row" style="margin-top:4px;">
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-secondary">キャンセル</button>
+            <button type="button" class="btn btn-primary">登録</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: summary + history -->
+      <div class="stack" style="gap:16px;">
+        <div class="card">
+          <div class="card-title">選択中の商品</div>
+          <div class="selected-product-row">
+            <div class="thumb">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="9" cy="9" r="2"/>
+                <path d="m21 15-5-5L5 21"/>
+              </svg>
+            </div>
+            <div>
+              <div class="selected-product-name">ステンレスマグ 350ml</div>
+              <div class="mono muted">SKU-1024</div>
+            </div>
+          </div>
+          <dl class="dl">
+            <dt>現在在庫</dt>
+            <dd>3 個</dd>
+            <dt>登録後在庫（見込み）</dt>
+            <dd class="mono" style="color:#dc2626; font-weight:700;">-7 個（登録不可）</dd>
+          </dl>
+        </div>
+
+        <div class="card" style="flex:1;">
+          <div class="card-title">直近の履歴</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>日時</th>
+                <th>区分</th>
+                <th class="text-right">数量</th>
+                <th class="text-right">登録後在庫</th>
+                <th>登録者</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">2026-09-12 10:20</td>
+                <td><span class="badge badge-red">出庫</span></td>
+                <td class="text-right mono">-10</td>
+                <td class="text-right mono">3</td>
+                <td>山田 花子</td>
+              </tr>
+              <tr>
+                <td class="mono">2026-09-08 14:05</td>
+                <td><span class="badge badge-amber">調整</span></td>
+                <td class="text-right mono">-2</td>
+                <td class="text-right mono">13</td>
+                <td>山田 花子</td>
+              </tr>
+              <tr>
+                <td class="mono">2026-08-30 09:40</td>
+                <td><span class="badge badge-green">入庫</span></td>
+                <td class="text-right mono">+5</td>
+                <td class="text-right mono">15</td>
+                <td>佐藤 次郎</td>
+              </tr>
+              <tr>
+                <td class="mono">2026-08-15 16:12</td>
+                <td><span class="badge badge-green">入庫</span></td>
+                <td class="text-right mono">+10</td>
+                <td class="text-right mono">10</td>
+                <td>佐藤 次郎</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+</body>
+</html>

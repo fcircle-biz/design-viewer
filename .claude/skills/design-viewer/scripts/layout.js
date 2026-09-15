@@ -2,7 +2,7 @@
 /**
  * design-viewer / layout.js
  *
- * model.json から各モードの座標・辺ルートを ELK.js（vendor 同梱）で計算し、
+ * model（model.json または model/**\/*.json）から各モードの座標・辺ルートを ELK.js（vendor 同梱）で計算し、
  * 中間 JSON <out>/.layout.json を書き出す（viewer-data.js の modes 部分の元データ）。
  *
  * 単体実行: node layout.js <viewer-src> <out>
@@ -12,7 +12,11 @@
  * - flow: レーン（groups の順に上から積む横帯）ごとに、model 順の安定位相ソート + 単一行
  *   （6 件超で折り返し）で決定的に配置し（placeLaneRow）、レーンを縦に積んでからレーンを
  *   またぐ辺だけ手動で直交ルートを引く（下記「設計判断」参照）。
+ * - flow（layout: "elk"）: レーンを作らず全ノードを 1 回の ELK layered(RIGHT) で配置し、
+ *   画面はカード（見出し＋サムネイル）、辺は 3 次ベジェ曲線にする（layoutFlowElk）。
  * - gallery: ELK 不要。group 順・screens 順の格子。
+ * - biz: ELK 不要。フェーズをレーン×列の自己完結ブロックにして、ブロックを 1480x700 に
+ *   最も大きくフィットする列数で格子詰めする（layoutBiz。詳細は同関数のコメントを参照）。
  * - concept / dfd: ELK layered(RIGHT・wrapping) と stress を両方試し、フィットズーム最大
  *   （重なり 0 件必須）→ 交差最小 → 総エッジ長最小の複合スコアで採用する方を選ぶ。
  * - er: ELK layered(RIGHT)。FK 辺は行位置に固定した FIXED_POS ポートで接続。
@@ -31,7 +35,8 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { readModel, validateModel } = require('./validate');
+const { readModel } = require('./lib/load-model');
+const { validateModel } = require('./validate');
 const ELK = require('./vendor/elk.bundled.js');
 
 // ---------- 定数 ----------
@@ -59,6 +64,13 @@ function rectBoundary(rect, side) {
     case 'right': return { x: rect.x + rect.w, y: rect.y + rect.h / 2 };
     default: return { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
   }
+}
+
+/** 点 p から矩形 r までの最短距離（内側なら 0）。biz の分岐ラベルのノード近接判定に使う。 */
+function distToRect(p, r) {
+  const dx = Math.max(r.x - p[0], 0, p[0] - (r.x + r.w));
+  const dy = Math.max(r.y - p[1], 0, p[1] - (r.y + r.h));
+  return Math.hypot(dx, dy);
 }
 
 function dedupePoints(points) {
@@ -115,6 +127,61 @@ function labelCenterFromElk(elkEdge, fallbackRoute) {
     return midpointAlongRoute(fallbackRoute);
   }
   return undefined;
+}
+
+/**
+ * 直交ルート上のラベル中心。ルートの弧長中点は、複数の辺が合流する縦の通路（層間の曲がり角）に
+ * 落ちやすく、そこではラベルが隣のノードに食い込む。そこで各線分の中点を候補にし、
+ * 「ラベル矩形（11px 文字の見積もり）がどのノードにも重ならない」→「水平」→「線分が長い」の順で選ぶ。
+ */
+/**
+ * opts.avoidRect / opts.minDist: 候補の線分中点がそのノード（例: biz の decision）の外周から
+ * minDist 未満しか離れていない場合は減点する（分岐ラベルがノードに食い込むのを避ける）。
+ */
+function labelOnRoute(route, label, rects, opts) {
+  if (!route || route.length < 2) return midpointAlongRoute(route);
+  const lw = estimateTextWidth(label, 11) + 18, lh = 20;
+  const avoidRect = opts && opts.avoidRect;
+  const minDist = (opts && opts.minDist) || 0;
+  // opts.placed: 既に置いたラベル矩形（重ねない）。opts.endClearance: 終点（矢じり）からラベル端までの最小距離。
+  // どちらも省略時は従来どおり（線分の中点のみを候補にする）。
+  const placed = opts && opts.placed;
+  const endClear = (opts && opts.endClearance) || 0;
+  const sampling = !!(placed || endClear);
+  const hitsRect = (c, r, pad) => c[0] - lw / 2 - pad < r.x + r.w && c[0] + lw / 2 + pad > r.x && c[1] - lh / 2 - pad < r.y + r.h && c[1] + lh / 2 + pad > r.y;
+  let best = null;
+  for (let i = 0; i < route.length - 1; i++) {
+    const [a, b] = [route[i], route[i + 1]];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len === 0) continue;
+    const horizontal = Math.abs(b[1] - a[1]) < 1;
+    const isLast = i === route.length - 2;
+    const cands = [];
+    if (!sampling) cands.push({ c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], fits: true });
+    else {
+      // 線分の方向に沿って、始点側 6px・終点側（最後の線分なら endClearance）を空けた範囲で中心を動かす
+      const along = horizontal ? lw : lh;
+      const s0 = 6 + along / 2, s1 = len - (isLast ? endClear : 6) - along / 2;
+      const fits = s1 >= s0;
+      [0.5, 0.3, 0.7, 0.15, 0.85].forEach(t => {
+        const d = fits ? Math.min(s1, Math.max(s0, len * t)) : len / 2;
+        const u = d / len;
+        cands.push({ c: [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u], fits, t });
+      });
+    }
+    for (const cand of cands) {
+      const c = cand.c;
+      const hits = rects.some(r => hitsRect(c, r, 0));
+      const near = avoidRect ? distToRect(c, avoidRect) < minDist : false;
+      const collide = placed ? placed.some(r => hitsRect(c, r, 4)) : false;
+      const score = (hits ? 0 : 1e6) + (collide ? 0 : 5e5) + (near ? 0 : 3e5) + (horizontal ? 1e5 : 0) + (cand.fits ? 5e4 : 0)
+        + Math.min(len, 4e4) - (cand.t != null ? Math.abs(cand.t - 0.5) * 10 : 0);
+      if (!best || score > best.score) best = { c, score };
+    }
+  }
+  const c = best ? best.c : midpointAlongRoute(route);
+  if (placed && c) placed.push({ x: c[0] - lw / 2, y: c[1] - lh / 2, w: lw, h: lh });
+  return c;
 }
 
 // ---------- 交差カウント（concept / dfd の layered vs stress 比較用） ----------
@@ -177,21 +244,53 @@ function boundsOfPosMap(posMap) {
 const FIT_W = 1480, FIT_H = 640;
 function fitZoom(bounds) { return Math.min(FIT_W / Math.max(bounds.w, 1), FIT_H / Math.max(bounds.h, 1)); }
 
+// これ以上のフィットズームは読みやすさに効かない（ノード 240px・文字 11〜15px が等倍付近で十分読める）
+const FIT_READABLE = 0.85;
+// concept/dfd の辺ラベルと矢じりの間に空ける距離（px。矢じり約 9px ＋ 余白）
+const LABEL_ARROW_CLEARANCE = 18;
+
+/** ELK の辺ルート（折れ線）の総延長。回り込む辺ほど長くなる。ルートが無ければ中心間距離 */
+function totalRouteLength(result, posMap, edges) {
+  if (!result || !Array.isArray(result.edges)) return totalEdgeLength(posMap, edges);
+  let total = 0;
+  result.edges.forEach(re => {
+    const r = flattenSection(re.sections && re.sections[0]);
+    if (!r) return;
+    for (let i = 0; i < r.length - 1; i++) total += Math.hypot(r[i + 1][0] - r[i][0], r[i + 1][1] - r[i][1]);
+  });
+  return total;
+}
+
+/** 辺ルートのうち左向き（層の流れと逆）に進む水平線分の総延長。折り返しで図全体を回り込む辺ほど大きい */
+function routeBacktrack(result) {
+  if (!result || !Array.isArray(result.edges)) return 0;
+  let total = 0;
+  result.edges.forEach(re => {
+    const r = flattenSection(re.sections && re.sections[0]);
+    if (!r) return;
+    for (let i = 0; i < r.length - 1; i++) { const dx = r[i + 1][0] - r[i][0]; if (dx < 0) total += -dx; }
+  });
+  return total;
+}
+
 /**
  * layered/stress の比較スコア（小さいほど良い）。優先順位:
  * 1) 重なり 0 件必須（重なりがあれば桁違いのペナルティ）
- * 2) フィットズームが大きい（1480x640 に収まる大きさで読みやすい）
+ * 2) フィットズームが大きい（1480x640 に収まる大きさ）。ただし FIT_READABLE を超える分は評価しない。
+ *    上限なしだと、数ノードを次の段へ折り返して辺が図全体を回り込む配置が「小さいから」選ばれる
  * 3) 交差が少ない
- * 4) 総エッジ長が短い（僅かなタイブレーク）
+ * 4) 辺の総延長（ルート長）が短い。平均的な辺の長さに対する超過分で、回り込みを減点する
  */
-function scoreCandidate(posMap, edgesIn) {
+function scoreCandidate(posMap, edgesIn, result) {
   const overlaps = countOverlaps(posMap);
   const crossings = countCrossings(posMap, edgesIn);
-  const length = totalEdgeLength(posMap, edgesIn);
+  const length = totalRouteLength(result, posMap, edgesIn);
   const bounds = boundsOfPosMap(posMap);
   const fit = fitZoom(bounds);
-  const score = overlaps * 1e6 + (2 - Math.min(fit, 2)) * 2000 + crossings * 10 + length / 500;
-  return { overlaps, crossings, length, fit, bounds, score };
+  const perEdge = length / Math.max(1, edgesIn.length);
+  const backtrack = routeBacktrack(result);
+  const score = overlaps * 1e6 + (FIT_READABLE - Math.min(fit, FIT_READABLE)) * 2000 + crossings * 10 + perEdge / 10 + backtrack / 4;
+  return { overlaps, crossings, length, fit, bounds, score, backtrack };
 }
 
 /** ルート（折れ線）の弧長中点。ラベル配置に使う（ELK のラベル位置が無い場合のフォールバック）。 */
@@ -220,7 +319,7 @@ function midpointAlongRoute(route) {
 /**
  * レーン内ノードの安定位相ソート。入次数 0 のノードを元の順序（screens/nodes の出現順）
  * 優先で選び続ける。閉路が残った場合は残りの中で元の順序が最小のものを強制的に選ぶ
- * （model.json の記述順を最大限尊重しつつ、必ず全ノードを並べ切る）。
+ * （model の記述順を最大限尊重しつつ、必ず全ノードを並べ切る）。
  */
 function topoOrderStable(ids, edges) {
   const indexOf = new Map(ids.map((id, i) => [id, i]));
@@ -335,15 +434,48 @@ function placeLaneRow(memberIds, nodeMeta, laneEdges) {
 }
 
 // ---------- gallery（ELK 不要） ----------
+// 画面名・グループ見出しはスクリーン座標で固定サイズ（12px 前後）なので、隙間をワールド px の定数に
+// すると全体表示（縮小）で文字が隣の画面やグループに食い込む。そこで「全体表示の想定倍率 k で
+// 画面上に必要な px」から隙間を決め、グループを横に並べるブロック（R 行 × 必要列）を棚詰めする。
+// R と棚の幅の候補を総当たりし、想定倍率が最も大きくなる配置を採用する。
+const GALLERY_VIEW = { w: 1500, h: 600 };   // 全体表示で使える領域の想定（タイトルカード・ツールバーを除く）
+const GALLERY_PX = { title: 30, header: 76, gutterX: 28, groupGapX: 44, groupGapY: 40, pad: 20 };
+const GALLERY_BASE = { title: 160, header: 130, gutterX: 140, groupGapX: 100, groupGapY: 100, pad: 140 };
+
+function buildGalleryLayout(blocks, cellW, cellH, R, shelfCols, k) {
+  const g = {};
+  Object.keys(GALLERY_PX).forEach(key => { g[key] = Math.max(GALLERY_BASE[key], GALLERY_PX[key] / k); });
+  const nodes = [], outGroups = [];
+  let shelfX = 0, shelfY = 0, shelfH = 0, shelfUsedCols = 0;
+  blocks.forEach(b => {
+    const cols = Math.max(1, Math.ceil(b.items.length / R));
+    const rows = Math.ceil(b.items.length / cols);
+    if (shelfUsedCols > 0 && shelfUsedCols + cols > shelfCols) {
+      shelfY += shelfH + g.groupGapY; shelfX = 0; shelfH = 0; shelfUsedCols = 0;
+    }
+    const bw = g.pad * 2 + cols * cellW + (cols - 1) * g.gutterX;
+    const bh = g.header + rows * cellH + (rows - 1) * g.title + g.pad;
+    b.items.forEach((s, idx) => {
+      const r = Math.floor(idx / cols), c = idx % cols;
+      nodes.push({
+        id: s.id, kind: 'screen', group: b.id,
+        x: shelfX + g.pad + c * (cellW + g.gutterX),
+        y: shelfY + g.header + r * (cellH + g.title),
+        w: s.w || DEFAULT_SCREEN_W, h: s.h || DEFAULT_SCREEN_H,
+      });
+    });
+    outGroups.push({ id: b.id, label: b.label, x: shelfX, y: shelfY, w: bw, h: bh });
+    shelfX += bw + g.groupGapX; shelfH = Math.max(shelfH, bh); shelfUsedCols += cols;
+  });
+  const bounds = computeBounds(nodes, outGroups, []);
+  const fitK = Math.min(0.6, GALLERY_VIEW.w / bounds.w, GALLERY_VIEW.h / bounds.h);
+  return { nodes, groups: outGroups, bounds, fitK };
+}
+
 function layoutGallery(model, warnings) {
   const screens = model.screens || [];
   const groups = model.groups || [];
   const byGroupOrder = new Map(groups.map(g => [g.id, g.order]));
-  const n = screens.length;
-  const cols = Math.max(1, Math.ceil(Math.sqrt(n * 1.6)));
-  // headerH: グループ見出し帯（fix #2）。ノード領域はグループ矩形の上端から 130px 下から
-  // 始める（見出しラベルの下に隠れないように ≥90px の要求に余裕を持たせている）。
-  const gutterX = 140, gutterY = 160, headerH = 130, laneGap = 100;
 
   // 最大セルサイズ（全画面共通のグリッドセルにする。個々の画面は自サイズのまま左上寄せ）
   let cellW = DEFAULT_SCREEN_W, cellH = DEFAULT_SCREEN_H;
@@ -353,33 +485,33 @@ function layoutGallery(model, warnings) {
   const groupOrderIds = sortedGroups.map(g => g.id);
   const unassigned = screens.some(s => !s.group || !byGroupOrder.has(s.group));
   if (unassigned) groupOrderIds.push('__unassigned__');
-
-  const nodes = [];
-  const outGroups = [];
-  let curY = 0;
-  for (const gid of groupOrderIds) {
-    const items = screens.filter(s => (s.group && byGroupOrder.has(s.group) ? s.group : '__unassigned__') === gid);
-    if (items.length === 0) continue;
-    const rows = Math.ceil(items.length / cols);
-    const laneW = cols * cellW + (cols - 1) * gutterX + gutterX * 2;
-    const laneH = headerH + rows * cellH + (rows - 1) * gutterY + gutterY;
-    items.forEach((s, idx) => {
-      const r = Math.floor(idx / cols), c = idx % cols;
-      nodes.push({
-        id: s.id, kind: 'screen', group: gid,
-        x: gutterX + c * (cellW + gutterX),
-        y: curY + headerH + r * (cellH + gutterY),
-        w: s.w || DEFAULT_SCREEN_W, h: s.h || DEFAULT_SCREEN_H,
-      });
-    });
-    const g = sortedGroups.find(g => g.id === gid);
-    outGroups.push({ id: gid, label: g ? g.label : '(未分類)', x: 0, y: curY, w: laneW, h: laneH });
-    curY += laneH + laneGap;
-  }
+  const blocks = groupOrderIds.map(gid => {
+    const g = sortedGroups.find(x => x.id === gid);
+    return {
+      id: gid, label: g ? g.label : '(未分類)',
+      items: screens.filter(s => (s.group && byGroupOrder.has(s.group) ? s.group : '__unassigned__') === gid),
+    };
+  }).filter(b => b.items.length > 0);
   if (unassigned) warnings.push('gallery: group 未設定の画面を (未分類) レーンに配置しました');
+  if (blocks.length === 0) return { nodes: [], groups: [], edges: [], bounds: { x: 0, y: 0, w: 0, h: 0 } };
 
-  const bounds = computeBounds(nodes, outGroups, []);
-  return { nodes, groups: outGroups, edges: [], bounds };
+  const maxItems = Math.max(...blocks.map(b => b.items.length));
+  let best = null;
+  for (let R = 1; R <= Math.min(maxItems, 8); R++) {
+    const colsOf = blocks.map(b => Math.ceil(b.items.length / R));
+    const totalCols = colsOf.reduce((a, c) => a + c, 0);
+    for (let shelfCols = Math.max(...colsOf); shelfCols <= totalCols; shelfCols++) {
+      // 隙間は倍率に依存し、倍率は隙間に依存するので、小さい側へ寄せながら数回反復する
+      let k = 0.2, lay = null;
+      for (let it = 0; it < 6; it++) {
+        lay = buildGalleryLayout(blocks, cellW, cellH, R, shelfCols, k);
+        if (lay.fitK >= k * 0.98) break;
+        k = lay.fitK;
+      }
+      if (!best || lay.fitK > best.fitK + 1e-6) best = lay;
+    }
+  }
+  return { nodes: best.nodes, groups: best.groups, edges: [], bounds: best.bounds };
 }
 
 function computeBounds(nodes, groups, edges) {
@@ -542,6 +674,218 @@ async function layoutFlow(model, warnings) {
   };
 }
 
+// ---------- flow（layout: "elk"。全体を 1 回の ELK layered で解くカード＋曲線スタイル） ----------
+// docs/design-viewer-elk.html のレイアウトを再現するモード。寸法・間隔はすべて「幅 360px の
+// 画面カード」を基準にした参照 px で定義し、ワールド座標では ELK_UNIT 倍する（画面サムネイルを
+// 実寸 1440px のまま置くため。1 ワールド px = モックアップの 1px の関係を lanes と揃える）。
+const ELK_UNIT = DEFAULT_SCREEN_W / 360;
+const ELK_CARD = { pad: 10, header: 44, radius: 18 };
+const ELK_PILL = { minW: 148, padX: 18, h: 42, hSub: 54, font: 13, subFont: 9 };
+const ELK_FLOW_DEFAULT_OPTIONS = {
+  'elk.algorithm': 'layered',
+  'elk.direction': 'RIGHT',
+  'elk.spacing.nodeNode': 130,
+  'elk.layered.spacing.nodeNodeBetweenLayers': 230,
+  'elk.spacing.edgeNode': 80,
+  'elk.spacing.edgeEdge': 40,
+  'elk.spacing.componentComponent': 220,
+  'elk.padding': 100,
+};
+
+/** 文字幅のおおよその見積もり（全角 1em・半角 0.58em） */
+function estimateTextWidth(text, px) {
+  let em = 0;
+  for (const ch of String(text || '')) em += ch.charCodeAt(0) > 0xff ? 1 : 0.58;
+  return em * px;
+}
+
+/** 参照 px 単位の既定オプションをワールド単位へ換算し、model の layoutOptions で上書きする */
+function elkFlowOptions(edgeStyle, overrides) {
+  const opts = {};
+  Object.entries(ELK_FLOW_DEFAULT_OPTIONS).forEach(([k, v]) => {
+    if (k === 'elk.padding') { const p = v * ELK_UNIT; opts[k] = `[top=${p},left=${p},bottom=${p},right=${p}]`; }
+    else opts[k] = typeof v === 'number' ? String(v * ELK_UNIT) : v;
+  });
+  opts['elk.edgeRouting'] = edgeStyle === 'orthogonal' ? 'ORTHOGONAL' : 'SPLINES';
+  Object.entries(overrides || {}).forEach(([k, v]) => { opts[k.startsWith('elk.') ? k : `elk.${k}`] = String(v); });
+  return opts;
+}
+
+const SIDE_NORMAL = { left: [-1, 0], right: [1, 0], top: [0, -1], bottom: [0, 1] };
+
+/** 辺の向き（中心間の dx/dy の大きい方）で出る側・入る側を決める */
+function curveSides(a, b) {
+  const dx = (b.x + b.w / 2) - (a.x + a.w / 2);
+  const dy = (b.y + b.h / 2) - (a.y + a.h / 2);
+  if (Math.abs(dx) > Math.abs(dy)) return dx >= 0 ? ['right', 'left'] : ['left', 'right'];
+  return dy >= 0 ? ['bottom', 'top'] : ['top', 'bottom'];
+}
+
+/**
+ * 参照 HTML と同じ 3 次ベジェの辺を作る。制御点の張り出しは max(90, 距離×0.42)（参照 px）。
+ * 同じノードの同じ側に複数の辺が付くときは、相手ノードの位置順に側面の中央 50% へ散らす
+ * （往復の辺 S01⇄S02 が重ならず平行に並ぶ）。route は [始点, 制御点1, 制御点2, 終点]。
+ */
+function routeCurves(edgesIn, rectOf) {
+  const plans = edgesIn.map((e, i) => {
+    const a = rectOf.get(e.from), b = rectOf.get(e.to);
+    if (!a || !b) return null;
+    if (e.from === e.to) return { i, e, a, b, self: true, sides: ['top', 'right'] };
+    return { i, e, a, b, sides: curveSides(a, b) };
+  });
+  const attach = new Map(); // `${id}:${side}` -> [{plan, end, key}]
+  plans.forEach(p => {
+    if (!p) return;
+    [[p.e.from, p.sides[0], p.b, 0], [p.e.to, p.sides[1], p.a, 1]].forEach(([id, side, other, end]) => {
+      const k = `${id}:${side}`;
+      if (!attach.has(k)) attach.set(k, []);
+      const vertical = side === 'left' || side === 'right';
+      attach.get(k).push({ p, end, key: vertical ? other.y + other.h / 2 : other.x + other.w / 2 });
+    });
+  });
+  const anchors = new Map(); // `${edgeIdx}:${end}` -> [x,y]
+  attach.forEach((list, k) => {
+    const side = k.slice(k.lastIndexOf(':') + 1);
+    list.sort((u, v) => (u.key - v.key) || (u.p.i - v.p.i) || (u.end - v.end));
+    list.forEach((it, idx) => {
+      const r = it.end === 0 ? it.p.a : it.p.b;
+      const t = it.p.self ? (it.end === 0 ? 0.75 : 0.25) : (list.length === 1 ? 0.5 : 0.25 + 0.5 * idx / (list.length - 1));
+      let pt;
+      if (side === 'left') pt = [r.x, r.y + r.h * t];
+      else if (side === 'right') pt = [r.x + r.w, r.y + r.h * t];
+      else if (side === 'top') pt = [r.x + r.w * t, r.y];
+      else pt = [r.x + r.w * t, r.y + r.h];
+      anchors.set(`${it.p.i}:${it.end}`, pt);
+    });
+  });
+  return plans.map(p => {
+    if (!p) return null;
+    const s = anchors.get(`${p.i}:0`), t = anchors.get(`${p.i}:1`);
+    const [na, nb] = [SIDE_NORMAL[p.sides[0]], SIDE_NORMAL[p.sides[1]]];
+    const horizontal = p.sides[0] === 'left' || p.sides[0] === 'right';
+    const dist = p.self ? 0 : (horizontal ? Math.abs(t[0] - s[0]) : Math.abs(t[1] - s[1]));
+    const c = Math.max(90 * ELK_UNIT, dist * 0.42);
+    const route = [s, [s[0] + na[0] * c, s[1] + na[1] * c], [t[0] + nb[0] * c, t[1] + nb[1] * c], t];
+    const e = p.e;
+    return {
+      from: e.from, to: e.to, label: e.label, type: e.type, step: e.step,
+      fromLabel: e.fromLabel, toLabel: e.toLabel,
+      shape: 'bezier', route, labelAt: e.label ? bezierPoint(route, 0.5) : undefined,
+    };
+  }).filter(Boolean);
+}
+
+function bezierPoint(r, t) {
+  const u = 1 - t;
+  const f = (i) => u * u * u * r[0][i] + 3 * u * u * t * r[1][i] + 3 * u * t * t * r[2][i] + t * t * t * r[3][i];
+  return [f(0), f(1)];
+}
+
+async function layoutFlowElk(model, warnings) {
+  const flow = model.modes.flow;
+  const edgeStyle = flow.edgeStyle === 'orthogonal' ? 'orthogonal' : 'curve';
+  const U = ELK_UNIT;
+  const explicitNodes = Array.isArray(flow.nodes) ? flow.nodes : [];
+  const edgesIn = (Array.isArray(flow.edges) ? flow.edges : []);
+
+  // screens → modes.flow.nodes の記述順で ELK に渡す（ELK は記述順をある程度尊重する）
+  const items = [];
+  (model.screens || []).forEach(s => {
+    const tw = s.w || DEFAULT_SCREEN_W, th = s.h || DEFAULT_SCREEN_H;
+    const pad = ELK_CARD.pad * U, header = ELK_CARD.header * U;
+    items.push({
+      id: s.id, kind: 'screen', w: tw + pad * 2, h: header + th + pad,
+      extra: { card: { unit: U, pad, header, radius: ELK_CARD.radius * U, thumbW: tw, thumbH: th } },
+      pin: s.pin, nudge: s.nudge,
+    });
+  });
+  explicitNodes.forEach(n => {
+    const label = n.label || n.id;
+    const w = Math.max(ELK_PILL.minW, estimateTextWidth(label, ELK_PILL.font) + ELK_PILL.padX * 2,
+      estimateTextWidth(n.sub, ELK_PILL.subFont) + ELK_PILL.padX * 2);
+    items.push({
+      id: n.id, kind: n.kind || 'pill', w: Math.ceil(w) * U, h: (n.sub ? ELK_PILL.hSub : ELK_PILL.h) * U,
+      extra: { label: n.label, sub: n.sub, unit: U }, pin: n.pin, nudge: n.nudge,
+      attachTo: n.attachTo, attachSide: n.attachSide, attachGap: n.attachGap,
+    });
+  });
+  const ids = new Set(items.map(it => it.id));
+  const edges = edgesIn.filter(e => ids.has(e.from) && ids.has(e.to));
+  // attachTo を持つノード（起点など）は ELK に渡さず、配置後に相手ノードの横へ置く。
+  // 起点を ELK に含めると層が 1 つ増えて全体の並びが変わるため（参照 HTML も起点は手置き）。
+  const attached = new Set(items.filter(it => it.attachTo && ids.has(it.attachTo) && it.attachTo !== it.id).map(it => it.id));
+  const elkItems = items.filter(it => !attached.has(it.id));
+  // weak（保存後に戻る等の逆向きの遷移）は層の決定に使わない。往復の辺が ELK の層順を
+  // 入れ替え、主な流れ（左→右）が読めなくなるため。配置後に他の辺と同様に描く。
+  const elkEdges = edges.filter(e => !attached.has(e.from) && !attached.has(e.to) && e.type !== 'weak');
+
+  const graph = {
+    id: 'root',
+    layoutOptions: elkFlowOptions(edgeStyle, flow.layoutOptions),
+    children: elkItems.map(it => ({ id: it.id, width: it.w, height: it.h })),
+    edges: elkEdges.map((e, i) => ({ id: `e${i}`, sources: [e.from], targets: [e.to] })),
+  };
+  const result = await runElk(graph);
+  const posOf = new Map(result.children.map(c => [c.id, c]));
+
+  const nodes = items.map(it => {
+    const p = posOf.get(it.id) || { x: 0, y: 0 };
+    const node = { id: it.id, kind: it.kind, x: p.x, y: p.y, w: it.w, h: it.h, ...it.extra };
+    if (it.nudge && !attached.has(it.id)) { node.x += Number(it.nudge.dx) || 0; node.y += Number(it.nudge.dy) || 0; }
+    if (it.pin) node.pin = it.pin;
+    return node;
+  });
+  const nodeById = new Map(nodes.map(n => [n.id, n]));
+  items.filter(it => attached.has(it.id)).forEach(it => {
+    const n = nodeById.get(it.id), t0 = nodeById.get(it.attachTo);
+    // 相手が pin 済みなら固定後の座標を基準にする（pin は後段で適用されるため）
+    const t = t0.pin ? { ...t0, x: t0.pin.x, y: t0.pin.y } : t0;
+    const gap = (typeof it.attachGap === 'number' ? it.attachGap : 130) * U;
+    const side = it.attachSide || 'left';
+    if (side === 'right') { n.x = t.x + t.w + gap; n.y = t.y + (t.h - n.h) / 2; }
+    else if (side === 'top') { n.x = t.x + (t.w - n.w) / 2; n.y = t.y - gap - n.h; }
+    else if (side === 'bottom') { n.x = t.x + (t.w - n.w) / 2; n.y = t.y + t.h + gap; }
+    else { n.x = t.x - gap - n.w; n.y = t.y + (t.h - n.h) / 2; }
+    if (it.nudge) { n.x += Number(it.nudge.dx) || 0; n.y += Number(it.nudge.dy) || 0; }
+  });
+
+  let outEdges;
+  if (edgeStyle === 'curve') {
+    applyPins(nodes, [], null, warnings, 'flow');
+    outEdges = routeCurves(edges, new Map(nodes.map(n => [n.id, n])));
+  } else {
+    const rectOf = nodeById;
+    const elkRoutes = new Map((result.edges || []).map((re, i) => [elkEdges[i], re]));
+    outEdges = edges.map(orig => {
+      const re = elkRoutes.get(orig) || {};
+      const route = flattenSection(re.sections && re.sections[0]) || simpleOrthogonalRoute(rectOf.get(orig.from), rectOf.get(orig.to));
+      return {
+        from: orig.from, to: orig.to, label: orig.label, type: orig.type, step: orig.step,
+        fromLabel: orig.fromLabel, toLabel: orig.toLabel,
+        route, labelAt: orig.label ? midpointAlongRoute(route) : undefined,
+      };
+    });
+    // nudge したノードの辺は ELK の経路が合わなくなるため、pin と同様に単純ルートへ引き直す
+    const moved = new Set(items.filter(it => it.nudge || attached.has(it.id)).map(it => it.id));
+    outEdges = outEdges.map(e => {
+      if (!moved.has(e.from) && !moved.has(e.to)) return e;
+      const route = simpleOrthogonalRoute(rectOf.get(e.from), rectOf.get(e.to));
+      return { ...e, route, labelAt: e.label ? midpointAlongRoute(route) : undefined };
+    });
+    outEdges = applyPins(nodes, outEdges, null, warnings, 'flow');
+  }
+  nodes.forEach(n => { delete n.pin; });
+  const overlaps = countOverlaps(new Map(nodes.map(n => [n.id, n])));
+  if (overlaps > 0) warnings.push(`flow: ノードの重なりが ${overlaps} 件あります（nudge / attachTo / pin の値を見直してください）`);
+
+  const bounds = computeBounds(nodes, [], outEdges);
+  return {
+    label: flow.label, desc: flow.desc, legend: flow.legend, toggles: flow.toggles, steps: flow.steps,
+    layout: 'elk', edgeStyle, unit: U,
+    bounds, groups: [], nodes, edges: outEdges,
+  };
+}
+
 /** pin: {x,y} を持つノードを最終座標で上書きし、接続辺を単純ルートに引き直す */
 function applyPins(nodes, edges, posMap, warnings, modeName) {
   const pinned = nodes.filter(n => n.pin);
@@ -564,6 +908,7 @@ function applyPins(nodes, edges, posMap, warnings, modeName) {
 }
 
 // ---------- concept / dfd（layered vs stress を比較） ----------
+const candName = c => c.algorithm + (c.wrapped ? '(折り返し)' : '');
 async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
   const nodesIn = Array.isArray(mode.nodes) ? mode.nodes : [];
   const edgesIn = Array.isArray(mode.edges) ? mode.edges : [];
@@ -571,7 +916,14 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
     return { label: mode.label, desc: mode.desc, legend: mode.legend, steps: mode.steps, bounds: { x: 0, y: 0, w: 0, h: 0 }, nodes: [], edges: [] };
   }
 
-  async function attempt(algorithm) {
+  // 辺ラベル（エンジンは 11px 固定・左右余白 9px）が層間やノード間に収まる間隔。
+  // ELK にラベル寸法は渡さない（下記コメント参照）が、間隔が 48px のままだと短い辺のラベルが
+  // ノードに重なって読めないため、最長ラベルの幅だけ層間を空ける（上限 200px）。
+  // 余白 60px = 曲がり角の通路（約 10px）＋ラベルと矢じりの間（LABEL_ARROW_CLEARANCE）＋始点側の余白。
+  const maxLabelW = Math.max(0, ...edgesIn.map(e => e.label ? estimateTextWidth(e.label, 11) + 18 : 0));
+  const betweenLayers = Math.round(Math.min(240, Math.max(48, maxLabelW + 60)));
+
+  async function attempt(algorithm, wrap) {
     // layered には elk.layered.wrapping.strategy を使う（fix #1）。少数ノードの鎖状グラフを
     // layered/RIGHT だけで解くと極端に横長（アスペクト比 15〜20:1）になり、1480x640 の
     // カード込みビューポートでのフィットズームが 25〜40% まで落ちてラベルが読めなくなる。
@@ -585,14 +937,13 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
     const layoutOptions = algorithm === 'layered' ? {
       'elk.algorithm': 'layered',
       'elk.direction': 'RIGHT',
-      'elk.spacing.nodeNode': '24',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '48',
-      'elk.spacing.edgeNode': '8',
-      'elk.spacing.edgeEdge': '6',
+      'elk.spacing.nodeNode': '40',
+      'elk.layered.spacing.nodeNodeBetweenLayers': String(betweenLayers),
+      'elk.spacing.edgeNode': '12',
+      'elk.spacing.edgeEdge': '10',
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.padding': '[top=20,left=20,bottom=20,right=20]',
-      'elk.layered.wrapping.strategy': 'MULTI_EDGE',
-      'elk.aspectRatio': String(FIT_W / FIT_H),
+      ...(wrap ? { 'elk.layered.wrapping.strategy': 'MULTI_EDGE', 'elk.aspectRatio': String(FIT_W / FIT_H) } : {}),
       'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
     } : {
       'elk.algorithm': 'stress',
@@ -611,23 +962,19 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
     return { result, posMap };
   }
 
-  let chosen;
-  const layeredR = await attempt('layered');
-  let stressR = null;
-  try { stressR = await attempt('stress'); } catch (e) { warnings.push(`${modeName}: stress レイアウトを試行できませんでした（${e.message}）。layered を使用します`); }
+  // 候補: layered（折り返しなし）/ layered（MULTI_EDGE 折り返し）/ stress。
+  // 折り返しは横長になりすぎる鎖状グラフには有効だが、少数ノードが次の段へ送られると
+  // そこへ入る辺が図全体を右→左に回り込む。どちらが良いかはグラフ次第なので両方を採点する。
+  const candidates = [];
+  candidates.push({ algorithm: 'layered', ...(await attempt('layered', false)) });
+  candidates.push({ algorithm: 'layered', wrapped: true, ...(await attempt('layered', true)) });
+  try { candidates.push({ algorithm: 'stress', ...(await attempt('stress')) }); } catch (e) { warnings.push(`${modeName}: stress レイアウトを試行できませんでした（${e.message}）。layered を使用します`); }
 
-  // 採否は複合スコアで決める（scoreCandidate）: 重なり 0 件必須 → フィットズーム最大 →
-  // 交差最小 → 総エッジ長最小、の優先順位。fit を最優先級に置くことで、stress が交差ゼロを
-  // 達成しても極端に細長い/大きい配置になるケースを選ばないようにする。
-  const sLayered = scoreCandidate(layeredR.posMap, edgesIn);
-  if (stressR) {
-    const sStress = scoreCandidate(stressR.posMap, edgesIn);
-    chosen = sStress.score < sLayered.score
-      ? { ...stressR, algorithm: 'stress', ...sStress, other: sLayered }
-      : { ...layeredR, algorithm: 'layered', ...sLayered, other: sStress };
-  } else {
-    chosen = { ...layeredR, algorithm: 'layered', ...sLayered, other: null };
-  }
+  // 採否は複合スコアで決める（scoreCandidate）: 重なり 0 件必須 → フィットズーム（読める倍率まで）→
+  // 交差・辺の回り込み → 総エッジ長、の優先順位。
+  candidates.forEach(c => Object.assign(c, scoreCandidate(c.posMap, edgesIn, c.result)));
+  const sorted = [...candidates].sort((a, b) => a.score - b.score);
+  const chosen = { ...sorted[0], other: sorted[1] || null };
 
   const nodes = nodesIn.map(n => {
     const p = chosen.posMap.get(n.id);
@@ -636,14 +983,18 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
     node.pin = n.pin;
     return node;
   });
+  const nodeRects = [...chosen.posMap.values()];
+  const placedLabels = [];
   const edges = (chosen.result.edges || []).map((re, i) => {
     const orig = edgesIn[i];
     const route = flattenSection(re.sections && re.sections[0]);
+    const elkLabel = re.labels && re.labels[0];
     return {
       from: orig.from, to: orig.to, label: orig.label, type: orig.type, step: orig.step,
       fromLabel: orig.fromLabel, toLabel: orig.toLabel,
       route: route || [[chosen.posMap.get(orig.from).x, chosen.posMap.get(orig.from).y], [chosen.posMap.get(orig.to).x, chosen.posMap.get(orig.to).y]],
-      labelAt: orig.label ? labelCenterFromElk(re, route) : undefined,
+      labelAt: !orig.label ? undefined
+        : (elkLabel || !route) ? labelCenterFromElk(re, route) : labelOnRoute(route, orig.label, nodeRects, { placed: placedLabels, endClearance: LABEL_ARROW_CLEARANCE }),
     };
   });
 
@@ -654,9 +1005,458 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
   return {
     label: mode.label, desc: mode.desc, legend: mode.legend, steps: mode.steps,
     bounds, nodes: finalNodes, edges: finalEdges,
-    _algorithm: chosen.algorithm, _crossings: chosen.crossings, _overlaps: chosen.overlaps,
-    _fitZoom: chosen.fit, _other: chosen.other && { algorithm: chosen.algorithm === 'stress' ? 'layered' : 'stress', crossings: chosen.other.crossings, overlaps: chosen.other.overlaps, fitZoom: chosen.other.fit },
+    _algorithm: candName(chosen), _crossings: chosen.crossings, _overlaps: chosen.overlaps,
+    _fitZoom: chosen.fit, _other: chosen.other && { algorithm: candName(chosen.other), crossings: chosen.other.crossings, overlaps: chosen.other.overlaps, fitZoom: chosen.other.fit },
   };
+}
+
+// ---------- biz（スイムレーン。ELK 不要・決定的） ----------
+// レーン×フェーズの固定グリッドへ配置したい（ELK の自動配置だと列がフェーズ境界とずれる）ため、
+// ELK は使わず自前で決定的に組む。列（フェーズ内での左右位置）はフェーズごとに独立して、
+// type: "weak" を除いた辺で DFS 逆辺検出 → 残った DAG 上を Kahn 法で最長パスランク付けして求める。
+// 同じセル（レーン×フェーズ×列）に複数ノードがあれば縦に積む。
+const BIZ_HEADER_W = 190;
+const BIZ_PHASE_H = 44;
+const BIZ_LANE_PAD_Y = 20;
+const BIZ_ROW_GAP = 28;
+const BIZ_BLOCK_PAD_X = 32;
+const BIZ_LANE_MIN_H = 110;
+const BIZ_GAP_MIN = 64, BIZ_GAP_MAX = 220, BIZ_GAP_LABEL_PAD = 40;
+const BIZ_BLOCK_GAP_X = 80, BIZ_BLOCK_GAP_Y = 64;
+const BIZ_FIT_W = 1480, BIZ_FIT_H = 700;
+const BIZ_DECISION_LABEL_MIN_DIST = 14;
+const BIZ_NODE_SIZE = {
+  task: { w: 220, h: 76 },
+  system: { w: 220, h: 76 },
+  decision: { w: 150, h: 96 },
+  start: { w: 190, h: 52 },
+  end: { w: 190, h: 52 },
+};
+function bizNodeSize(variant) { return BIZ_NODE_SIZE[variant] || BIZ_NODE_SIZE.task; }
+
+/** DFS で逆辺（閉路の原因になる辺）を検出する。nodeIds の順（model 順）を探索順にして決定的にする。 */
+function detectBizBackEdges(nodeIds, edgeList) {
+  const adj = new Map(nodeIds.map(id => [id, []]));
+  edgeList.forEach((e, i) => { if (adj.has(e.from) && adj.has(e.to)) adj.get(e.from).push({ to: e.to, i }); });
+  const state = new Map(nodeIds.map(id => [id, 0])); // 0=未訪問 1=探索中 2=完了
+  const back = new Set();
+  function dfs(u) {
+    state.set(u, 1);
+    for (const { to, i } of adj.get(u)) {
+      const st = state.get(to);
+      if (st === 1) back.add(i);
+      else if (st === 0) dfs(to);
+    }
+    state.set(u, 2);
+  }
+  nodeIds.forEach(id => { if (state.get(id) === 0) dfs(id); });
+  return back;
+}
+
+/** 後退辺を除いた DAG 上での最長パス順位（列番号。0 起点）を Kahn 法で求める。 */
+function computeBizColumnRanks(nodeIds, forwardEdges) {
+  const indeg = new Map(nodeIds.map(id => [id, 0]));
+  const adj = new Map(nodeIds.map(id => [id, []]));
+  forwardEdges.forEach(e => { adj.get(e.from).push(e.to); indeg.set(e.to, indeg.get(e.to) + 1); });
+  const rank = new Map(nodeIds.map(id => [id, 0]));
+  const q = nodeIds.filter(id => indeg.get(id) === 0);
+  for (let qi = 0; qi < q.length; qi++) {
+    const u = q[qi];
+    for (const v of adj.get(u)) {
+      if (rank.get(u) + 1 > rank.get(v)) rank.set(v, rank.get(u) + 1);
+      indeg.set(v, indeg.get(v) - 1);
+      if (indeg.get(v) === 0) q.push(v);
+    }
+  }
+  return rank;
+}
+
+/** rects から from/to を除いた矩形群を 1px ずつ縮めて返す（境界に乗るだけの接触を重なりとみなさないため）。 */
+function shrinkRectsExcluding(rects, excludeIds) {
+  const ex = new Set(excludeIds);
+  return rects.filter(r => !ex.has(r.id)).map(r => ({ x: r.x + 1, y: r.y + 1, w: Math.max(0, r.w - 2), h: Math.max(0, r.h - 2) }));
+}
+
+/** 軸並行の線分 [p1,p2] が矩形 r と重なるか（辺に乗るだけの接触は含まない）。 */
+function segmentHitsRect(p1, p2, r) {
+  const x1 = Math.min(p1[0], p2[0]), x2 = Math.max(p1[0], p2[0]);
+  const y1 = Math.min(p1[1], p2[1]), y2 = Math.max(p1[1], p2[1]);
+  return x1 < r.x + r.w && x2 > r.x && y1 < r.y + r.h && y2 > r.y;
+}
+
+function countBizRouteHits(route, rects) {
+  let n = 0;
+  for (let i = 0; i < route.length - 1; i++) {
+    for (const r of rects) if (segmentHitsRect(route[i], route[i + 1], r)) n++;
+  }
+  return n;
+}
+
+/**
+ * ノード a→b 間の直交ルート候補（CONTRACT §2 の a〜d）を作る。channelUse / corridorUse は
+ * 「同じチャンネル x（コリドー y）を使う辺が既に何本あるか」を数える共有カウンター。候補のうち
+ * 実際に採用されたものだけが .apply() でカウンターを進める（並行するチャンネルを 10px ずつずらす）。
+ */
+function buildBizRouteCandidates(a, b, metaA, metaB, channelUse, corridorUse) {
+  const aC = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
+  const bC = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+  const left = s => rectBoundary(s, 'left'), right = s => rectBoundary(s, 'right');
+  const top = s => rectBoundary(s, 'top'), bottom = s => rectBoundary(s, 'bottom');
+  const candidates = [];
+  const rightward = bC.x >= aC.x;
+  const dy = bC.y - aC.y;
+
+  function takeChannel(xBase) {
+    const key = Math.round(xBase / 6);
+    const n = channelUse.get(key) || 0;
+    return { value: xBase + n * 10, apply: () => channelUse.set(key, n + 1) };
+  }
+  function takeCorridor(yBase, dir) {
+    const key = `${dir}:${Math.round(yBase / 6)}`;
+    const n = corridorUse.get(key) || 0;
+    return { value: yBase + dir * n * 10, apply: () => corridorUse.set(key, n + 1) };
+  }
+
+  if (rightward && Math.abs(dy) < 2) {
+    // a) 同じ高さ・右方向: 直線
+    const p1 = right(a), p2 = left(b);
+    candidates.push({ route: dedupePoints([[p1.x, p1.y], [p2.x, p2.y]]), apply: () => {} });
+  }
+  if (rightward) {
+    const p1 = right(a), p2 = left(b);
+    // b) 右側面 → 縦チャンネル（自列の右端 / 相手列の左端の 2 通り） → 左側面
+    // チャンネル位置は列の隙間ごとの幅（v2: metaA/metaB が持つ per-gap 幅）から決める
+    const gapA = metaA.rightGapW != null ? metaA.rightGapW : BIZ_GAP_MIN;
+    const gapB = metaB.leftGapW != null ? metaB.leftGapW : BIZ_GAP_MIN;
+    [metaA.colRight + gapA / 2, metaB.colLeft - gapB / 2].forEach(chanXBase => {
+      const ch = takeChannel(chanXBase);
+      const chanX = ch.value;
+      candidates.push({
+        route: dedupePoints([[p1.x, p1.y], [chanX, p1.y], [chanX, p2.y], [p2.x, p2.y]]),
+        apply: ch.apply,
+      });
+    });
+    // c) 縦優先で出て、対象の高さまで進んでから左側面へ入る
+    const exit = dy >= 0 ? bottom(a) : top(a);
+    candidates.push({
+      route: dedupePoints([[exit.x, exit.y], [exit.x, p2.y], [p2.x, p2.y]]),
+      apply: () => {},
+    });
+  }
+  // d) レーン外周のコリドー経由（後退・同列・左方向、および a〜c で重なりが残るときのフォールバック）。
+  // レーン上下の余白（LANE_PAD_Y=28）はコリドーのオフセット（10px）より広いため、ノードは常に
+  // 自分のレーン内でコリドーより内側にある（下コリドーより上・上コリドーより下）。
+  {
+    const bottomY = Math.max(metaA.laneY + metaA.laneH, metaB.laneY + metaB.laneH) - 10;
+    const cor = takeCorridor(bottomY, 1);
+    const p1 = bottom(a), p2 = bottom(b);
+    candidates.push({
+      route: dedupePoints([[p1.x, p1.y], [p1.x, cor.value], [p2.x, cor.value], [p2.x, p2.y]]),
+      apply: cor.apply,
+    });
+  }
+  {
+    const topY = Math.min(metaA.laneY, metaB.laneY) + 10;
+    const cor = takeCorridor(topY, -1);
+    const p1 = top(a), p2 = top(b);
+    candidates.push({
+      route: dedupePoints([[p1.x, p1.y], [p1.x, cor.value], [p2.x, cor.value], [p2.x, p2.y]]),
+      apply: cor.apply,
+    });
+  }
+  return candidates;
+}
+
+/** 分岐の辺ラベルは分岐の出口に近い最初の線分の中点に置く（線分が短すぎれば null） */
+function decisionLabelAt(route, label) {
+  if (!route || route.length < 2) return null;
+  const [a, b] = route;
+  const horizontal = Math.abs(a[1] - b[1]) < 1;
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const need = horizontal ? estimateTextWidth(label, 11) + 18 + 8 : 28;
+  if (len < need) return null;
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+}
+
+/**
+ * 全辺のルートを決める。ノード矩形（1px 縮小・自分自身を除く）との交差が無い候補を優先する。
+ * nodeVariantById: id -> variant。分岐（decision）から出る辺は、ラベルがノード外周から
+ * BIZ_DECISION_LABEL_MIN_DIST(14px) 以上離れるよう labelOnRoute に避けたい矩形として渡す。
+ */
+function routeBizEdges(edgesIn, nodeRectById, nodeMetaById, nodeVariantById, warnings) {
+  const rectsAll = [...nodeRectById.entries()].map(([id, r]) => ({ id, x: r.x, y: r.y, w: r.w, h: r.h }));
+  const channelUse = new Map();
+  const corridorUse = new Map();
+  const out = [];
+  // 分岐から出る 2 本目以降の辺は、1 本目（右へ出る）と出口を分けるため縦優先のルートを先に試す。
+  // 同じ出口から分かれると、どちらが「はい」「いいえ」か読み取れないため。
+  const outIndex = new Map();
+  edgesIn.forEach(e => {
+    const a = nodeRectById.get(e.from), b = nodeRectById.get(e.to);
+    const metaA = nodeMetaById.get(e.from), metaB = nodeMetaById.get(e.to);
+    if (!a || !b || !metaA || !metaB) return; // validate.js が既にエラー化する想定
+    const decisionOpts = (nodeVariantById && nodeVariantById.get(e.from) === 'decision')
+      ? { avoidRect: a, minDist: BIZ_DECISION_LABEL_MIN_DIST } : undefined;
+    if (e.from === e.to) {
+      const t = rectBoundary(a, 'top');
+      const route = dedupePoints([[t.x - 20, t.y], [t.x - 20, t.y - 30], [t.x + 20, t.y - 30], [t.x + 20, t.y]]);
+      out.push({ from: e.from, to: e.to, label: e.label, type: e.type, route, labelAt: e.label ? labelOnRoute(route, e.label, rectsAll, decisionOpts) : undefined });
+      return;
+    }
+    const excl = shrinkRectsExcluding(rectsAll, [e.from, e.to]);
+    let candidates = buildBizRouteCandidates(a, b, metaA, metaB, channelUse, corridorUse);
+    const isDecision = nodeVariantById && nodeVariantById.get(e.from) === 'decision';
+    const k = outIndex.get(e.from) || 0;
+    outIndex.set(e.from, k + 1);
+    if (isDecision && k >= 1) {
+      const startsVertical = c => c.route.length >= 2 && Math.abs(c.route[0][0] - c.route[1][0]) < 1;
+      candidates = [...candidates.filter(startsVertical), ...candidates.filter(c => !startsVertical(c))];
+    }
+    let best = null;
+    for (const c of candidates) {
+      const hits = countBizRouteHits(c.route, excl);
+      if (!best || hits < best.hits) best = { ...c, hits };
+      if (hits === 0) break;
+    }
+    best.apply();
+    out.push({
+      from: e.from, to: e.to, label: e.label, type: e.type,
+      route: best.route,
+      labelAt: !e.label ? undefined
+        : (isDecision && decisionLabelAt(best.route, e.label)) || labelOnRoute(best.route, e.label, rectsAll, decisionOpts),
+    });
+  });
+  return out;
+}
+
+/**
+ * biz レイアウト v2: フェーズを「独立したスイムレーンのブロック」にして格子詰めする
+ * （biz-contract-v2.md）。v1（フェーズを 1 行に横並び）は実データで幅 8453px・倍率 23% まで
+ * 落ち込み文字が読めなくなったため、フェーズ単位のブロック（そのフェーズでノードを持つ
+ * レーンだけを積んだ自己完結レイアウト）に分割し、ブロックを 1480x700 の想定領域に最も
+ * 大きくフィットする列数で格子状に折り返す。フェーズが無い入力は全ノードを 1 ブロック
+ * （id "_all"・見出し帯高さ 0）として同じパイプラインに通す（cols は自明に 1）。
+ * 辺のルーティング候補（buildBizRouteCandidates）・ラベル配置（labelOnRoute）は v1 のまま
+ * （ブロック内で完結する前提。フェーズをまたぐ辺は validate.js が警告する）。
+ */
+function layoutBiz(biz, warnings) {
+  const lanes = Array.isArray(biz.lanes) ? biz.lanes : [];
+  const phasesIn = Array.isArray(biz.phases) ? biz.phases : [];
+  const nodesIn = Array.isArray(biz.nodes) ? biz.nodes : [];
+  const edgesIn = Array.isArray(biz.edges) ? biz.edges : [];
+  if (lanes.length === 0) {
+    return { label: biz.label, desc: biz.desc, legend: biz.legend, bounds: { x: 0, y: 0, w: 0, h: 0 }, groups: [], phases: [], nodes: [], edges: [] };
+  }
+  const hasPhases = phasesIn.length > 0;
+  const laneIds = lanes.map(l => l.id);
+  const validLaneIds = new Set(laneIds);
+  const validPhaseIds = new Set(hasPhases ? phasesIn.map(p => p.id) : []);
+
+  const usableNodes = nodesIn.filter(n => n && n.id && validLaneIds.has(n.lane) && (!hasPhases || validPhaseIds.has(n.phase)));
+  if (usableNodes.length < nodesIn.length) {
+    warnings.push(`biz: lane / phase を解決できないノードが ${nodesIn.length - usableNodes.length} 件あります（表示から除外しました）`);
+  }
+  if (usableNodes.length === 0) {
+    return { label: biz.label, desc: biz.desc, legend: biz.legend, bounds: { x: 0, y: 0, w: 0, h: 0 }, groups: [], phases: [], nodes: [], edges: [] };
+  }
+  const usableById = new Map(usableNodes.map(n => [n.id, n]));
+  const blockOf = n => (hasPhases ? n.phase : '_all');
+  const nodeVariantById = new Map(usableNodes.map(n => [n.id, n.variant]));
+  const sizeById = new Map(usableNodes.map(n => [n.id, bizNodeSize(n.variant)]));
+
+  // ---- ブロック（フェーズ 1 つ、または phases 無しなら全体で 1 つ）ごとに block-local 座標で組む ----
+  const blockDefs = hasPhases ? phasesIn.map(p => ({ id: p.id, label: p.label })) : [{ id: '_all', label: '' }];
+  const blocks = blockDefs.map(def => {
+    const memberIds = usableNodes.filter(n => blockOf(n) === def.id).map(n => n.id);
+    if (memberIds.length === 0) return null;
+    const memberSet = new Set(memberIds);
+
+    // 列（後退辺を除いた DAG 上の最長パス順位。type: "weak" は列決定に使わない）
+    const relevantEdges = edgesIn.filter(e => e && e.type !== 'weak' && memberSet.has(e.from) && memberSet.has(e.to));
+    const backIdx = detectBizBackEdges(memberIds, relevantEdges);
+    const forward = relevantEdges.filter((e, i) => !backIdx.has(i));
+    const columnOf = computeBizColumnRanks(memberIds, forward);
+    const nCols = Math.max(1, ...memberIds.map(id => (columnOf.get(id) || 0) + 1));
+
+    // 列幅（レーン横断で最大）
+    const colWidth = new Map();
+    memberIds.forEach(id => {
+      const col = columnOf.get(id) || 0;
+      colWidth.set(col, Math.max(colWidth.get(col) || 0, sizeById.get(id).w));
+    });
+    // 隙間ごとの幅: 列 c のノードから出る辺のラベル最大幅 + 40（64〜220 にクランプ。ラベルが
+    // 無ければ 64 になる = clamp(0+40,64,220)）
+    const gapWidths = [];
+    for (let c = 0; c < nCols - 1; c++) {
+      const fromSet = new Set(memberIds.filter(id => (columnOf.get(id) || 0) === c));
+      const maxLabelW = Math.max(0, ...edgesIn.filter(e => e && e.label && fromSet.has(e.from)).map(e => estimateTextWidth(e.label, 11) + 18));
+      gapWidths.push(Math.max(BIZ_GAP_MIN, Math.min(BIZ_GAP_MAX, maxLabelW + BIZ_GAP_LABEL_PAD)));
+    }
+    // 列の開始 x（ブロック左右の内側余白 32）
+    const colStartX = new Map();
+    // レーン見出し欄（BIZ_HEADER_W）の右から始める（見出しの上にノードを置かない）
+    let x = BIZ_HEADER_W + BIZ_BLOCK_PAD_X;
+    for (let c = 0; c < nCols; c++) {
+      colStartX.set(c, x);
+      x += (colWidth.get(c) || 0);
+      if (c < nCols - 1) x += gapWidths[c];
+    }
+    const blockW = x + BIZ_BLOCK_PAD_X;
+
+    // このブロックで使うレーン（lanes[] の順で、ノードを持つものだけ。空レーンは出さない）
+    const usedLaneIds = laneIds.filter(lid => memberIds.some(id => usableById.get(id).lane === lid));
+
+    // セル（レーン×列）ごとのノード（model 順で積む）
+    const cellMembers = new Map(); // `${lane}|${col}` -> [id,...]
+    memberIds.forEach(id => {
+      const col = columnOf.get(id) || 0;
+      const key = `${usableById.get(id).lane}|${col}`;
+      if (!cellMembers.has(key)) cellMembers.set(key, []);
+      cellMembers.get(key).push(id);
+    });
+
+    // レーン高さ = 2×LANE_PAD_Y(20) + セル内の積み高さの最大、最小 110
+    const laneInnerH = new Map(usedLaneIds.map(id => [id, 0]));
+    cellMembers.forEach((ids, key) => {
+      const laneId = key.slice(0, key.indexOf('|'));
+      let h = 0;
+      ids.forEach((id, i) => { h += sizeById.get(id).h + (i > 0 ? BIZ_ROW_GAP : 0); });
+      laneInnerH.set(laneId, Math.max(laneInnerH.get(laneId) || 0, h));
+    });
+    const laneHeight = new Map(usedLaneIds.map(id => [id, Math.max(BIZ_LANE_MIN_H, laneInnerH.get(id) + 2 * BIZ_LANE_PAD_Y)]));
+
+    // レーンの y 位置（見出し帯: phases があれば 44、無ければ 0）
+    const headerH = hasPhases ? BIZ_PHASE_H : 0;
+    const laneY = new Map();
+    let curY = headerH;
+    usedLaneIds.forEach(id => { laneY.set(id, curY); curY += laneHeight.get(id); });
+    const blockH = curY;
+
+    // ノード座標の確定（block-local）
+    const localNodes = [];
+    const localMeta = new Map();
+    cellMembers.forEach((ids, key) => {
+      const sep = key.indexOf('|');
+      const laneId = key.slice(0, sep);
+      const col = Number(key.slice(sep + 1));
+      const colX = colStartX.get(col);
+      const colW = colWidth.get(col) || 0;
+      let stackH = 0;
+      ids.forEach((id, i) => { stackH += sizeById.get(id).h + (i > 0 ? BIZ_ROW_GAP : 0); });
+      const ly = laneY.get(laneId), lh = laneHeight.get(laneId);
+      let y = ly + BIZ_LANE_PAD_Y + Math.max(0, (lh - 2 * BIZ_LANE_PAD_Y - stackH) / 2);
+      ids.forEach(id => {
+        const n = usableById.get(id);
+        const size = sizeById.get(id);
+        const xPos = colX + (colW - size.w) / 2;
+        localNodes.push({
+          id, kind: 'biz', variant: n.variant, lane: n.lane, phase: hasPhases ? n.phase : undefined,
+          label: n.label, sub: n.sub, screen: n.screen, spec: n.spec, info: n.info,
+          rect: { x: xPos, y, w: size.w, h: size.h },
+        });
+        localMeta.set(id, {
+          laneY: ly, laneH: lh, colLeft: colX, colRight: colX + colW,
+          rightGapW: gapWidths[col] !== undefined ? gapWidths[col] : BIZ_GAP_MIN,
+          leftGapW: col > 0 ? gapWidths[col - 1] : BIZ_GAP_MIN,
+        });
+        y += size.h + BIZ_ROW_GAP;
+      });
+    });
+
+    const localGroups = usedLaneIds.map((lid, i) => {
+      const l = lanes.find(x2 => x2.id === lid);
+      return {
+        id: `${def.id}:${lid}`, lane: lid, phase: hasPhases ? def.id : undefined,
+        label: l.label, sub: l.sub, style: 'swimlane',
+        rect: { x: 0, y: laneY.get(lid), w: blockW, h: laneHeight.get(lid) },
+        headerW: BIZ_HEADER_W, index: i,
+      };
+    });
+
+    return { id: def.id, label: def.label, w: blockW, h: blockH, headerH, nodes: localNodes, groups: localGroups, meta: localMeta };
+  }).filter(Boolean);
+
+  if (blocks.length === 0) {
+    return { label: biz.label, desc: biz.desc, legend: biz.legend, bounds: { x: 0, y: 0, w: 0, h: 0 }, groups: [], phases: [], nodes: [], edges: [] };
+  }
+
+  // ---- ブロックの格子詰め: 記述順に left→right、cols 個で折り返す。行の高さは行内最大、
+  // 列の幅は列内最大ではなく各ブロックの実幅で左詰め。ブロック間の隙間 横 80・縦 64。
+  // cols は 1〜ブロック数を総当たりし、想定表示領域 1480x700 に対する倍率が最大のものを採用。
+  function packWithCols(cols) {
+    const origins = new Map();
+    let y = 0, maxRowW = 0;
+    for (let i = 0; i < blocks.length; i += cols) {
+      const row = blocks.slice(i, i + cols);
+      let x = 0, rowH = 0;
+      row.forEach(b => {
+        origins.set(b.id, { x, y });
+        x += b.w + BIZ_BLOCK_GAP_X;
+        rowH = Math.max(rowH, b.h);
+      });
+      maxRowW = Math.max(maxRowW, x - BIZ_BLOCK_GAP_X);
+      y += rowH + BIZ_BLOCK_GAP_Y;
+    }
+    const totalH = Math.max(1, y - BIZ_BLOCK_GAP_Y);
+    const totalW = Math.max(1, maxRowW);
+    return { origins, w: totalW, h: totalH, fit: Math.min(BIZ_FIT_W / totalW, BIZ_FIT_H / totalH) };
+  }
+  let bestPack = null, bestCols = 1;
+  for (let cols = 1; cols <= blocks.length; cols++) {
+    const p = packWithCols(cols);
+    if (!bestPack || p.fit > bestPack.fit + 1e-9) { bestPack = p; bestCols = cols; }
+  }
+  void bestCols;
+
+  // ---- ブロックのグローバル座標へ変換 ----
+  const nodes = [];
+  const groups = [];
+  const phasesOut = [];
+  const nodeRectById = new Map();
+  const nodeMetaById = new Map();
+  blocks.forEach(b => {
+    const origin = bestPack.origins.get(b.id);
+    b.nodes.forEach(n => {
+      const rect = { x: n.rect.x + origin.x, y: n.rect.y + origin.y, w: n.rect.w, h: n.rect.h };
+      nodeRectById.set(n.id, rect);
+      nodes.push({
+        id: n.id, kind: n.kind, variant: n.variant, lane: n.lane, phase: n.phase,
+        label: n.label, sub: n.sub, screen: n.screen, spec: n.spec, info: n.info,
+        x: rect.x, y: rect.y, w: rect.w, h: rect.h,
+      });
+    });
+    b.meta.forEach((m, id) => {
+      nodeMetaById.set(id, {
+        laneY: m.laneY + origin.y, laneH: m.laneH,
+        colLeft: m.colLeft + origin.x, colRight: m.colRight + origin.x,
+        rightGapW: m.rightGapW, leftGapW: m.leftGapW,
+      });
+    });
+    b.groups.forEach(g => {
+      groups.push({
+        id: g.id, lane: g.lane, phase: g.phase, label: g.label, sub: g.sub, style: g.style,
+        x: g.rect.x + origin.x, y: g.rect.y + origin.y, w: g.rect.w, h: g.rect.h,
+        headerW: g.headerW, index: g.index,
+      });
+    });
+    phasesOut.push({
+      id: b.id, label: b.label, x: origin.x, y: origin.y, w: b.w, h: b.headerH,
+      block: { x: origin.x, y: origin.y, w: b.w, h: b.h },
+    });
+  });
+  // 元の nodes（model 順）を保つ
+  const nodeOrderIdx = new Map(nodesIn.map((n, i) => [n.id, i]));
+  nodes.sort((a, b) => nodeOrderIdx.get(a.id) - nodeOrderIdx.get(b.id));
+
+  const validEdges = edgesIn.filter(e => e && nodeRectById.has(e.from) && nodeRectById.has(e.to));
+  if (validEdges.length < edgesIn.length) {
+    warnings.push(`biz: from/to を解決できない辺が ${edgesIn.length - validEdges.length} 件あります（描画から除外しました）`);
+  }
+  const edges = routeBizEdges(validEdges, nodeRectById, nodeMetaById, nodeVariantById, warnings);
+
+  const phases = hasPhases ? phasesOut : [];
+  const bounds = computeBounds(nodes, [...groups, ...phasesOut.map(p => p.block)], edges);
+  return { label: biz.label, desc: biz.desc, legend: biz.legend, bounds, groups, phases, nodes, edges };
 }
 
 // ---------- er（layered、FIXED_POS ポート） ----------
@@ -765,13 +1565,20 @@ async function computeLayout(model) {
   }
   if (modesIn.flow) {
     t = Date.now();
-    modes.flow = await layoutFlow(model, warnings);
+    modes.flow = modesIn.flow.layout === 'elk'
+      ? await layoutFlowElk(model, warnings)
+      : await layoutFlow(model, warnings);
     timings.flow = Date.now() - t;
   }
   if (modesIn.concept) {
     t = Date.now();
     modes.concept = await layoutFreeDiagram('concept', modesIn.concept, 'concept', { w: CONCEPT_W, h: CONCEPT_H }, warnings);
     timings.concept = Date.now() - t;
+  }
+  if (modesIn.biz) {
+    t = Date.now();
+    modes.biz = layoutBiz(modesIn.biz, warnings);
+    timings.biz = Date.now() - t;
   }
   if (modesIn.er) {
     t = Date.now();
@@ -837,6 +1644,8 @@ if (require.main === module) {
         const o = v._other;
         console.log(`[layout] ${k}: ${v._algorithm} を採用（fitZoom ${(v._fitZoom * 100).toFixed(0)}%・交差 ${v._crossings}・重なり ${v._overlaps}`
           + (o ? `、比較対象 ${o.algorithm}: fitZoom ${(o.fitZoom * 100).toFixed(0)}%・交差 ${o.crossings}・重なり ${o.overlaps}）` : '）'));
+      } else if (k === 'biz') {
+        console.log(`[layout] biz: レーン ${v.groups.length}・フェーズ ${v.phases.length}・ノード ${v.nodes.length}・辺 ${v.edges.length}（bounds ${Math.round(v.bounds.w)}x${Math.round(v.bounds.h)}）`);
       }
     });
     console.log(`[layout] 書き出し: ${path.join(outDir, '.layout.json')}`);
