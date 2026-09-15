@@ -20,6 +20,7 @@
   var EDGE_DASH = {
     system:[7,6], weak:[7,6], nav:[1.5,7]
   };
+  var EDGE_ALPHA = { start:0.72 };
   var KIND_LABEL_JA = { pill:'開始点', concept:'概念', er:'テーブル（リスト）', dfd:'処理・データストア・外部' };
   var LOD_BUCKETS = [0.25,0.5,1,2];
   var LIVE_MIN_PX = 300;      // 画面ノードの表示幅（デバイス px）がこれ以上で「大」サムネイル
@@ -751,6 +752,19 @@
     ctx.fillStyle = grad; ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if(n.unit){
+      // layout: "elk" の起点ノード（参照 px × unit。ラベル 13px・補足 9px）
+      var u = n.unit;
+      ctx.font = '800 '+(13*u)+'px '+FONT_STACK;
+      ctx.fillText(truncateText(ctx, n.label||'', ctx.font, w-24*u), w/2, n.sub ? h/2-7*u : h/2);
+      if(n.sub){
+        ctx.globalAlpha = 0.66;
+        ctx.font = '500 '+(9*u)+'px '+FONT_STACK;
+        ctx.fillText(truncateText(ctx, n.sub, ctx.font, w-24*u), w/2, h/2+10*u);
+        ctx.globalAlpha = 1;
+      }
+      return;
+    }
     ctx.font = '800 40px '+FONT_STACK;
     var subH = n.sub ? 16 : 0;
     ctx.fillText(truncateText(ctx, n.label||'', ctx.font, w-40), w/2, h/2-(subH?10:0));
@@ -1126,6 +1140,7 @@
     var edges = state.currentEdges;
     var placedLabels = [];
     var mode = state.mode;
+    var modeUnit = (VIEWER_DATA.modes[mode] && VIEWER_DATA.modes[mode].unit) || 0;
     // ハイライト対象を先に処理してラベル優先度を上げる
     var ordered = edges;
     if(connected){
@@ -1148,14 +1163,17 @@
       for(var i=0;i<route.length;i++){ minX=Math.min(minX,route[i][0]); minY=Math.min(minY,route[i][1]); maxX=Math.max(maxX,route[i][0]); maxY=Math.max(maxY,route[i][1]); }
       if(!rectIntersects({x:minX,y:minY,w:maxX-minX,h:maxY-minY}, cull)) continue;
 
-      var opacity=1, widthPx=1.6;
+      // layout: "elk" の flow は参照 HTML に合わせて線幅もズームに比例させる（参照 3.2px。見やすさのため上下限あり）
+      var baseW = modeUnit ? clamp(3.2*modeUnit*state.view.k, 1.6, 4) : 1.6;
+      var opacity = EDGE_ALPHA[e.type] || 1, widthPx = baseW;
       if(mode==='dfd' && state.dfdStep!=null){ opacity = (e.step===state.dfdStep) ? 1 : 0.15; }
       if(focusId){
-        if(connected.has(e)){ opacity=1; widthPx=2.6; }
+        if(connected.has(e)){ opacity=1; widthPx=baseW+1; }
         else { opacity=Math.min(opacity,0.15); }
       }
 
       var pts = route.map(function(p){ return worldToScreen(p[0],p[1]); });
+      var isBezier = e.shape==='bezier' && pts.length===4;
       var color = EDGE_COLOR[e.type] || '#94A3B8';
       ctx.save();
       ctx.globalAlpha = opacity;
@@ -1163,22 +1181,39 @@
       ctx.lineWidth = widthPx;
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       var dash = EDGE_DASH[e.type];
-      ctx.setLineDash(dash ? dash.map(function(d){return d*Math.max(0.6,Math.min(1.6,state.view.k));}) : []);
-      drawRoundedPolyline(ctx, pts, Math.max(2, Math.min(20, 12*state.view.k)));
+      var dashScale = modeUnit ? widthPx/1.6 : Math.max(0.6,Math.min(1.6,state.view.k));
+      ctx.setLineDash(dash ? dash.map(function(d){return d*dashScale;}) : []);
+      if(isBezier){
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        ctx.bezierCurveTo(pts[1].x, pts[1].y, pts[2].x, pts[2].y, pts[3].x, pts[3].y);
+      } else {
+        drawRoundedPolyline(ctx, pts, Math.max(2, Math.min(20, 12*state.view.k)));
+      }
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // 矢じり
+      // 矢じり（ベジェは終点の接線 = 制御点2→終点 の向き）
       var pEnd = pts[pts.length-1], pPrev = pts[pts.length-2];
-      drawArrowHead(ctx, pPrev, pEnd, color, Math.max(6, Math.min(11, 9*Math.sqrt(state.view.k))));
+      var arrowSize = modeUnit ? clamp(widthPx*3.4, 7, 14) : Math.max(6, Math.min(11, 9*Math.sqrt(state.view.k)));
+      drawArrowHead(ctx, pPrev, pEnd, color, arrowSize);
       ctx.restore();
 
       // ラベル（貪欲法で重なりを間引く）
-      if(e.label && state.view.k>EDGE_LABEL_MIN_K){
+      // layout: "elk" はラベルもズームに比例（参照 12px・左右余白 11px・高さ 26px。上限 13px、6px 未満は描かない）
+      var labelPx = modeUnit ? Math.min(13, 12*modeUnit*state.view.k) : 11;
+      var labelVisible = modeUnit ? labelPx>=6 : state.view.k>EDGE_LABEL_MIN_K;
+      if(e.label && labelVisible){
         var labelWorld = e.labelAt || route[Math.floor(route.length/2)];
         var lp = worldToScreen(labelWorld[0], labelWorld[1]);
-        ctx.font = '600 11px '+FONT_STACK;
-        var lw = measureCached(ctx, e.label, ctx.font)+18, lh = 20;
+        var lw, lh;
+        if(modeUnit){
+          ctx.font = scaledFont('600', labelPx);
+          lw = measureScaled(ctx, e.label, '600', labelPx) + labelPx*1.8; lh = labelPx*2.1;
+        } else {
+          ctx.font = '600 11px '+FONT_STACK;
+          lw = measureCached(ctx, e.label, ctx.font)+18; lh = 20;
+        }
         var lrect = { x:lp.x-lw/2, y:lp.y-lh/2, w:lw, h:lh };
         var overlap = false;
         if(!connected || !connected.has(e)){
@@ -1270,6 +1305,9 @@
 
   function drawScreenNode(ctx, entry, sr, c){
     var scr = screensById.get(entry.id) || {};
+    var mp = entry.modePos[state.mode];
+    var card = mp && mp.node && mp.node.card;
+    if(card){ drawScreenCard(ctx, entry, scr, sr, c, card); return; }
     var isTeams = scr.platform==='teams';
     roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, 14*state.view.k);
     ctx.fillStyle = '#fff';
@@ -1278,21 +1316,112 @@
     ctx.strokeStyle = isTeams ? 'rgba(91,95,199,.5)' : 'rgba(20,30,50,.14)';
     ctx.stroke();
 
+    drawScreenImage(ctx, entry, sr.x+1, sr.y+1, Math.max(0,sr.w-2), Math.max(0,sr.h-2), c.w, c.h);
+
+    // 見出し（スクリーン座標固定サイズ）
+    var headY = sr.y-8;
+    ctx.font = '700 12px '+FONT_STACK;
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    var idText = entry.id+'  ';
+    var idW = measureCached(ctx, idText, ctx.font);
+    var maxHeadW = Math.max(40, sr.w);
+    ctx.fillStyle = '#8A93A3';
+    ctx.fillText(idText, sr.x, headY);
+    ctx.fillStyle = '#1A2029';
+    var titleMaxW = Math.max(10, maxHeadW-idW-(sr.w>=300?100:0));
+    ctx.fillText(truncateText(ctx, scr.title||'', ctx.font, titleMaxW), sr.x+idW, headY);
+    if(sr.w>=300){
+      var tagText = screenTagText(scr);
+      ctx.font = '700 10px '+FONT_STACK;
+      var tw = measureCached(ctx, tagText, ctx.font)+16;
+      var tx = sr.x+sr.w-tw;
+      roundRectPath(ctx, tx, headY-13, tw, 17, 999);
+      ctx.fillStyle = scr.platform==='teams' ? '#5B5FC7' : '#2F5BEA';
+      ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(tagText, tx+tw/2, headY-13+9);
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    }
+  }
+
+  function screenTagText(scr){
+    return (scr.platform==='teams'?'Teams':'App')+(scr.role ? ' / '+scr.role : '');
+  }
+
+  // 文字幅は 100px の基準フォントで測って比例計算する（カードの文字はズームに合わせて
+  // 連続的に大きさが変わるため、実サイズのフォント文字列で測るとキャッシュが効かない）
+  function scaledFont(weight, px){ return weight+' '+px.toFixed(2)+'px '+FONT_STACK; }
+  function measureScaled(ctx, text, weight, px){ return measureCached(ctx, text, weight+' 100px '+FONT_STACK)*px/100; }
+  function truncateScaled(ctx, text, weight, px, maxWidth){ return truncateText(ctx, text, weight+' 100px '+FONT_STACK, maxWidth*100/px); }
+
+  // layout: "elk" の画面カード（docs/design-viewer-elk.html の .node と同じ構成）:
+  // 白い角丸カード、上部に「ID タイトル」と役割バッジ、その下に角丸枠付きのサムネイル。
+  // 寸法は参照 px（幅 360 のカード基準）× card.unit のワールド座標で、文字もズームに比例する。
+  function drawScreenCard(ctx, entry, scr, sr, c, card){
+    var k = sr.w / c.w;
+    var u = card.unit * k;                     // 参照 1px あたりのスクリーン px
+    ctx.fillStyle = 'rgba(27,39,56,.07)';
+    roundRectPath(ctx, sr.x, sr.y+8*u, sr.w, sr.h, card.radius*k);
+    ctx.fill();
+    roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, card.radius*k);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = '#D5DDE7'; ctx.stroke();
+
+    var ix = sr.x+card.pad*k, iy = sr.y+card.header*k, iw = card.thumbW*k, ih = card.thumbH*k;
+    drawScreenImage(ctx, entry, ix, iy, iw, ih, card.thumbW, card.thumbH);
+    roundRectPath(ctx, ix, iy, iw, ih, 12*u);
+    ctx.lineWidth = 1; ctx.strokeStyle = '#DDE3EB'; ctx.stroke();
+
+    var cy = sr.y + 26*u, left = sr.x + 14*u, right = sr.x + sr.w - 14*u;
+    var titlePx = 15*u, badgePx = 11*u;
+    if(titlePx < 4){
+      ctx.fillStyle = '#D7DEE8';
+      roundRectPath(ctx, left, cy-3*u, (right-left)*0.55, 6*u, 3*u); ctx.fill();
+      return;
+    }
+    ctx.textBaseline = 'middle';
+    var badgeW = 0;
+    if(badgePx >= 4){
+      var tagText = screenTagText(scr);
+      badgeW = measureScaled(ctx, tagText, '800', badgePx) + 16*u;
+      var bh = 21*u;
+      roundRectPath(ctx, right-badgeW, cy-bh/2, badgeW, bh, bh/2);
+      ctx.fillStyle = scr.platform==='teams' ? '#5B5FC7' : '#2F6DFF'; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+      ctx.font = scaledFont('800', badgePx);
+      ctx.fillText(tagText, right-badgeW/2, cy+0.5*u);
+    }
+    ctx.textAlign = 'left';
+    var idText = entry.id;
+    var idW = measureScaled(ctx, idText, '700', titlePx) + 7*u;
+    ctx.font = scaledFont('700', titlePx);
+    ctx.fillStyle = '#8390A1';
+    ctx.fillText(idText, left, cy);
+    var titleMax = right - badgeW - 10*u - (left+idW);
+    if(titleMax > 8){
+      ctx.font = scaledFont('800', titlePx);
+      ctx.fillStyle = '#1D2735';
+      ctx.fillText(truncateScaled(ctx, scr.title||'', '800', titlePx, titleMax), left+idW, cy);
+    }
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // 画面サムネイル本体。(ix,iy,iw,ih) はスクリーン座標の描画先、worldW/worldH はラスタキャッシュの基準寸法。
+  function drawScreenImage(ctx, entry, ix, iy, iw, ih, worldW, worldH){
     // 画像は clip() せずに描く（大きな面積の clip() は毎フレームのコストが大きい。
     // 背景・枠の角丸描画だけで「角丸カード」に見え、画像の角がわずかに角丸から
     // はみ出す程度は許容する）。表示サイズより大きい元 JPEG を毎フレーム縮小すると
     // ズーム連打でフレームが詰まるため、表示サイズに近い縮小コピー（mip キャッシュ）
     // を介して描く。デコード未完了の画像は使わず（drawImage の同期ジャンク回避）、
     // 望む解像度がまだ無ければ逆側（大⇄小）で代用する。
-    var devicePx = sr.w*dprCur;
+    var devicePx = iw*dprCur;
     var wantWhich = devicePx>LIVE_MIN_PX ? 'l' : 's';
     var altWhich = wantWhich==='l' ? 's' : 'l';
     var which = wantWhich, img = ensureImage(entry.id, wantWhich);
     if(!img){ img = ensureImage(entry.id, altWhich); which = altWhich; }
-    var ix=sr.x+1, iy=sr.y+1, iw=Math.max(0,sr.w-2), ih=Math.max(0,sr.h-2);
     if(img){
       var bucket = pickBucket(state.view.k, dprCur);
-      var rec = getScreenRaster(entry, c.w, c.h, bucket, img, which);
+      var rec = getScreenRaster(entry, worldW, worldH, bucket, img, which);
       if(rec){
         ctx.drawImage(rec.canvas, 0,0, rec.w, rec.h, ix, iy, iw, ih);
       } else {
@@ -1311,37 +1440,13 @@
     } else {
       ctx.fillStyle = '#F6F7FA';
       ctx.fillRect(ix, iy, iw, ih);
-      if(sr.w>60 && sr.h>40){
+      if(iw>60 && ih>40){
         ctx.fillStyle = '#B7BEC9';
-        ctx.font = '600 '+Math.max(10,Math.min(16,sr.w*0.06))+'px '+FONT_STACK;
+        ctx.font = '600 '+Math.max(10,Math.min(16,iw*0.06))+'px '+FONT_STACK;
         ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(entry.id, sr.x+sr.w/2, sr.y+sr.h/2);
+        ctx.fillText(entry.id, ix+iw/2, iy+ih/2);
+        ctx.textAlign='left'; ctx.textBaseline='alphabetic';
       }
-    }
-
-    // 見出し（スクリーン座標固定サイズ）
-    var headY = sr.y-8;
-    ctx.font = '700 12px '+FONT_STACK;
-    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    var idText = entry.id+'  ';
-    var idW = measureCached(ctx, idText, ctx.font);
-    var maxHeadW = Math.max(40, sr.w);
-    ctx.fillStyle = '#8A93A3';
-    ctx.fillText(idText, sr.x, headY);
-    ctx.fillStyle = '#1A2029';
-    var titleMaxW = Math.max(10, maxHeadW-idW-(sr.w>=300?100:0));
-    ctx.fillText(truncateText(ctx, scr.title||'', ctx.font, titleMaxW), sr.x+idW, headY);
-    if(sr.w>=300){
-      var tagText = (isTeams?'Teams':'App')+' / '+(scr.role||'');
-      ctx.font = '700 10px '+FONT_STACK;
-      var tw = measureCached(ctx, tagText, ctx.font)+16;
-      var tx = sr.x+sr.w-tw;
-      roundRectPath(ctx, tx, headY-13, tw, 17, 999);
-      ctx.fillStyle = isTeams ? '#5B5FC7' : '#2F5BEA';
-      ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(tagText, tx+tw/2, headY-13+9);
-      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     }
   }
 
@@ -1357,7 +1462,9 @@
     ctx.fillStyle = fill; ctx.fill();
   }
   function drawCacheableNode(ctx, entry, sr, c){
-    var deviceScale = state.view.k*dprCur;
+    var mp = entry.modePos[state.mode];
+    var unit = (mp && mp.node && mp.node.unit) || 1;   // layout: "elk" の起点ノードは文字も unit 倍で大きい
+    var deviceScale = state.view.k*dprCur*unit;
     if(deviceScale < TEXT_MIN_SCALE){
       // 文字を描かず色付きの箱だけ
       drawSimpleBox(ctx, entry, sr);

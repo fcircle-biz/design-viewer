@@ -52,7 +52,8 @@ viewer-src/
 | `ops` | string[] | - | 主な操作（詳細パネルに表示） |
 | `reads` / `writes` | string[] | - | 読み取り／書き込みするデータ（詳細パネルに表示） |
 | `notes` | string[] | - | 注意事項（詳細パネルに表示） |
-| `pin` | `{x,y}` | - | このノードの最終座標を固定する（§7 参照） |
+| `pin` | `{x,y}` | - | このノードの最終座標を固定する（§9 参照） |
+| `nudge` | `{dx,dy}` | - | `modes.flow.layout: "elk"` のとき、配置後に flow 上の位置をずらす（§4.1） |
 
 `screens[]` に列挙した画面は、`modes.flow` があれば flow モードのノードとして、
 `modes.gallery` があれば gallery モードのノードとして**自動的に**追加される
@@ -92,9 +93,43 @@ gallery はこの順に見出し帯として並ぶ |
 - `edges[]`: `from`/`to` は画面 id（`screens[]`）または `nodes[]` の id を参照する。
   `type` は `user | system | nav | start | rel | weak | flow` のいずれか（未指定・未知の値でも
   動くが、v1 と同じ配色・線種に対応させたいなら上記を使う。色は engine 側で固定）。
-- レーン（横帯）は `groups[].order` の順に上から積む。**同一レーン内は ELK の layered
-  アルゴリズム（左→右）で自動配置し、レーンをまたぐ辺だけ後から手動の直交ルートで
+- `layout`: `"lanes"`（既定）または `"elk"`。下記の 2 方式を切り替える。
+- **`lanes`**: レーン（横帯）は `groups[].order` の順に上から積む。**同一レーン内は
+  記述順の安定位相ソートで 1 行に並べ、レーンをまたぐ辺は後から手動の直交ルートで
   つなぐ**（`layout.js` の設計判断。詳細はスクリプト冒頭のコメントを参照）。
+
+### 4.1 `layout: "elk"`（全体 ELK ＋ カード ＋ 曲線）
+
+`docs/design-viewer-elk.html` と同じ見た目にする方式。レーンを作らず、全ノードを
+1 回の ELK layered（左→右）で配置する。役割・チャネルの区別はカードのバッジで示す。
+
+```jsonc
+"flow": {
+  "label": "画面遷移", "layout": "elk",
+  "edgeStyle": "curve",                                  // 任意。curve（既定）| orthogonal
+  "layoutOptions": { "spacing.nodeNode": 520 },          // 任意。ELK オプションの上書き（ワールド px）
+  "nodes": [
+    { "id": "START", "kind": "pill", "label": "アプリ起動", "sub": "Power Apps / deep link", "attachTo": "S01" }
+  ],
+  "edges": [ … ]
+}
+// screens 側: { "id": "T01", …, "nudge": { "dy": -720 } }
+```
+
+| 項目 | 説明 |
+|---|---|
+| 画面ノード | 白い角丸カード（上部に「ID タイトル」と `platform / role` バッジ、下にサムネイル）。寸法は幅 360px のカードを基準にした参照 px の 4 倍（1440 幅の画面ならカード 1520×1116） |
+| `edgeStyle: "curve"` | 辺の向き（中心間の dx/dy の大きい方）で出る側・入る側を決め、3 次ベジェで結ぶ。同じ側に複数の辺が付くと相手の位置順に散らすので、往復の辺も重ならない |
+| `edgeStyle: "orthogonal"` | ELK の直交ルートをそのまま使う |
+| `layoutOptions` | 既定値は参照 HTML と同じ間隔（参照 px: nodeNode 130・層間 230・edgeNode 80・edgeEdge 40・componentComponent 220・padding 100）の 4 倍。キーは `elk.` を省略可 |
+| `nudge: {dx, dy}` | ELK 配置後にノードをずらす（ワールド px。`screens[]` と `nodes[]` に書ける）。「T 系の画面は上、FAQ 系は下」のような見た目上の段分けに使う |
+| `attachTo` / `attachSide` / `attachGap` | そのノードを ELK に渡さず、`attachTo` のノードの横（`left` 既定 \| `right` \| `top` \| `bottom`）に `attachGap`（参照 px、既定 130）空けて置く。起点ノード向け。起点を ELK に含めると層が 1 つ増えて全体の並びが変わるため |
+
+- `group` は使わない（書いてもよいが flow では無視。gallery では従来どおり使う）。
+- nudge / attachTo / pin の結果ノードが重なると、`layout.js` が警告を出す。
+- 辺ラベル・線幅はズームに比例する（縮小するとラベルは消える）。
+- 辺が多く入り組んだグラフ（1 画面あたり 3 本超など）は曲線が交差して読みにくくなる。
+  その場合は `lanes` を使うか、`edgeStyle: "orthogonal"` を試す。
 
 ## 5. `modes.gallery`（画面イメージ）
 
@@ -240,6 +275,8 @@ v1 の `data.js` からの移植時はこの 2 プロパティを削除してよ
 - ER の `fromField` / `toField` が対応ノードの `fields[].name` に存在しない
 - dfd の `edges[].step` が `steps[].n` に存在しない
 - `screens[].group` / flow ノードの `group` が `groups[].id` に存在しない
+- `modes.flow.layout` / `edgeStyle` / `attachSide` の未知の値、`nudge` / `attachGap` / `layoutOptions` の型違い、
+  `attachTo` の未知 id・連鎖（`layout: "elk"` 以外で使うと警告）
 - `screens/<ID>.html` が無い（警告のみ）
 - 必須項目（`meta.title`、`screens[].id/title`、`groups[].id/label`、各ノードの `id` など）の欠落
 

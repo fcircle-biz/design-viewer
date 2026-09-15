@@ -12,6 +12,8 @@
  * - flow: レーン（groups の順に上から積む横帯）ごとに、model 順の安定位相ソート + 単一行
  *   （6 件超で折り返し）で決定的に配置し（placeLaneRow）、レーンを縦に積んでからレーンを
  *   またぐ辺だけ手動で直交ルートを引く（下記「設計判断」参照）。
+ * - flow（layout: "elk"）: レーンを作らず全ノードを 1 回の ELK layered(RIGHT) で配置し、
+ *   画面はカード（見出し＋サムネイル）、辺は 3 次ベジェ曲線にする（layoutFlowElk）。
  * - gallery: ELK 不要。group 順・screens 順の格子。
  * - concept / dfd: ELK layered(RIGHT・wrapping) と stress を両方試し、フィットズーム最大
  *   （重なり 0 件必須）→ 交差最小 → 総エッジ長最小の複合スコアで採用する方を選ぶ。
@@ -542,6 +544,214 @@ async function layoutFlow(model, warnings) {
   };
 }
 
+// ---------- flow（layout: "elk"。全体を 1 回の ELK layered で解くカード＋曲線スタイル） ----------
+// docs/design-viewer-elk.html のレイアウトを再現するモード。寸法・間隔はすべて「幅 360px の
+// 画面カード」を基準にした参照 px で定義し、ワールド座標では ELK_UNIT 倍する（画面サムネイルを
+// 実寸 1440px のまま置くため。1 ワールド px = モックアップの 1px の関係を lanes と揃える）。
+const ELK_UNIT = DEFAULT_SCREEN_W / 360;
+const ELK_CARD = { pad: 10, header: 44, radius: 18 };
+const ELK_PILL = { minW: 148, padX: 18, h: 42, hSub: 54, font: 13, subFont: 9 };
+const ELK_FLOW_DEFAULT_OPTIONS = {
+  'elk.algorithm': 'layered',
+  'elk.direction': 'RIGHT',
+  'elk.spacing.nodeNode': 130,
+  'elk.layered.spacing.nodeNodeBetweenLayers': 230,
+  'elk.spacing.edgeNode': 80,
+  'elk.spacing.edgeEdge': 40,
+  'elk.spacing.componentComponent': 220,
+  'elk.padding': 100,
+};
+
+/** 文字幅のおおよその見積もり（全角 1em・半角 0.58em） */
+function estimateTextWidth(text, px) {
+  let em = 0;
+  for (const ch of String(text || '')) em += ch.charCodeAt(0) > 0xff ? 1 : 0.58;
+  return em * px;
+}
+
+/** 参照 px 単位の既定オプションをワールド単位へ換算し、model の layoutOptions で上書きする */
+function elkFlowOptions(edgeStyle, overrides) {
+  const opts = {};
+  Object.entries(ELK_FLOW_DEFAULT_OPTIONS).forEach(([k, v]) => {
+    if (k === 'elk.padding') { const p = v * ELK_UNIT; opts[k] = `[top=${p},left=${p},bottom=${p},right=${p}]`; }
+    else opts[k] = typeof v === 'number' ? String(v * ELK_UNIT) : v;
+  });
+  opts['elk.edgeRouting'] = edgeStyle === 'orthogonal' ? 'ORTHOGONAL' : 'SPLINES';
+  Object.entries(overrides || {}).forEach(([k, v]) => { opts[k.startsWith('elk.') ? k : `elk.${k}`] = String(v); });
+  return opts;
+}
+
+const SIDE_NORMAL = { left: [-1, 0], right: [1, 0], top: [0, -1], bottom: [0, 1] };
+
+/** 辺の向き（中心間の dx/dy の大きい方）で出る側・入る側を決める */
+function curveSides(a, b) {
+  const dx = (b.x + b.w / 2) - (a.x + a.w / 2);
+  const dy = (b.y + b.h / 2) - (a.y + a.h / 2);
+  if (Math.abs(dx) > Math.abs(dy)) return dx >= 0 ? ['right', 'left'] : ['left', 'right'];
+  return dy >= 0 ? ['bottom', 'top'] : ['top', 'bottom'];
+}
+
+/**
+ * 参照 HTML と同じ 3 次ベジェの辺を作る。制御点の張り出しは max(90, 距離×0.42)（参照 px）。
+ * 同じノードの同じ側に複数の辺が付くときは、相手ノードの位置順に側面の中央 50% へ散らす
+ * （往復の辺 S01⇄S02 が重ならず平行に並ぶ）。route は [始点, 制御点1, 制御点2, 終点]。
+ */
+function routeCurves(edgesIn, rectOf) {
+  const plans = edgesIn.map((e, i) => {
+    const a = rectOf.get(e.from), b = rectOf.get(e.to);
+    if (!a || !b) return null;
+    if (e.from === e.to) return { i, e, a, b, self: true, sides: ['top', 'right'] };
+    return { i, e, a, b, sides: curveSides(a, b) };
+  });
+  const attach = new Map(); // `${id}:${side}` -> [{plan, end, key}]
+  plans.forEach(p => {
+    if (!p) return;
+    [[p.e.from, p.sides[0], p.b, 0], [p.e.to, p.sides[1], p.a, 1]].forEach(([id, side, other, end]) => {
+      const k = `${id}:${side}`;
+      if (!attach.has(k)) attach.set(k, []);
+      const vertical = side === 'left' || side === 'right';
+      attach.get(k).push({ p, end, key: vertical ? other.y + other.h / 2 : other.x + other.w / 2 });
+    });
+  });
+  const anchors = new Map(); // `${edgeIdx}:${end}` -> [x,y]
+  attach.forEach((list, k) => {
+    const side = k.slice(k.lastIndexOf(':') + 1);
+    list.sort((u, v) => (u.key - v.key) || (u.p.i - v.p.i) || (u.end - v.end));
+    list.forEach((it, idx) => {
+      const r = it.end === 0 ? it.p.a : it.p.b;
+      const t = it.p.self ? (it.end === 0 ? 0.75 : 0.25) : (list.length === 1 ? 0.5 : 0.25 + 0.5 * idx / (list.length - 1));
+      let pt;
+      if (side === 'left') pt = [r.x, r.y + r.h * t];
+      else if (side === 'right') pt = [r.x + r.w, r.y + r.h * t];
+      else if (side === 'top') pt = [r.x + r.w * t, r.y];
+      else pt = [r.x + r.w * t, r.y + r.h];
+      anchors.set(`${it.p.i}:${it.end}`, pt);
+    });
+  });
+  return plans.map(p => {
+    if (!p) return null;
+    const s = anchors.get(`${p.i}:0`), t = anchors.get(`${p.i}:1`);
+    const [na, nb] = [SIDE_NORMAL[p.sides[0]], SIDE_NORMAL[p.sides[1]]];
+    const horizontal = p.sides[0] === 'left' || p.sides[0] === 'right';
+    const dist = p.self ? 0 : (horizontal ? Math.abs(t[0] - s[0]) : Math.abs(t[1] - s[1]));
+    const c = Math.max(90 * ELK_UNIT, dist * 0.42);
+    const route = [s, [s[0] + na[0] * c, s[1] + na[1] * c], [t[0] + nb[0] * c, t[1] + nb[1] * c], t];
+    const e = p.e;
+    return {
+      from: e.from, to: e.to, label: e.label, type: e.type, step: e.step,
+      fromLabel: e.fromLabel, toLabel: e.toLabel,
+      shape: 'bezier', route, labelAt: e.label ? bezierPoint(route, 0.5) : undefined,
+    };
+  }).filter(Boolean);
+}
+
+function bezierPoint(r, t) {
+  const u = 1 - t;
+  const f = (i) => u * u * u * r[0][i] + 3 * u * u * t * r[1][i] + 3 * u * t * t * r[2][i] + t * t * t * r[3][i];
+  return [f(0), f(1)];
+}
+
+async function layoutFlowElk(model, warnings) {
+  const flow = model.modes.flow;
+  const edgeStyle = flow.edgeStyle === 'orthogonal' ? 'orthogonal' : 'curve';
+  const U = ELK_UNIT;
+  const explicitNodes = Array.isArray(flow.nodes) ? flow.nodes : [];
+  const edgesIn = (Array.isArray(flow.edges) ? flow.edges : []);
+
+  // screens → modes.flow.nodes の記述順で ELK に渡す（ELK は記述順をある程度尊重する）
+  const items = [];
+  (model.screens || []).forEach(s => {
+    const tw = s.w || DEFAULT_SCREEN_W, th = s.h || DEFAULT_SCREEN_H;
+    const pad = ELK_CARD.pad * U, header = ELK_CARD.header * U;
+    items.push({
+      id: s.id, kind: 'screen', w: tw + pad * 2, h: header + th + pad,
+      extra: { card: { unit: U, pad, header, radius: ELK_CARD.radius * U, thumbW: tw, thumbH: th } },
+      pin: s.pin, nudge: s.nudge,
+    });
+  });
+  explicitNodes.forEach(n => {
+    const label = n.label || n.id;
+    const w = Math.max(ELK_PILL.minW, estimateTextWidth(label, ELK_PILL.font) + ELK_PILL.padX * 2,
+      estimateTextWidth(n.sub, ELK_PILL.subFont) + ELK_PILL.padX * 2);
+    items.push({
+      id: n.id, kind: n.kind || 'pill', w: Math.ceil(w) * U, h: (n.sub ? ELK_PILL.hSub : ELK_PILL.h) * U,
+      extra: { label: n.label, sub: n.sub, unit: U }, pin: n.pin, nudge: n.nudge,
+      attachTo: n.attachTo, attachSide: n.attachSide, attachGap: n.attachGap,
+    });
+  });
+  const ids = new Set(items.map(it => it.id));
+  const edges = edgesIn.filter(e => ids.has(e.from) && ids.has(e.to));
+  // attachTo を持つノード（起点など）は ELK に渡さず、配置後に相手ノードの横へ置く。
+  // 起点を ELK に含めると層が 1 つ増えて全体の並びが変わるため（参照 HTML も起点は手置き）。
+  const attached = new Set(items.filter(it => it.attachTo && ids.has(it.attachTo) && it.attachTo !== it.id).map(it => it.id));
+  const elkItems = items.filter(it => !attached.has(it.id));
+  const elkEdges = edges.filter(e => !attached.has(e.from) && !attached.has(e.to));
+
+  const graph = {
+    id: 'root',
+    layoutOptions: elkFlowOptions(edgeStyle, flow.layoutOptions),
+    children: elkItems.map(it => ({ id: it.id, width: it.w, height: it.h })),
+    edges: elkEdges.map((e, i) => ({ id: `e${i}`, sources: [e.from], targets: [e.to] })),
+  };
+  const result = await runElk(graph);
+  const posOf = new Map(result.children.map(c => [c.id, c]));
+
+  const nodes = items.map(it => {
+    const p = posOf.get(it.id) || { x: 0, y: 0 };
+    const node = { id: it.id, kind: it.kind, x: p.x, y: p.y, w: it.w, h: it.h, ...it.extra };
+    if (it.nudge && !attached.has(it.id)) { node.x += Number(it.nudge.dx) || 0; node.y += Number(it.nudge.dy) || 0; }
+    if (it.pin) node.pin = it.pin;
+    return node;
+  });
+  const nodeById = new Map(nodes.map(n => [n.id, n]));
+  items.filter(it => attached.has(it.id)).forEach(it => {
+    const n = nodeById.get(it.id), t = nodeById.get(it.attachTo);
+    const gap = (typeof it.attachGap === 'number' ? it.attachGap : 130) * U;
+    const side = it.attachSide || 'left';
+    if (side === 'right') { n.x = t.x + t.w + gap; n.y = t.y + (t.h - n.h) / 2; }
+    else if (side === 'top') { n.x = t.x + (t.w - n.w) / 2; n.y = t.y - gap - n.h; }
+    else if (side === 'bottom') { n.x = t.x + (t.w - n.w) / 2; n.y = t.y + t.h + gap; }
+    else { n.x = t.x - gap - n.w; n.y = t.y + (t.h - n.h) / 2; }
+    if (it.nudge) { n.x += Number(it.nudge.dx) || 0; n.y += Number(it.nudge.dy) || 0; }
+  });
+
+  let outEdges;
+  if (edgeStyle === 'curve') {
+    applyPins(nodes, [], null, warnings, 'flow');
+    outEdges = routeCurves(edges, new Map(nodes.map(n => [n.id, n])));
+  } else {
+    const rectOf = nodeById;
+    const elkRoutes = new Map((result.edges || []).map((re, i) => [elkEdges[i], re]));
+    outEdges = edges.map(orig => {
+      const re = elkRoutes.get(orig) || {};
+      const route = flattenSection(re.sections && re.sections[0]) || simpleOrthogonalRoute(rectOf.get(orig.from), rectOf.get(orig.to));
+      return {
+        from: orig.from, to: orig.to, label: orig.label, type: orig.type, step: orig.step,
+        fromLabel: orig.fromLabel, toLabel: orig.toLabel,
+        route, labelAt: orig.label ? midpointAlongRoute(route) : undefined,
+      };
+    });
+    // nudge したノードの辺は ELK の経路が合わなくなるため、pin と同様に単純ルートへ引き直す
+    const moved = new Set(items.filter(it => it.nudge || attached.has(it.id)).map(it => it.id));
+    outEdges = outEdges.map(e => {
+      if (!moved.has(e.from) && !moved.has(e.to)) return e;
+      const route = simpleOrthogonalRoute(rectOf.get(e.from), rectOf.get(e.to));
+      return { ...e, route, labelAt: e.label ? midpointAlongRoute(route) : undefined };
+    });
+    outEdges = applyPins(nodes, outEdges, null, warnings, 'flow');
+  }
+  nodes.forEach(n => { delete n.pin; });
+  const overlaps = countOverlaps(new Map(nodes.map(n => [n.id, n])));
+  if (overlaps > 0) warnings.push(`flow: ノードの重なりが ${overlaps} 件あります（nudge / attachTo / pin の値を見直してください）`);
+
+  const bounds = computeBounds(nodes, [], outEdges);
+  return {
+    label: flow.label, desc: flow.desc, legend: flow.legend, toggles: flow.toggles, steps: flow.steps,
+    layout: 'elk', edgeStyle, unit: U,
+    bounds, groups: [], nodes, edges: outEdges,
+  };
+}
+
 /** pin: {x,y} を持つノードを最終座標で上書きし、接続辺を単純ルートに引き直す */
 function applyPins(nodes, edges, posMap, warnings, modeName) {
   const pinned = nodes.filter(n => n.pin);
@@ -765,7 +975,9 @@ async function computeLayout(model) {
   }
   if (modesIn.flow) {
     t = Date.now();
-    modes.flow = await layoutFlow(model, warnings);
+    modes.flow = modesIn.flow.layout === 'elk'
+      ? await layoutFlowElk(model, warnings)
+      : await layoutFlow(model, warnings);
     timings.flow = Date.now() - t;
   }
   if (modesIn.concept) {
