@@ -22,7 +22,8 @@
       var sr = worldRectToScreen(entry.cur);
       if(sx>=sr.x && sx<=sr.x+sr.w && sy>=sr.y && sy<=sr.y+sr.h) return entry.id;
     }
-    return null;
+    // 表（機能一覧の arrange: "table"）では、サムネイル以外の行の上でもその画面を選べる
+    return DV.hitTestTableRow ? DV.hitTestTableRow(sx, sy, visSet) : null;
   }
   function hitTestGroupLabel(sx,sy){
     for(var i=0;i<rt.groupLabelHitRects.length;i++){
@@ -63,6 +64,32 @@
     updateZoomLabel();
   }
 
+  // ツールバーの［概要］［凡例］: 左上のシステム概要カード・凡例カードの表示／非表示。
+  // 図の上に重なるカードを隠して広く見るためのもの。状態はブラウザごとに保存する
+  // （読み書きできない環境では毎回表示から始める）。表示位置（view）は動かさない。
+  var CARD_VISIBLE_STORAGE_PREFIX = 'dv.cardVisible.';
+  function initCardToggles(){
+    var btns = document.querySelectorAll('.v-card-toggle');
+    Array.prototype.forEach.call(btns, function(btn){
+      var cardId = btn.getAttribute('data-card');
+      var cardEl = document.getElementById(cardId);
+      if(!cardEl){ btn.hidden = true; return; }
+      var visible = true;
+      try{ visible = localStorage.getItem(CARD_VISIBLE_STORAGE_PREFIX+cardId) !== '0'; }catch(err){}
+      var apply = function(){
+        cardEl.hidden = !visible;
+        btn.classList.toggle('v-active', visible);
+        btn.setAttribute('aria-pressed', visible ? 'true' : 'false');
+        DV.updateToolbarLayout();
+      };
+      apply();
+      btn.addEventListener('click', function(){
+        visible = !visible;
+        try{ localStorage.setItem(CARD_VISIBLE_STORAGE_PREFIX+cardId, visible ? '1' : '0'); }catch(err){}
+        apply();
+      });
+    });
+  }
   function attachListeners(){
     window.addEventListener('resize', function(){ resizeStage(); fitCurrentMode(false); });
     initPanelResize();
@@ -75,6 +102,7 @@
     zoomInBtn.addEventListener('click', function(){ zoomStep(1); });
     zoomFitBtn.addEventListener('click', function(){ fitCurrentMode(true); });
     closePanelBtn.addEventListener('click', closePanel);
+    initCardToggles();
     neighborToggleBtn.addEventListener('click', function(){
       state.neighborOnly = !state.neighborOnly;
       neighborToggleBtn.classList.toggle('v-active', state.neighborOnly);

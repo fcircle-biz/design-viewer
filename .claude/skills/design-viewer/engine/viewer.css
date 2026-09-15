@@ -158,6 +158,7 @@ html,body{
   transition: right .12s ease;
 }
 #stepsCard[hidden]{ display:none; }
+#titleCard[hidden], #legendCard[hidden]{ display:none; }
 .v-step-list{ overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
 .v-step-item{
   border:1px solid var(--v-border); border-radius:10px; padding:8px 10px; cursor:pointer;
@@ -213,6 +214,11 @@ body.v-panel-resizing, body.v-panel-resizing *{ cursor: col-resize !important; }
   background: var(--v-accent-soft); color: var(--v-accent); border:1px solid rgba(47,91,234,.18);
 }
 .v-tag.v-tag-slate{ background:#F1F3F7; color:var(--v-ink-soft); border-color:var(--v-border); }
+/* 実装状況（screens[].status）。表の描画（07-draw-groups-edges.js の TABLE_STATUS_TONE）と色を揃える */
+.v-tag.v-tone-green{ background:#E7F6EC; color:#1E7B3A; border-color:#A7DDB6; }
+.v-tag.v-tone-blue{ background:#EAF0FF; color:#2F5BEA; border-color:#B9CBF7; }
+.v-tag.v-tone-amber{ background:#FFF4DE; color:#B46C00; border-color:#F0C987; }
+.v-tag.v-tone-slate{ background:#F1F3F7; color:#5B6472; border-color:#D5DBE4; }
 .v-open-screen-btn{
   appearance:none; border:1px solid var(--v-accent); background:var(--v-accent-soft); color:var(--v-accent);
   font-family:var(--v-font); font-size:12px; font-weight:700; padding:6px 12px; border-radius:8px;
@@ -326,8 +332,8 @@ body.v-panel-resizing, body.v-panel-resizing *{ cursor: col-resize !important; }
 /* ---------- ツールバー ---------- */
 #toolbar{
   left: calc((100% - var(--v-panel-w, 0px)) / 2); bottom:20px; transform:translateX(-50%);
-  display:flex; align-items:center; gap:10px; padding:8px;
-  flex-wrap:wrap; justify-content:center;
+  display:flex; align-items:center; gap:6px; padding:6px;
+  flex-wrap:nowrap; justify-content:center; white-space:nowrap;
   max-width:min(94vw, calc(100% - var(--v-panel-w, 0px) - 24px));
   transition: left .12s ease;
 }
@@ -336,27 +342,31 @@ body.v-panel-resizing, body.v-panel-resizing *{ cursor: col-resize !important; }
    ツールバーを凡例の右端〜パネル左端の範囲に収めて折り返し、ミニマップは隠す。 */
 body.v-panel-narrow #toolbar{
   left:276px; right: calc(var(--v-panel-w, 0px) + 20px); transform:none;
-  max-width:none; width:auto;
+  max-width:none; width:auto; flex-wrap:wrap;
 }
 body.v-panel-narrow #minimapCard{ display:none; }
 .v-seg{ display:flex; gap:2px; background:#F1F3F7; border-radius:10px; padding:3px; }
 .v-seg-btn{
   appearance:none; border:none; background:transparent; color:var(--v-ink-soft);
-  font-family:var(--v-font); font-size:12.5px; font-weight:600; padding:7px 12px;
+  font-family:var(--v-font); font-size:12.5px; font-weight:600; padding:6px 10px;
   border-radius:8px; cursor:pointer; white-space:nowrap;
 }
 .v-seg-btn:hover{ color:var(--v-ink); }
 .v-seg-btn.v-active{ background:#fff; color:var(--v-accent); box-shadow: var(--v-shadow-sm); }
-.v-toolbar-sep{ width:1px; height:24px; background:var(--v-border); flex:none; }
-.v-zoom{ display:flex; align-items:center; gap:6px; }
-.v-zoom-pct{ width:44px; text-align:center; font-size:12px; color:var(--v-ink-soft); font-variant-numeric: tabular-nums; }
-.v-fit-btn, .v-neighbor-btn{
-  appearance:none; border:1px solid var(--v-border); background:#fff; color:var(--v-ink);
-  font-family:var(--v-font); font-size:12px; font-weight:600; padding:0 12px; height:28px;
-  border-radius:8px; cursor:pointer; white-space:nowrap;
+.v-toolbar-sep{ width:1px; height:22px; background:var(--v-border); flex:none; margin:0 2px; }
+.v-zoom{ display:flex; align-items:center; gap:2px; }
+/* ツールバーのアイコンボタン（枠なし。ホバーで淡色、トグルのオンは青地に白） */
+.v-tool-btn{
+  appearance:none; border:none; background:transparent; color:var(--v-ink-soft);
+  width:30px; height:30px; border-radius:8px; padding:0; flex:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition: background .12s, color .12s;
 }
-.v-fit-btn:hover, .v-neighbor-btn:hover{ background: var(--v-accent-soft); border-color: var(--v-accent); }
-.v-neighbor-btn.v-active{ background: var(--v-accent); border-color: var(--v-accent); color:#fff; }
+.v-tool-btn svg{ width:18px; height:18px; display:block; }
+.v-tool-btn:hover{ background: var(--v-accent-soft); color: var(--v-accent); }
+.v-tool-btn.v-active{ background: var(--v-accent); color:#fff; }
+.v-tool-btn:focus-visible{ outline:2px solid var(--v-accent); outline-offset:1px; }
+.v-zoom-pct{ width:40px; text-align:center; font-size:12px; color:var(--v-ink-soft); font-variant-numeric: tabular-nums; }
 
 /* ---------- 等倍プレビュー モーダル ---------- */
 #previewModal{
@@ -395,5 +405,6 @@ body.v-panel-narrow #minimapCard{ display:none; }
   #minimapCard{ width:150px; height:104px; }
   #toolbar{ gap:6px; padding:6px; }
   .v-seg-btn{ padding:6px 8px; font-size:11px; }
-  .v-fit-btn, .v-neighbor-btn{ padding:0 8px; font-size:11px; }
+  #toolbar{ flex-wrap:wrap; }
+  .v-tool-btn{ width:28px; height:28px; }
 }

@@ -128,6 +128,7 @@
     var modeObj = VIEWER_DATA.modes[modeKey];
     state.currentGroups = modeObj.groups || [];
     state.currentPhases = modeObj.phases || [];
+    state.currentTable = modeObj.table || null;
     state.currentEdges = prepareEdgesForMode(modeKey);
     state.currentNodeIds = (modeObj.nodes||[]).map(function(n){ return n.id; }).filter(function(id){ return registry.has(id); });
     rebuildLegendAndToggles(modeObj);
@@ -152,21 +153,29 @@
       }
     });
 
-    var bbox = computeBBox(modeNodeRects(modeKey).concat(routeRects(modeObj)), (modeObj.groups||[]).concat(phaseRects(modeObj)));
-    state.modeBounds = bbox;
-    var maxK = MODE_MAX_K[modeKey] || 1.4;
-    var toView = fitViewAdjusted(bbox, maxK);
+    var fit = modeFitBox(modeKey, modeObj);
+    state.modeBounds = fit.bbox;
+    var toView = fitViewAdjusted(fit.box, fit.maxK);
     startAnim({ duration: opts.noAnim?0:600, fromView:{x:state.view.x,y:state.view.y,k:state.view.k}, toView:toView, nodeAnims:nodeAnims });
     rt.minimapBgDirty = true;
 
     try{ history.replaceState(null, '', '#'+modeKey); }catch(err){ /* file:// で失敗する場合がある */ }
   }
 
+  // 全体表示の対象領域と最大倍率。表（機能一覧の arrange: "table"。layout が fit: "width" を付ける）は
+  // 縦に長いので、全体を収めると文字が読めない。表の幅に合わせ、上端から画面の縦横比ぶんだけを対象にする。
+  var FIT_WIDTH_ASPECT = 0.5;
+  function modeFitBox(modeKey, modeObj){
+    var extra = modeObj.table ? [modeObj.table] : [];
+    var bbox = computeBBox(modeNodeRects(modeKey).concat(routeRects(modeObj)), (modeObj.groups||[]).concat(phaseRects(modeObj)).concat(extra));
+    var box = bbox;
+    if(modeObj.fit==='width') box = { x:bbox.x, y:bbox.y, w:bbox.w, h:Math.min(bbox.h, bbox.w*FIT_WIDTH_ASPECT) };
+    return { bbox:bbox, box:box, maxK: modeObj.maxK || MODE_MAX_K[modeKey] || 1.4 };
+  }
   function fitCurrentMode(animate){
     var modeObj = VIEWER_DATA.modes[state.mode];
-    var bbox = computeBBox(modeNodeRects(state.mode).concat(routeRects(modeObj)), (modeObj.groups||[]).concat(phaseRects(modeObj)));
-    var maxK = MODE_MAX_K[state.mode] || 1.4;
-    var toView = fitViewAdjusted(bbox, maxK);
+    var fit = modeFitBox(state.mode, modeObj);
+    var toView = fitViewAdjusted(fit.box, fit.maxK);
     startAnim({ duration: animate?500:0, fromView:{x:state.view.x,y:state.view.y,k:state.view.k}, toView:toView, nodeAnims:[] });
   }
 
@@ -177,7 +186,11 @@
     var pos = entry.modePos[state.mode] || entry.cur;
     if(!pos) return;
     var bbox = { x:pos.x-90, y:pos.y-90, w:pos.w+180, h:pos.h+180 };
-    var maxK = MODE_MAX_K[state.mode] || 1.4;
+    var modeObjF = VIEWER_DATA.modes[state.mode] || {};
+    var maxK = modeObjF.maxK || MODE_MAX_K[state.mode] || 1.4;
+    // 表では画面の行（サムネイルと文字の全体）に寄る
+    var tableRow = state.currentTable && state.currentTable.rows.filter(function(r){ return r.id===id; })[0];
+    if(tableRow) bbox = { x:state.currentTable.x, y:tableRow.y-120, w:state.currentTable.w, h:tableRow.h+240 };
     var toView = fitViewAdjusted(bbox, maxK);
     startAnim({ duration:500, fromView:{x:state.view.x,y:state.view.y,k:state.view.k}, toView:toView, nodeAnims:[] });
   }
@@ -249,6 +262,9 @@
     for(var i=0;i<items.length;i++){
       items[i].classList.toggle('v-active', Number(items[i].getAttribute('data-step'))===n);
     }
+    // arrange: "steps" はステップごとのブロックがあるので、そのブロックへ寄る
+    var g = (state.currentGroups||[]).filter(function(x){ return x.step===n; })[0];
+    if(g && state.mode==='dfd') fitGroup(g);
     invalidate();
   }
   function rebuildStepsUI(modeKey, modeObj){

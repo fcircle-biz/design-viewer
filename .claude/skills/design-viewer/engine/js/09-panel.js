@@ -207,12 +207,20 @@
     var openBtn = panelBodyEl.querySelector('.v-open-screen-btn');
     if(openBtn){ openBtn.addEventListener('click', function(){ openScreenPreview(openBtn.getAttribute('data-id')); }); }
   }
+  // 実装状況（screens[].status）のタグ。ラベルは layout が表に付けた statuses（無ければ既定）から引く
+  var STATUS_TAG_DEFAULT = { done:{label:'実装済', tone:'green'}, wip:{label:'実装中', tone:'blue'}, designed:{label:'設計済・未実装', tone:'amber'}, planned:{label:'未着手', tone:'slate'} };
+  function statusTagHtml(status){
+    if(!status) return '';
+    var t = ((VIEWER_DATA.modes.gallery && VIEWER_DATA.modes.gallery.table && VIEWER_DATA.modes.gallery.table.statuses) || STATUS_TAG_DEFAULT)[status];
+    if(!t) return '';
+    return '<span class="v-tag v-tag-status v-tone-'+escHtml(t.tone)+'">'+escHtml(t.label)+'</span>';
+  }
   function renderScreenPanel(entry){
     var s = screensById.get(entry.id) || {};
     var html = '<div class="v-panel-kicker">'+escHtml(entry.id)+' ・ 画面</div>'+
       '<div class="v-panel-title">'+escHtml(s.title)+'</div>'+
       '<div class="v-tag-row"><span class="v-tag">'+escHtml(platformName(s, 'Power Apps'))+'</span>'+
-      '<span class="v-tag v-tag-slate">'+escHtml(s.role)+'</span></div>'+
+      '<span class="v-tag v-tag-slate">'+escHtml(s.role)+'</span>'+statusTagHtml(s.status)+'</div>'+
       '<button class="v-open-screen-btn" type="button" data-id="'+escHtml(entry.id)+'">画面を開く（等倍プレビュー）</button>';
     // 概要（目的）：アクセント色の左ボーダーで強調する。
     html += section('概要', '<div class="v-callout">'+escHtml(s.purpose||'なし')+'</div>');
@@ -228,7 +236,8 @@
   function renderNodePanel(entry){
     var mp = entry.modePos[state.mode] || entry.modePos[Object.keys(entry.modePos)[0]];
     var n = (mp && mp.node) || {};
-    var html = '<div class="v-panel-kicker">'+escHtml(entry.id)+' ・ '+escHtml(KIND_LABEL_JA[entry.kind]||entry.kind)+'</div>'+
+    // dfd の arrange: "steps" はノードをステップごとに複製し id が「元の id@ステップ」になるので、code / baseId を見せる
+    var html = '<div class="v-panel-kicker">'+escHtml(n.code||n.baseId||entry.id)+' ・ '+escHtml(KIND_LABEL_JA[entry.kind]||entry.kind)+'</div>'+
       '<div class="v-panel-title">'+escHtml(n.label||entry.id)+'</div>';
     if(n.sub){ html += '<div class="v-tag-row"><span class="v-tag v-tag-slate">'+escHtml(n.sub)+'</span></div>'; }
     var descHtml = infoBodyHtml(n.info);
@@ -243,11 +252,8 @@
     var mp = entry.modePos[state.mode] || entry.modePos[Object.keys(entry.modePos)[0]];
     var n = (mp && mp.node) || {};
     var modeObj = VIEWER_DATA.modes[state.mode] || {};
-    // v1: group.id はレーン id そのもの。v2: group.id はフェーズごとの複合 id（"PH1:L_STAFF"）
-    // なので group.lane / group.phase で照合する（フェーズ無し入力の group.phase は "_all"）。
-    var lane = (modeObj.groups||[]).filter(function(g){
-      return g.lane!=null ? (g.lane===n.lane && (n.phase==null || g.phase===n.phase)) : g.id===n.lane;
-    })[0];
+    // group はアクターの列（group.lane がレーン id）
+    var lane = (modeObj.groups||[]).filter(function(g){ return g.lane===n.lane; })[0];
     var phase = (modeObj.phases||[]).filter(function(p){ return p.id===n.phase; })[0];
     var html = '<div class="v-panel-kicker">'+escHtml(entry.id)+' ・ '+escHtml(KIND_LABEL_JA.biz||'業務ステップ')+'</div>'+
       '<div class="v-panel-title">'+escHtml(n.label||entry.id)+'</div>';
@@ -339,7 +345,7 @@
     var margin = 8;
     var tb = toolbarEl.getBoundingClientRect();
     var overlaps = false;
-    if(legendEl){
+    if(legendEl && !legendEl.hidden){
       var lg = legendEl.getBoundingClientRect();
       if(tb.left < lg.right+margin && tb.top < lg.bottom+margin && tb.bottom > lg.top-margin) overlaps = true;
     }
@@ -442,5 +448,5 @@
   }
   // --- body end ---
   // --- export ---
-  DV.closePanel = closePanel; DV.selectNode = selectNode; DV.openScreenPreview = openScreenPreview; DV.setModalScale = setModalScale; DV.closeModal = closeModal; DV.initPanelResize = initPanelResize; DV.currentPanelWidth = currentPanelWidth; DV.updatePanelCssVar = updatePanelCssVar;
+  DV.updateToolbarLayout = updateToolbarLayout; DV.closePanel = closePanel; DV.selectNode = selectNode; DV.openScreenPreview = openScreenPreview; DV.setModalScale = setModalScale; DV.closeModal = closeModal; DV.initPanelResize = initPanelResize; DV.currentPanelWidth = currentPanelWidth; DV.updatePanelCssVar = updatePanelCssVar;
 })();

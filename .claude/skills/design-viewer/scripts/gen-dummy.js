@@ -155,8 +155,7 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
   }
   bizNodes.push({ id: 'B99', kind: 'biz', variant: 'end', lane: 'BL1', phase: 'BPH4', label: '業務終了', sub: 'ダミーの終了ノード' });
 
-  // biz は phase 単位の独立したブロックにレイアウトするため（layoutBiz v2）、
-  // フェーズをまたぐ辺は作らない（validate.js が警告する想定外のケース）。
+  // 基本の流れはフェーズ内で結ぶ（フェーズをまたぐ辺は下のランダム辺で混ざる）。
   const bizEdges = [];
   for (let i = 0; i < bizNodes.length - 1; i++) {
     if (bizNodes[i].phase === bizNodes[i + 1].phase) {
@@ -229,11 +228,11 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
     screens,
     groups,
     modes: {
-      flow: { label: '画面遷移', desc: 'ダミー画面遷移。', nodes: flowNodes, edges: flowEdges, legend: edgeTypes.map(t => ({ type: t, label: t })).concat([{ type: 'start', label: 'start' }]), toggles: [{ type: 'nav', label: '左ナビの移動を表示', default: false }] },
-      gallery: { label: '画面イメージ', desc: 'ダミー画面のギャラリー。' },
+      flow: { label: '画面遷移図', desc: 'ダミー画面遷移。', nodes: flowNodes, edges: flowEdges, legend: edgeTypes.map(t => ({ type: t, label: t })).concat([{ type: 'start', label: 'start' }]), toggles: [{ type: 'nav', label: '左ナビの移動を表示', default: false }] },
+      gallery: { label: '機能一覧', desc: 'ダミー画面のギャラリー。' },
       concept: { label: '概念図', desc: 'ダミー概念図。', nodes: conceptNodes, edges: conceptEdges, legend: [{ type: 'rel', label: '関連' }, { type: 'weak', label: '弱い関連' }] },
       biz: { label: '業務フロー', desc: 'ダミー業務フロー。', lanes: bizLanes, phases: bizPhases, nodes: bizNodes, edges: bizEdges, legend: [{ type: 'flow', label: '業務の流れ' }, { type: 'weak', label: '差し戻し・戻り' }] },
-      er: { label: 'ER 図', desc: 'ダミー ER 図。', nodes: erNodes, edges: erEdges, legend: [{ type: 'rel', label: 'FK 参照' }] },
+      er: { label: 'ER図', desc: 'ダミー ER 図。', nodes: erNodes, edges: erEdges, legend: [{ type: 'rel', label: 'FK 参照' }] },
       dfd: { label: 'データフロー', desc: 'ダミー DFD。', nodes: dfdNodes, edges: dfdEdges, legend: [{ type: 'flow', label: 'データフロー' }], steps },
     },
   };
