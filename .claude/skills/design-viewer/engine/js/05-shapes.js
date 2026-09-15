@@ -171,18 +171,29 @@
     ctx.restore();
   }
 
+  // 概念図のノード種別。人（actor）・仕組み（system）・情報（entity）・外部ファイル（file）を
+  // アイコンの地色だけでなく、カードの形・地色・枠線でも区別する（全体表示でも見分けられるように）。
   var CONCEPT_VARIANT_COLOR = {
-    actor: { bg:'#FFF3DE', fg:'#B46C00' },
-    entity:{ bg:'#EAF0FF', fg:'#2F5BEA' },
-    system:{ bg:'#F1EAFE', fg:'#7C3AED' }
+    actor: { bg:'#FFF3DE', fg:'#B46C00', card:'#FFFBF3', border:'#F0C987' },
+    entity:{ bg:'#EAF0FF', fg:'#2F5BEA', card:'#FFFFFF', border:'#B9CBF7' },
+    system:{ bg:'#F1EAFE', fg:'#7C3AED', card:'#FAF7FF', border:'#CDB6F6' },
+    file:  { bg:'#E7F5F2', fg:'#0F766E', card:'#FFFFFF', border:'#8CCBC0', dash:[6,4] }
   };
   function drawConceptContent(ctx, n, w, h){
     var variant = n.variant||'entity';
     var col = CONCEPT_VARIANT_COLOR[variant] || CONCEPT_VARIANT_COLOR.entity;
-    var r = variant==='actor' ? h/2 : 14;
-    roundRectPath(ctx,0,0,w,h,r);
-    ctx.fillStyle = '#fff'; ctx.fill();
-    ctx.lineWidth = 1; ctx.strokeStyle = '#E2E6ED'; ctx.stroke();
+    var r = variant==='actor' ? h/2 : (variant==='file' ? 6 : 14);
+    roundRectPath(ctx,0.75,0.75,w-1.5,h-1.5,r);
+    ctx.fillStyle = col.card; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = col.border;
+    if(col.dash) ctx.setLineDash(col.dash);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if(variant==='system'){
+      // 仕組み: 左端に色帯
+      roundRectPath(ctx,5,14,4,h-28,2);
+      ctx.fillStyle = col.fg; ctx.fill();
+    }
     var boxSize = 42, pad = 14, gap = 12;
     var by = h/2-boxSize/2;
     if(variant==='actor'){ roundRectPath(ctx,pad,by,boxSize,boxSize,boxSize/2); }

@@ -16,7 +16,7 @@ const path = require('path');
 const { readModel } = require('./lib/load-model');
 
 const KNOWN_EDGE_TYPES = new Set(['user', 'system', 'nav', 'start', 'rel', 'weak', 'flow']);
-const KNOWN_CONCEPT_VARIANTS = new Set(['actor', 'entity', 'system']);
+const KNOWN_CONCEPT_VARIANTS = new Set(['actor', 'entity', 'system', 'file']);
 const KNOWN_BIZ_VARIANTS = new Set(['start', 'end', 'task', 'system', 'decision']);
 const KNOWN_ER_TONES = new Set(['blue', 'amber', 'green', 'slate', 'purple', 'teal']);
 const KNOWN_DFD_VARIANTS = new Set(['ext', 'proc', 'store']);

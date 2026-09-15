@@ -84,6 +84,7 @@
     dfdStep: null,
     autoplayTimer: null,
     anim: null,
+    nodeAnim: null,                  // モード切替時のノード移動・フェード（view の anim とは独立）
     neighborOnly: false
   };
 

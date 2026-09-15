@@ -4,43 +4,105 @@
   var rt = DV.rt;
   // アニメーション・モード切替・凡例・DFD ステップ・検索。
   // --- import ---
-  var MODE_MAX_K, EDGE_COLOR, lerp, logLerp, easeInOutCubic, now, escHtml, modeDescEl, searchResultsEl, legendListEl, toggleListEl, stepPlayEl, stepListEl, stepsCardEl, detailPanelEl, neighborToggleBtn, registry, state, nodeLabel, computeBBox, fitView, routeRects, modeNodeRects, phaseRects, invalidate, onViewChanged, selectNode, updateSegActive;
+  var CONCEPT_VARIANT_COLOR, MODE_MAX_K, EDGE_COLOR, lerp, logLerp, easeInOutCubic, now, escHtml, modeDescEl, searchResultsEl, legendListEl, toggleListEl, stepPlayEl, stepListEl, stepsCardEl, detailPanelEl, neighborToggleBtn, registry, state, nodeLabel, computeBBox, fitView, routeRects, modeNodeRects, phaseRects, worldRectToScreen, invalidate, onViewChanged, selectNode, updateSegActive, currentPanelWidth, updatePanelCssVar;
   DV.links.push(function(){
-    MODE_MAX_K = DV.MODE_MAX_K; EDGE_COLOR = DV.EDGE_COLOR; lerp = DV.lerp; logLerp = DV.logLerp; easeInOutCubic = DV.easeInOutCubic; now = DV.now; escHtml = DV.escHtml; modeDescEl = DV.modeDescEl; searchResultsEl = DV.searchResultsEl; legendListEl = DV.legendListEl; toggleListEl = DV.toggleListEl; stepPlayEl = DV.stepPlayEl; stepListEl = DV.stepListEl; stepsCardEl = DV.stepsCardEl; detailPanelEl = DV.detailPanelEl; neighborToggleBtn = DV.neighborToggleBtn; registry = DV.registry; state = DV.state; nodeLabel = DV.nodeLabel; computeBBox = DV.computeBBox; fitView = DV.fitView; routeRects = DV.routeRects; modeNodeRects = DV.modeNodeRects; phaseRects = DV.phaseRects; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged; selectNode = DV.selectNode; updateSegActive = DV.updateSegActive;
+    CONCEPT_VARIANT_COLOR = DV.CONCEPT_VARIANT_COLOR; MODE_MAX_K = DV.MODE_MAX_K; EDGE_COLOR = DV.EDGE_COLOR; lerp = DV.lerp; logLerp = DV.logLerp; easeInOutCubic = DV.easeInOutCubic; now = DV.now; escHtml = DV.escHtml; modeDescEl = DV.modeDescEl; searchResultsEl = DV.searchResultsEl; legendListEl = DV.legendListEl; toggleListEl = DV.toggleListEl; stepPlayEl = DV.stepPlayEl; stepListEl = DV.stepListEl; stepsCardEl = DV.stepsCardEl; detailPanelEl = DV.detailPanelEl; neighborToggleBtn = DV.neighborToggleBtn; registry = DV.registry; state = DV.state; nodeLabel = DV.nodeLabel; computeBBox = DV.computeBBox; fitView = DV.fitView; routeRects = DV.routeRects; modeNodeRects = DV.modeNodeRects; phaseRects = DV.phaseRects; worldRectToScreen = DV.worldRectToScreen; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged; selectNode = DV.selectNode; updateSegActive = DV.updateSegActive; currentPanelWidth = DV.currentPanelWidth; updatePanelCssVar = DV.updatePanelCssVar;
   });
   // --- body ---
   // ---------------------------------------------------------
   // アニメーション（モード切替・フォーカス）
   // ---------------------------------------------------------
+  // ビュー（パン・ズーム）のアニメーション state.anim と、モード切替時のノード移動・フェード
+  // state.nodeAnim は別々に持つ。ホイール・ドラッグ・F キーなどは state.anim だけを止める／置き換えるので、
+  // モード切替の直後に操作してもノードが途中の位置・透明度のまま固まらない。
+  function snapNodeAnims(nodeAnims){
+    (nodeAnims||[]).forEach(function(na){ na.entry.cur = { x:na.to.x, y:na.to.y, w:na.to.w, h:na.to.h, op:na.to.op }; });
+  }
   function startAnim(cfg){
+    var hasNodes = cfg.nodeAnims && cfg.nodeAnims.length;
+    if(hasNodes){
+      // 前のモード切替が途中なら最終状態に揃えてから新しい遷移を始める
+      if(state.nodeAnim){ snapNodeAnims(state.nodeAnim.nodeAnims); state.nodeAnim = null; }
+    }
     if(!cfg.duration || cfg.duration<=0){
       state.view = { x:cfg.toView.x, y:cfg.toView.y, k:cfg.toView.k };
-      (cfg.nodeAnims||[]).forEach(function(na){ na.entry.cur = { x:na.to.x, y:na.to.y, w:na.to.w, h:na.to.h, op:na.to.op }; });
+      if(hasNodes) snapNodeAnims(cfg.nodeAnims);
       state.anim = null;
       onViewChanged();
       invalidate();
       return;
     }
-    state.anim = { start: now(), duration: cfg.duration, fromView: cfg.fromView, toView: cfg.toView, nodeAnims: cfg.nodeAnims||[] };
+    state.anim = { start: now(), duration: cfg.duration, fromView: cfg.fromView, toView: cfg.toView };
+    if(hasNodes) state.nodeAnim = { start: state.anim.start, duration: cfg.duration, nodeAnims: cfg.nodeAnims };
     invalidate();
   }
   function stepAnim(){
-    if(!state.anim) return false;
-    var t = (now() - state.anim.start) / state.anim.duration;
-    if(t>=1) t=1;
-    var e = easeInOutCubic(t);
-    state.view.x = lerp(state.anim.fromView.x, state.anim.toView.x, e);
-    state.view.y = lerp(state.anim.fromView.y, state.anim.toView.y, e);
-    state.view.k = logLerp(state.anim.fromView.k, state.anim.toView.k, e);
-    state.anim.nodeAnims.forEach(function(na){
-      na.entry.cur = {
-        x: lerp(na.from.x, na.to.x, e), y: lerp(na.from.y, na.to.y, e),
-        w: lerp(na.from.w, na.to.w, e), h: lerp(na.from.h, na.to.h, e),
-        op: lerp(na.from.op, na.to.op, e)
-      };
-    });
-    if(t>=1){ state.anim = null; onViewChanged(); }
-    return true;
+    var active = false;
+    if(state.nodeAnim){
+      var tn = (now() - state.nodeAnim.start) / state.nodeAnim.duration;
+      if(tn>=1) tn=1;
+      var en = easeInOutCubic(tn);
+      state.nodeAnim.nodeAnims.forEach(function(na){
+        na.entry.cur = {
+          x: lerp(na.from.x, na.to.x, en), y: lerp(na.from.y, na.to.y, en),
+          w: lerp(na.from.w, na.to.w, en), h: lerp(na.from.h, na.to.h, en),
+          op: lerp(na.from.op, na.to.op, en)
+        };
+      });
+      if(tn>=1) state.nodeAnim = null;
+      active = true;
+    }
+    if(state.anim){
+      var t = (now() - state.anim.start) / state.anim.duration;
+      if(t>=1) t=1;
+      var e = easeInOutCubic(t);
+      state.view.x = lerp(state.anim.fromView.x, state.anim.toView.x, e);
+      state.view.y = lerp(state.anim.fromView.y, state.anim.toView.y, e);
+      state.view.k = logLerp(state.anim.fromView.k, state.anim.toView.k, e);
+      if(t>=1){ state.anim = null; onViewChanged(); }
+      active = true;
+    }
+    return active;
+  }
+
+  // ---------------------------------------------------------
+  // 詳細パネルの可視領域を考慮した全体表示
+  // ---------------------------------------------------------
+  // fitView はタイトルカード・ステップカード・ツールバーの実際の位置は見るが、
+  // 詳細パネル（キャンバスの上に浮くカードで DOM 上は関与しない）までは知らない。
+  // パネル表示中は rt.cssW を一時的にパネル幅ぶん狭めてから fitView を呼び、
+  // 呼び終わったら元に戻す。fitView 自体（02-model.js）は変更しない。
+  function fitViewAdjusted(bbox, maxK){
+    var inset = currentPanelWidth ? currentPanelWidth() : 0;
+    if(!inset) return fitView(bbox, maxK);
+    var savedW = rt.cssW;
+    rt.cssW = Math.max(200, savedW - inset);
+    var result;
+    try{ result = fitView(bbox, maxK); }
+    finally { rt.cssW = savedW; }
+    return result;
+  }
+  // 選択中のノードが詳細パネルの裏に隠れていたら、ズームはそのままキャンバスだけ
+  // 左へパンして可視領域（キャンバス左端〜パネル左端）に収める。パネルを開いた
+  // 直後・幅を変え終えたときに呼ぶ。
+  function nudgeViewForPanel(){
+    var inset = currentPanelWidth ? currentPanelWidth() : 0;
+    if(!inset || !state.selected) return;
+    var entry = registry.get(state.selected);
+    if(!entry) return;
+    var pos = entry.modePos[state.mode];
+    if(!pos) return;
+    var margin = 16;
+    var visibleLeft = margin, visibleRight = rt.cssW - inset - margin;
+    if(visibleRight<=visibleLeft) return;
+    var sr = worldRectToScreen(pos);
+    var overflowRight = (sr.x+sr.w) - visibleRight;
+    if(overflowRight<=0) return; // すでに見えている
+    var dx = overflowRight;
+    if(sr.w > (visibleRight-visibleLeft)){ dx = Math.max(0, sr.x-visibleLeft); }
+    if(dx<=0) return;
+    var toView = { x: state.view.x-dx, y: state.view.y, k: state.view.k };
+    startAnim({ duration:280, fromView:{x:state.view.x,y:state.view.y,k:state.view.k}, toView:toView, nodeAnims:[] });
   }
 
   // ---------------------------------------------------------
@@ -57,7 +119,7 @@
     if(modeKey===state.mode && !opts.noAnim) return;
     var oldMode = state.mode;
     state.mode = modeKey;
-    if(!opts.keepSelection){ state.selected = null; detailPanelEl.hidden = true; }
+    if(!opts.keepSelection){ state.selected = null; detailPanelEl.hidden = true; if(updatePanelCssVar) updatePanelCssVar(); }
     state.hovered = null;
     if(modeKey!=='dfd'){ stopAutoplay(); state.dfdStep = null; }
     state.neighborOnly = false;
@@ -93,7 +155,7 @@
     var bbox = computeBBox(modeNodeRects(modeKey).concat(routeRects(modeObj)), (modeObj.groups||[]).concat(phaseRects(modeObj)));
     state.modeBounds = bbox;
     var maxK = MODE_MAX_K[modeKey] || 1.4;
-    var toView = fitView(bbox, maxK);
+    var toView = fitViewAdjusted(bbox, maxK);
     startAnim({ duration: opts.noAnim?0:600, fromView:{x:state.view.x,y:state.view.y,k:state.view.k}, toView:toView, nodeAnims:nodeAnims });
     rt.minimapBgDirty = true;
 
@@ -104,7 +166,7 @@
     var modeObj = VIEWER_DATA.modes[state.mode];
     var bbox = computeBBox(modeNodeRects(state.mode).concat(routeRects(modeObj)), (modeObj.groups||[]).concat(phaseRects(modeObj)));
     var maxK = MODE_MAX_K[state.mode] || 1.4;
-    var toView = fitView(bbox, maxK);
+    var toView = fitViewAdjusted(bbox, maxK);
     startAnim({ duration: animate?500:0, fromView:{x:state.view.x,y:state.view.y,k:state.view.k}, toView:toView, nodeAnims:[] });
   }
 
@@ -116,14 +178,14 @@
     if(!pos) return;
     var bbox = { x:pos.x-90, y:pos.y-90, w:pos.w+180, h:pos.h+180 };
     var maxK = MODE_MAX_K[state.mode] || 1.4;
-    var toView = fitView(bbox, maxK);
+    var toView = fitViewAdjusted(bbox, maxK);
     startAnim({ duration:500, fromView:{x:state.view.x,y:state.view.y,k:state.view.k}, toView:toView, nodeAnims:[] });
   }
 
   function fitGroup(g){
     var bbox = { x:g.x, y:g.y, w:g.w, h:g.h };
     var maxK = MODE_MAX_K[state.mode] || 1.4;
-    var toView = fitView(bbox, maxK);
+    var toView = fitViewAdjusted(bbox, maxK);
     startAnim({ duration:500, fromView:{x:state.view.x,y:state.view.y,k:state.view.k}, toView:toView, nodeAnims:[] });
   }
 
@@ -155,6 +217,13 @@
   function rebuildLegendAndToggles(modeObj){
     var legend = modeObj.legend || [];
     legendListEl.innerHTML = legend.length ? legend.map(function(item){
+      // ノード種別の凡例（concept の variant）。辺の線種ではなく、ノードの形・色の見本を出す
+      if(item.variant && CONCEPT_VARIANT_COLOR && CONCEPT_VARIANT_COLOR[item.variant]){
+        var vc = CONCEPT_VARIANT_COLOR[item.variant];
+        var rad = item.variant==='actor' ? '7px' : (item.variant==='file' ? '2px' : '4px');
+        var st = 'display:inline-block;flex:none;width:20px;height:13px;box-sizing:border-box;border-radius:'+rad+';background:'+vc.card+';border:1.5px '+(vc.dash?'dashed ':'solid ')+vc.border+';'+(item.variant==='system'?'box-shadow:inset 3px 0 0 '+vc.fg+';':'');
+        return '<div class="v-legend-item"><span style="'+st+'"></span><span>'+escHtml(item.label)+'</span></div>';
+      }
       var color = EDGE_COLOR[item.type] || '#8A93A3';
       var cls = 'v-legend-swatch';
       if(item.type==='system' || item.type==='weak') cls += ' v-dash';
@@ -236,5 +305,5 @@
   }
   // --- body end ---
   // --- export ---
-  DV.stepAnim = stepAnim; DV.setMode = setMode; DV.fitCurrentMode = fitCurrentMode; DV.focusNode = focusNode; DV.fitGroup = fitGroup; DV.setDfdStep = setDfdStep; DV.toggleAutoplay = toggleAutoplay; DV.runSearch = runSearch;
+  DV.stepAnim = stepAnim; DV.setMode = setMode; DV.fitCurrentMode = fitCurrentMode; DV.focusNode = focusNode; DV.fitGroup = fitGroup; DV.setDfdStep = setDfdStep; DV.toggleAutoplay = toggleAutoplay; DV.runSearch = runSearch; DV.nudgeViewForPanel = nudgeViewForPanel;
 })();

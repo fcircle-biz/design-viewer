@@ -204,6 +204,13 @@
     roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, Math.min(10, sr.w/4));
     ctx.fillStyle = fill; ctx.fill();
   }
+  // dfd の proc/ext ノードは左上にノード本体の矩形外へはみ出すコードバッジ（P1 等。
+  // 05-shapes.js の drawDfdContent 参照）を描くため、ラスタキャンバスに余白を確保しないと
+  // 上端で切れる。バッジは (-10,-10) から幅 bw・高さ 22 で描かれるので、それを覆う余白を取る。
+  var DFD_CODE_BADGE_PAD = 14;
+  function dfdRasterPad(entry, n){
+    return (entry.kind==='dfd' && n.variant!=='store' && n.code) ? DFD_CODE_BADGE_PAD : 0;
+  }
   var BIZ_LABEL_OVERLAY_MIN_PX = 10; // 画面上でこれ未満になったらラスタ文字→オーバーレイに切り替え
   function drawCacheableNode(ctx, entry, sr, c){
     var mp = entry.modePos[state.mode];
@@ -226,9 +233,17 @@
       }
     }
     var bucket = pickBucket(state.view.k, rt.dprCur);
-    var rec = getRaster(entry, c.w, c.h, bucket, noText);
+    var pad = dfdRasterPad(entry, n);
+    var rec = getRaster(entry, c.w, c.h, bucket, noText, pad);
     if(!rec){ drawSimpleBox(ctx, entry, sr); return; }
-    ctx.drawImage(rec.canvas, 0,0, rec.w, rec.h, sr.x, sr.y, sr.w, sr.h);
+    if(rec.pad){
+      // ラスタは四辺に rec.pad（ワールド px）分の余白を含むので、画面側でも同じ比率で
+      // 外側に広げて描く（中心の本体部分はちょうど sr に一致する）。
+      var padPxX = rec.pad*(sr.w/c.w), padPxY = rec.pad*(sr.h/c.h);
+      ctx.drawImage(rec.canvas, 0,0, rec.w, rec.h, sr.x-padPxX, sr.y-padPxY, sr.w+2*padPxX, sr.h+2*padPxY);
+    } else {
+      ctx.drawImage(rec.canvas, 0,0, rec.w, rec.h, sr.x, sr.y, sr.w, sr.h);
+    }
     if(overlayNode) drawBizLabelOverlay(ctx, overlayNode, sr);
   }
 

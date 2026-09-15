@@ -66,9 +66,15 @@
     var tl = screenToWorld(0,0), br = screenToWorld(rt.cssW,rt.cssH);
     var vx = geom.offX + tl.x*geom.scale, vy = geom.offY + tl.y*geom.scale;
     var vw = (br.x-tl.x)*geom.scale, vh = (br.y-tl.y)*geom.scale;
-    minimapCtx.strokeStyle = '#2F5BEA';
-    minimapCtx.lineWidth = 2;
-    minimapCtx.strokeRect(vx,vy,vw,vh);
+    // 表示範囲が図全体より広いと枠の大半がミニマップの外に出て、下端の 1 辺だけが
+    // 横線のように残る。ミニマップの内側に切り詰めて描く（線幅 2px が欠けないよう 1px 内側）。
+    var x0 = Math.max(1, vx), y0 = Math.max(1, vy);
+    var x1 = Math.min(mw-1, vx+vw), y1 = Math.min(mh-1, vy+vh);
+    if(x1>x0 && y1>y0){
+      minimapCtx.strokeStyle = '#2F5BEA';
+      minimapCtx.lineWidth = 2;
+      minimapCtx.strokeRect(x0,y0,x1-x0,y1-y0);
+    }
   }
 
   function minimapToWorld(mx,my){
@@ -108,7 +114,11 @@
   // cache: Map、idPrefix: キャッシュキーの id 部分、maxPixels: 面積上限（0 なら無制限）、
   // maxEffBucket: 元画像の実解像度を超えて拡大しないための上限（画面サムネイル用）、
   // budget: { remaining, catchup } — 呼び出し側の予算カウンター。
-  function buildRasterGeneric(cache, idPrefix, w, h, bucket, maxPixels, maxEffBucket, budget, drawFn){
+  // padWorld: ノード本体の矩形 (0,0,w,h) の外にはみ出して描く装飾（例: dfd プロセスの
+  // コードバッジ）があるノード用に、ラスタキャンバスの四辺へ余白を確保する量（ワールド px）。
+  // 省略時は 0（従来どおり、キャンバスは w×h ちょうど）。
+  function buildRasterGeneric(cache, idPrefix, w, h, bucket, maxPixels, maxEffBucket, budget, drawFn, padWorld){
+    padWorld = padWorld || 0;
     var key = idPrefix+'|'+bucket;
     var hit = cache.get(key);
     if(hit){ cache.delete(key); cache.set(key, hit); return hit; }
@@ -125,13 +135,14 @@
     var dpr = rt.dprCur;
     var effBucket = bucket*dpr;
     if(maxEffBucket && effBucket>maxEffBucket) effBucket = maxEffBucket;
+    var pw0 = w+padWorld*2, ph0 = h+padWorld*2;
     // ラスタが巨大になりすぎないよう、面積に上限を設けて必要なら実効倍率を下げる
     // （fill()/drawImage() 自体のコストは出力解像度に比例するため）。
     if(maxPixels){
-      var area = (w*effBucket)*(h*effBucket);
+      var area = (pw0*effBucket)*(ph0*effBucket);
       if(area > maxPixels) effBucket *= Math.sqrt(maxPixels/area);
     }
-    var pw = Math.max(1, Math.ceil(w*effBucket)), ph = Math.max(1, Math.ceil(h*effBucket));
+    var pw = Math.max(1, Math.ceil(pw0*effBucket)), ph = Math.max(1, Math.ceil(ph0*effBucket));
     // 予算は「件数」（図形ノード: 1 件あたりのコストがほぼ一定）または「面積」
     // （画面サムネイル: 解像度をむやみに落とさず、その代わり同時に作れる枚数で絞る）。
     budget.remaining -= budget.pixelMode ? (pw*ph) : 1;
@@ -139,8 +150,9 @@
     c.width = pw; c.height = ph;
     var cctx = c.getContext('2d');
     cctx.scale(effBucket, effBucket);
+    if(padWorld) cctx.translate(padWorld, padWorld);
     drawFn(cctx, w, h);
-    var rec = { canvas:c, w:pw, h:ph };
+    var rec = { canvas:c, w:pw, h:ph, pad:padWorld };
     cache.set(key, rec);
     if(cache.size>RASTER_CACHE_MAX){
       var firstKey = cache.keys().next().value;
@@ -152,11 +164,11 @@
   // noText: このズームではノード内の文字を screen-fixed オーバーレイで別途描く
   // （drawBizLabelOverlay）ので、ラスタ側には文字を焼き込まない（二重描画防止）。
   // キャッシュキーに含めて「文字あり」バケットと衝突しないようにする。
-  function getRaster(entry, w, h, bucket, noText){
+  function getRaster(entry, w, h, bucket, noText, padWorld){
     var idPrefix = entry.id + (noText ? '|noText' : '');
     return buildRasterGeneric(rasterCache, idPrefix, w, h, bucket, RASTER_MAX_PIXELS, 0, nodeRasterBudget, function(cctx){
       drawNodeRasterContent(cctx, entry, w, h, noText);
-    });
+    }, padWorld);
   }
 
   // ---------------------------------------------------------

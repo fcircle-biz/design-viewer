@@ -143,19 +143,45 @@ function labelOnRoute(route, label, rects, opts) {
   const lw = estimateTextWidth(label, 11) + 18, lh = 20;
   const avoidRect = opts && opts.avoidRect;
   const minDist = (opts && opts.minDist) || 0;
+  // opts.placed: 既に置いたラベル矩形（重ねない）。opts.endClearance: 終点（矢じり）からラベル端までの最小距離。
+  // どちらも省略時は従来どおり（線分の中点のみを候補にする）。
+  const placed = opts && opts.placed;
+  const endClear = (opts && opts.endClearance) || 0;
+  const sampling = !!(placed || endClear);
+  const hitsRect = (c, r, pad) => c[0] - lw / 2 - pad < r.x + r.w && c[0] + lw / 2 + pad > r.x && c[1] - lh / 2 - pad < r.y + r.h && c[1] + lh / 2 + pad > r.y;
   let best = null;
   for (let i = 0; i < route.length - 1; i++) {
     const [a, b] = [route[i], route[i + 1]];
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
     if (len === 0) continue;
-    const c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    const hits = rects.some(r => c[0] - lw / 2 < r.x + r.w && c[0] + lw / 2 > r.x && c[1] - lh / 2 < r.y + r.h && c[1] + lh / 2 > r.y);
-    const near = avoidRect ? distToRect(c, avoidRect) < minDist : false;
     const horizontal = Math.abs(b[1] - a[1]) < 1;
-    const score = (hits ? 0 : 1e6) + (near ? 0 : 3e5) + (horizontal ? 1e5 : 0) + Math.min(len, 1e5 - 1);
-    if (!best || score > best.score) best = { c, score };
+    const isLast = i === route.length - 2;
+    const cands = [];
+    if (!sampling) cands.push({ c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], fits: true });
+    else {
+      // 線分の方向に沿って、始点側 6px・終点側（最後の線分なら endClearance）を空けた範囲で中心を動かす
+      const along = horizontal ? lw : lh;
+      const s0 = 6 + along / 2, s1 = len - (isLast ? endClear : 6) - along / 2;
+      const fits = s1 >= s0;
+      [0.5, 0.3, 0.7, 0.15, 0.85].forEach(t => {
+        const d = fits ? Math.min(s1, Math.max(s0, len * t)) : len / 2;
+        const u = d / len;
+        cands.push({ c: [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u], fits, t });
+      });
+    }
+    for (const cand of cands) {
+      const c = cand.c;
+      const hits = rects.some(r => hitsRect(c, r, 0));
+      const near = avoidRect ? distToRect(c, avoidRect) < minDist : false;
+      const collide = placed ? placed.some(r => hitsRect(c, r, 4)) : false;
+      const score = (hits ? 0 : 1e6) + (collide ? 0 : 5e5) + (near ? 0 : 3e5) + (horizontal ? 1e5 : 0) + (cand.fits ? 5e4 : 0)
+        + Math.min(len, 4e4) - (cand.t != null ? Math.abs(cand.t - 0.5) * 10 : 0);
+      if (!best || score > best.score) best = { c, score };
+    }
   }
-  return best ? best.c : midpointAlongRoute(route);
+  const c = best ? best.c : midpointAlongRoute(route);
+  if (placed && c) placed.push({ x: c[0] - lw / 2, y: c[1] - lh / 2, w: lw, h: lh });
+  return c;
 }
 
 // ---------- 交差カウント（concept / dfd の layered vs stress 比較用） ----------
@@ -220,6 +246,8 @@ function fitZoom(bounds) { return Math.min(FIT_W / Math.max(bounds.w, 1), FIT_H 
 
 // これ以上のフィットズームは読みやすさに効かない（ノード 240px・文字 11〜15px が等倍付近で十分読める）
 const FIT_READABLE = 0.85;
+// concept/dfd の辺ラベルと矢じりの間に空ける距離（px。矢じり約 9px ＋ 余白）
+const LABEL_ARROW_CLEARANCE = 18;
 
 /** ELK の辺ルート（折れ線）の総延長。回り込む辺ほど長くなる。ルートが無ければ中心間距離 */
 function totalRouteLength(result, posMap, edges) {
@@ -229,6 +257,18 @@ function totalRouteLength(result, posMap, edges) {
     const r = flattenSection(re.sections && re.sections[0]);
     if (!r) return;
     for (let i = 0; i < r.length - 1; i++) total += Math.hypot(r[i + 1][0] - r[i][0], r[i + 1][1] - r[i][1]);
+  });
+  return total;
+}
+
+/** 辺ルートのうち左向き（層の流れと逆）に進む水平線分の総延長。折り返しで図全体を回り込む辺ほど大きい */
+function routeBacktrack(result) {
+  if (!result || !Array.isArray(result.edges)) return 0;
+  let total = 0;
+  result.edges.forEach(re => {
+    const r = flattenSection(re.sections && re.sections[0]);
+    if (!r) return;
+    for (let i = 0; i < r.length - 1; i++) { const dx = r[i + 1][0] - r[i][0]; if (dx < 0) total += -dx; }
   });
   return total;
 }
@@ -248,8 +288,9 @@ function scoreCandidate(posMap, edgesIn, result) {
   const bounds = boundsOfPosMap(posMap);
   const fit = fitZoom(bounds);
   const perEdge = length / Math.max(1, edgesIn.length);
-  const score = overlaps * 1e6 + (FIT_READABLE - Math.min(fit, FIT_READABLE)) * 2000 + crossings * 10 + perEdge / 10;
-  return { overlaps, crossings, length, fit, bounds, score };
+  const backtrack = routeBacktrack(result);
+  const score = overlaps * 1e6 + (FIT_READABLE - Math.min(fit, FIT_READABLE)) * 2000 + crossings * 10 + perEdge / 10 + backtrack / 4;
+  return { overlaps, crossings, length, fit, bounds, score, backtrack };
 }
 
 /** ルート（折れ線）の弧長中点。ラベル配置に使う（ELK のラベル位置が無い場合のフォールバック）。 */
@@ -878,8 +919,9 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
   // 辺ラベル（エンジンは 11px 固定・左右余白 9px）が層間やノード間に収まる間隔。
   // ELK にラベル寸法は渡さない（下記コメント参照）が、間隔が 48px のままだと短い辺のラベルが
   // ノードに重なって読めないため、最長ラベルの幅だけ層間を空ける（上限 200px）。
+  // 余白 60px = 曲がり角の通路（約 10px）＋ラベルと矢じりの間（LABEL_ARROW_CLEARANCE）＋始点側の余白。
   const maxLabelW = Math.max(0, ...edgesIn.map(e => e.label ? estimateTextWidth(e.label, 11) + 18 : 0));
-  const betweenLayers = Math.round(Math.min(200, Math.max(48, maxLabelW + 28)));
+  const betweenLayers = Math.round(Math.min(240, Math.max(48, maxLabelW + 60)));
 
   async function attempt(algorithm, wrap) {
     // layered には elk.layered.wrapping.strategy を使う（fix #1）。少数ノードの鎖状グラフを
@@ -942,6 +984,7 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
     return node;
   });
   const nodeRects = [...chosen.posMap.values()];
+  const placedLabels = [];
   const edges = (chosen.result.edges || []).map((re, i) => {
     const orig = edgesIn[i];
     const route = flattenSection(re.sections && re.sections[0]);
@@ -951,7 +994,7 @@ async function layoutFreeDiagram(modeName, mode, kind, size, warnings) {
       fromLabel: orig.fromLabel, toLabel: orig.toLabel,
       route: route || [[chosen.posMap.get(orig.from).x, chosen.posMap.get(orig.from).y], [chosen.posMap.get(orig.to).x, chosen.posMap.get(orig.to).y]],
       labelAt: !orig.label ? undefined
-        : (elkLabel || !route) ? labelCenterFromElk(re, route) : labelOnRoute(route, orig.label, nodeRects),
+        : (elkLabel || !route) ? labelCenterFromElk(re, route) : labelOnRoute(route, orig.label, nodeRects, { placed: placedLabels, endClearance: LABEL_ARROW_CLEARANCE }),
     };
   });
 

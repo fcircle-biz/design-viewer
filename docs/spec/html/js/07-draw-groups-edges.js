@@ -260,22 +260,35 @@
         }
       }
       if(mode==='er'){
-        drawMultLabel(ctx, pts[0], e.fromLabel, opacity);
-        drawMultLabel(ctx, pts[pts.length-1], e.toLabel, opacity);
+        // 多重度ラベルは接続点（テーブルの枠）にそのまま置くと枠に食い込んで欠けるため、
+        // 辺の向きに沿ってテーブルから離れる方向へ少し逃がして描く（drawMultLabel 側で
+        // ラベル幅に応じたギャップを取るので、テーブルとは重ならない）。
+        drawMultLabel(ctx, pts[0], unitDir(pts[0], pts[1]), e.fromLabel, opacity);
+        drawMultLabel(ctx, pts[pts.length-1], unitDir(pts[pts.length-1], pts[pts.length-2]), e.toLabel, opacity);
       }
     }
   }
-  function drawMultLabel(ctx, p, text, opacity){
+  function unitDir(from, to){
+    var dx = to.x-from.x, dy = to.y-from.y, len = Math.hypot(dx,dy)||1;
+    return { x:dx/len, y:dy/len };
+  }
+  // p: テーブルの枠上にある接続点。dir: そこからテーブルの外へ向かう単位ベクトル。
+  // ラベルの近い端が p から ER_MULT_LABEL_GAP だけ離れるように中心を置く（テーブルの枠と重ならない）。
+  var ER_MULT_LABEL_GAP = 6;
+  function drawMultLabel(ctx, p, dir, text, opacity){
     if(!text) return;
     ctx.save();
     ctx.globalAlpha = opacity;
     ctx.font = '800 10.5px '+FONT_STACK;
     var w = measureCached(ctx,text,ctx.font)+6;
+    var halfW = w/2;
+    var cx = p.x + dir.x*(ER_MULT_LABEL_GAP+halfW);
+    var cy = p.y + dir.y*(ER_MULT_LABEL_GAP+halfW);
     ctx.fillStyle = '#fff';
-    ctx.fillRect(p.x-w/2, p.y-8, w, 14);
+    ctx.fillRect(cx-halfW, cy-8, w, 14);
     ctx.fillStyle = '#5B6472';
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(text, p.x, p.y-1);
+    ctx.fillText(text, cx, cy-1);
     ctx.restore();
   }
 
