@@ -1,0 +1,688 @@
+{
+  "modes": {
+    "biz": {
+      "label": "業務フロー",
+      "desc": "仕様書 §1.1 のロールと §5 の業務ルールにもとづき、商品登録・CSV 取込・入出庫・在庫確認・管理者作業を担当者／管理者／システムのレーンで示す。",
+      "lanes": [
+        {
+          "id": "L_STAFF",
+          "label": "担当者",
+          "sub": "管理者・スタッフ"
+        },
+        {
+          "id": "L_ADMIN",
+          "label": "管理者",
+          "sub": "管理者のみの作業"
+        },
+        {
+          "id": "L_SYS",
+          "label": "商品管理システム",
+          "sub": "検証・保存・集計"
+        }
+      ],
+      "phases": [
+        {
+          "id": "PH1",
+          "label": "① 商品を登録・公開する"
+        },
+        {
+          "id": "PH2",
+          "label": "② CSVで一括登録する"
+        },
+        {
+          "id": "PH3",
+          "label": "③ 入出庫を記録する"
+        },
+        {
+          "id": "PH4",
+          "label": "④ 在庫状況を確認する"
+        },
+        {
+          "id": "PH5",
+          "label": "⑤ 管理者の作業"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "B01",
+          "kind": "biz",
+          "variant": "start",
+          "lane": "L_STAFF",
+          "phase": "PH1",
+          "label": "新商品を扱う",
+          "spec": [
+            "§2 F-04"
+          ],
+          "info": [
+            "管理者・スタッフとも商品の登録／更新ができる（§1.1）"
+          ]
+        },
+        {
+          "id": "B02",
+          "kind": "biz",
+          "variant": "task",
+          "lane": "L_STAFF",
+          "phase": "PH1",
+          "label": "商品情報を入力",
+          "sub": "SKU・名前・価格・画像",
+          "screen": "S05",
+          "spec": [
+            "§2 F-04",
+            "§3 S-05",
+            "§5.1"
+          ],
+          "info": [
+            "画像は 1 商品 5 枚まで。JPEG / PNG、1 枚 5MB 以下（§5.1）",
+            "在庫数は商品編集画面からは変更できない（§5.2）"
+          ]
+        },
+        {
+          "id": "B03",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH1",
+          "label": "入力を検証",
+          "sub": "SKU形式・重複／画像",
+          "spec": [
+            "§5.1"
+          ],
+          "info": [
+            "SKU は英数字とハイフンのみ、重複不可。登録後は変更できない（§5.1）",
+            "検証のタイミング（入力中／保存時）とエラーの表示方法は未確定"
+          ]
+        },
+        {
+          "id": "B04",
+          "kind": "biz",
+          "variant": "decision",
+          "lane": "L_SYS",
+          "phase": "PH1",
+          "label": "SKU・公開条件OK？",
+          "spec": [
+            "§5.1"
+          ],
+          "info": [
+            "published にするには商品名・価格・カテゴリ・画像 1 枚以上が必要（§5.1）",
+            "公開条件は published にする場合の条件。draft 保存時に求める必須項目は §4.2 の必須列以外は未確定"
+          ]
+        },
+        {
+          "id": "B05",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH1",
+          "label": "商品を保存",
+          "sub": "products / product_images",
+          "spec": [
+            "§4.2",
+            "§6",
+            "§7"
+          ],
+          "info": [
+            "商品の作成・更新について操作者と日時を記録（§7）。記録先は未確定"
+          ]
+        },
+        {
+          "id": "B06",
+          "kind": "biz",
+          "variant": "end",
+          "lane": "L_STAFF",
+          "phase": "PH1",
+          "label": "登録・公開完了",
+          "screen": "S04",
+          "spec": [
+            "§3 S-05→S-04"
+          ],
+          "info": [
+            "保存後は商品詳細（S-04）へ遷移（§3）"
+          ]
+        },
+        {
+          "id": "B07",
+          "kind": "biz",
+          "variant": "start",
+          "lane": "L_STAFF",
+          "phase": "PH2",
+          "label": "CSVで一括登録",
+          "spec": [
+            "§2 F-09"
+          ]
+        },
+        {
+          "id": "B08",
+          "kind": "biz",
+          "variant": "task",
+          "lane": "L_STAFF",
+          "phase": "PH2",
+          "label": "CSVファイルを選択",
+          "sub": "UTF-8・1,000行まで",
+          "screen": "S09",
+          "spec": [
+            "§3 S-09",
+            "§5.4"
+          ],
+          "info": [
+            "列: sku, name, category_name, price, status, description（§5.4）",
+            "文字コードは UTF-8（BOM 可）。1 回 1,000 行まで（§5.4）"
+          ]
+        },
+        {
+          "id": "B09",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH2",
+          "label": "全行を検証",
+          "sub": "プレビュー表示",
+          "spec": [
+            "§3 S-09",
+            "§5.4"
+          ],
+          "info": [
+            "各行の検証項目の詳細（§5.1 の SKU ルール等の適用範囲）は未確定",
+            "検証をプレビュー時と取込実行時のどちらで行うかは未確定"
+          ]
+        },
+        {
+          "id": "B10",
+          "kind": "biz",
+          "variant": "decision",
+          "lane": "L_SYS",
+          "phase": "PH2",
+          "label": "エラー行はない？",
+          "spec": [
+            "§5.4"
+          ],
+          "info": [
+            "1 行でもエラーがあれば全件取り込まない（§5.4）"
+          ]
+        },
+        {
+          "id": "B11",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH2",
+          "label": "全件取り込まない",
+          "sub": "エラー行と理由を表示",
+          "screen": "S09",
+          "spec": [
+            "§5.4"
+          ],
+          "info": [
+            "CSV を修正して再取込する流れは仕様に明記がなく未確定"
+          ]
+        },
+        {
+          "id": "B12",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH2",
+          "label": "取込を実行",
+          "sub": "既存SKU更新・新規登録",
+          "spec": [
+            "§5.4"
+          ],
+          "info": [
+            "既存 SKU は更新、新規 SKU は登録（§5.4）",
+            "在庫数は取り込まない（§5.4）"
+          ]
+        },
+        {
+          "id": "B13",
+          "kind": "biz",
+          "variant": "end",
+          "lane": "L_STAFF",
+          "phase": "PH2",
+          "label": "取込完了",
+          "screen": "S03",
+          "spec": [
+            "§3 S-09→S-03"
+          ],
+          "info": [
+            "取込後は商品一覧（S-03）へ遷移（§3）"
+          ]
+        },
+        {
+          "id": "B14",
+          "kind": "biz",
+          "variant": "start",
+          "lane": "L_STAFF",
+          "phase": "PH3",
+          "label": "在庫が動く",
+          "sub": "入庫・出庫・棚卸",
+          "spec": [
+            "§2 F-07"
+          ]
+        },
+        {
+          "id": "B15",
+          "kind": "biz",
+          "variant": "task",
+          "lane": "L_STAFF",
+          "phase": "PH3",
+          "label": "入出庫を登録",
+          "sub": "区分・数量・メモ",
+          "screen": "S07",
+          "spec": [
+            "§3 S-07",
+            "§4.2",
+            "§5.2"
+          ],
+          "info": [
+            "区分: 入庫 in / 出庫 out / 調整 adjust（§4.2）",
+            "在庫数は入出庫登録でのみ変更する（§5.2）"
+          ]
+        },
+        {
+          "id": "B16",
+          "kind": "biz",
+          "variant": "decision",
+          "lane": "L_SYS",
+          "phase": "PH3",
+          "label": "在庫が0以上？",
+          "sub": "登録後の在庫数",
+          "spec": [
+            "§5.2"
+          ],
+          "info": [
+            "出庫によって在庫数が 0 未満になる場合はエラー（§5.2）"
+          ]
+        },
+        {
+          "id": "B17",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH3",
+          "label": "登録エラー",
+          "sub": "0未満になる出庫",
+          "screen": "S07",
+          "spec": [
+            "§5.2"
+          ],
+          "info": [
+            "エラーの表示方法・再入力の流れは未確定"
+          ]
+        },
+        {
+          "id": "B18",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH3",
+          "label": "履歴登録・在庫更新",
+          "sub": "同一トランザクション",
+          "spec": [
+            "§5.2",
+            "§6"
+          ],
+          "info": [
+            "stock_movements の登録と products.stock_quantity の更新を同一トランザクションで行う（§5.2）",
+            "登録後の在庫数を quantity_after、登録者を user_id に記録（§4.2）"
+          ]
+        },
+        {
+          "id": "B19",
+          "kind": "biz",
+          "variant": "end",
+          "lane": "L_STAFF",
+          "phase": "PH3",
+          "label": "記録完了",
+          "screen": "S04",
+          "spec": [
+            "§3 S-07→S-04"
+          ],
+          "info": [
+            "登録後は商品詳細（S-04）へ遷移（§3）"
+          ]
+        },
+        {
+          "id": "B20",
+          "kind": "biz",
+          "variant": "start",
+          "lane": "L_STAFF",
+          "phase": "PH4",
+          "label": "在庫状況を確認",
+          "spec": [
+            "§2 F-02"
+          ]
+        },
+        {
+          "id": "B21",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH4",
+          "label": "ダッシュボード集計",
+          "sub": "在庫少・在庫切れ",
+          "spec": [
+            "§5.2",
+            "§6"
+          ],
+          "info": [
+            "在庫数が low_stock_threshold（初期値 5）以下で「在庫少」、0 で「在庫切れ」（§5.2, §4.2）",
+            "商品数・直近の入出庫も表示（§2 F-02）",
+            "集計のタイミング（表示時／定期）は未確定"
+          ]
+        },
+        {
+          "id": "B22",
+          "kind": "biz",
+          "variant": "task",
+          "lane": "L_STAFF",
+          "phase": "PH4",
+          "label": "在庫少・切れを確認",
+          "sub": "直近の入出庫も見る",
+          "screen": "S02",
+          "spec": [
+            "§3 S-02"
+          ]
+        },
+        {
+          "id": "B23",
+          "kind": "biz",
+          "variant": "decision",
+          "lane": "L_STAFF",
+          "phase": "PH4",
+          "label": "補充が必要？",
+          "spec": [
+            "§5.2"
+          ],
+          "info": [
+            "補充の判断基準・発注業務は仕様に記載がなく未確定（受注・決済・配送は対象外 §1.2）"
+          ]
+        },
+        {
+          "id": "B24",
+          "kind": "biz",
+          "variant": "end",
+          "lane": "L_STAFF",
+          "phase": "PH4",
+          "label": "入庫を登録へ",
+          "sub": "③ 入出庫を記録する",
+          "screen": "S07",
+          "spec": [
+            "§3 S-02→S-07"
+          ],
+          "info": [
+            "ダッシュボードから入出庫登録（S-07）へ遷移できる（§3）"
+          ]
+        },
+        {
+          "id": "B25",
+          "kind": "biz",
+          "variant": "end",
+          "lane": "L_STAFF",
+          "phase": "PH4",
+          "label": "確認終了"
+        },
+        {
+          "id": "B26",
+          "kind": "biz",
+          "variant": "start",
+          "lane": "L_ADMIN",
+          "phase": "PH5",
+          "label": "管理作業を行う",
+          "spec": [
+            "§1.1"
+          ],
+          "info": [
+            "全機能とユーザー管理は管理者のみ（§1.1）"
+          ]
+        },
+        {
+          "id": "B27",
+          "kind": "biz",
+          "variant": "task",
+          "lane": "L_ADMIN",
+          "phase": "PH5",
+          "label": "商品を削除",
+          "spec": [
+            "§2 F-05"
+          ],
+          "info": [
+            "削除は管理者のみ。スタッフは削除不可（§1.1, §2 F-05）",
+            "削除の操作場所（画面）・確認ダイアログの有無は未確定"
+          ]
+        },
+        {
+          "id": "B28",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH5",
+          "label": "論理削除",
+          "sub": "入出庫履歴は残す",
+          "spec": [
+            "§5.1",
+            "§4.2",
+            "§7"
+          ],
+          "info": [
+            "deleted_at を記録し、一覧・検索には表示しない（§5.1, §4.2）",
+            "削除の操作者と日時を記録（§7）"
+          ]
+        },
+        {
+          "id": "B29",
+          "kind": "biz",
+          "variant": "task",
+          "lane": "L_ADMIN",
+          "phase": "PH5",
+          "label": "ユーザーを管理",
+          "sub": "登録／編集／無効化",
+          "screen": "S08",
+          "spec": [
+            "§2 F-10",
+            "§3 S-08"
+          ],
+          "info": [
+            "S-08 はメニュー上も管理者のみ表示（§3）",
+            "パスワードは 8 文字以上（§7）"
+          ]
+        },
+        {
+          "id": "B30",
+          "kind": "biz",
+          "variant": "system",
+          "lane": "L_SYS",
+          "phase": "PH5",
+          "label": "ユーザーを更新",
+          "sub": "users（role・有効）",
+          "spec": [
+            "§4.2"
+          ],
+          "info": [
+            "role は admin / staff、有効フラグ is_active（§4.2）",
+            "無効化を is_active で表す点、無効化ユーザーのログイン可否は未確定"
+          ]
+        },
+        {
+          "id": "B31",
+          "kind": "biz",
+          "variant": "end",
+          "lane": "L_ADMIN",
+          "phase": "PH5",
+          "label": "管理作業完了"
+        }
+      ],
+      "edges": [
+        {
+          "from": "B01",
+          "to": "B02",
+          "type": "flow"
+        },
+        {
+          "from": "B02",
+          "to": "B03",
+          "type": "flow",
+          "label": "保存"
+        },
+        {
+          "from": "B03",
+          "to": "B04",
+          "type": "flow"
+        },
+        {
+          "from": "B04",
+          "to": "B05",
+          "type": "flow",
+          "label": "はい"
+        },
+        {
+          "from": "B04",
+          "to": "B02",
+          "type": "weak",
+          "label": "いいえ"
+        },
+        {
+          "from": "B05",
+          "to": "B06",
+          "type": "flow"
+        },
+        {
+          "from": "B07",
+          "to": "B08",
+          "type": "flow"
+        },
+        {
+          "from": "B08",
+          "to": "B09",
+          "type": "flow"
+        },
+        {
+          "from": "B09",
+          "to": "B10",
+          "type": "flow"
+        },
+        {
+          "from": "B10",
+          "to": "B12",
+          "type": "flow",
+          "label": "はい"
+        },
+        {
+          "from": "B10",
+          "to": "B11",
+          "type": "flow",
+          "label": "いいえ"
+        },
+        {
+          "from": "B11",
+          "to": "B08",
+          "type": "weak",
+          "label": "修正して再取込"
+        },
+        {
+          "from": "B12",
+          "to": "B13",
+          "type": "flow"
+        },
+        {
+          "from": "B14",
+          "to": "B15",
+          "type": "flow"
+        },
+        {
+          "from": "B15",
+          "to": "B16",
+          "type": "flow"
+        },
+        {
+          "from": "B16",
+          "to": "B18",
+          "type": "flow",
+          "label": "はい"
+        },
+        {
+          "from": "B16",
+          "to": "B17",
+          "type": "flow",
+          "label": "いいえ"
+        },
+        {
+          "from": "B17",
+          "to": "B15",
+          "type": "weak",
+          "label": "数量を見直す"
+        },
+        {
+          "from": "B18",
+          "to": "B19",
+          "type": "flow"
+        },
+        {
+          "from": "B20",
+          "to": "B21",
+          "type": "flow"
+        },
+        {
+          "from": "B21",
+          "to": "B22",
+          "type": "flow"
+        },
+        {
+          "from": "B22",
+          "to": "B23",
+          "type": "flow"
+        },
+        {
+          "from": "B23",
+          "to": "B24",
+          "type": "flow",
+          "label": "はい"
+        },
+        {
+          "from": "B23",
+          "to": "B25",
+          "type": "flow",
+          "label": "いいえ"
+        },
+        {
+          "from": "B26",
+          "to": "B27",
+          "type": "flow"
+        },
+        {
+          "from": "B27",
+          "to": "B28",
+          "type": "flow"
+        },
+        {
+          "from": "B28",
+          "to": "B31",
+          "type": "flow"
+        },
+        {
+          "from": "B26",
+          "to": "B29",
+          "type": "flow"
+        },
+        {
+          "from": "B29",
+          "to": "B30",
+          "type": "flow"
+        },
+        {
+          "from": "B30",
+          "to": "B31",
+          "type": "flow"
+        }
+      ],
+      "legend": [
+        {
+          "type": "flow",
+          "label": "業務の流れ"
+        },
+        {
+          "type": "weak",
+          "label": "差し戻し・やり直し"
+        }
+      ]
+    }
+  }
+}

@@ -2,7 +2,7 @@
 /**
  * design-viewer / layout.js
  *
- * model.json から各モードの座標・辺ルートを ELK.js（vendor 同梱）で計算し、
+ * model（model.json または model/**\/*.json）から各モードの座標・辺ルートを ELK.js（vendor 同梱）で計算し、
  * 中間 JSON <out>/.layout.json を書き出す（viewer-data.js の modes 部分の元データ）。
  *
  * 単体実行: node layout.js <viewer-src> <out>
@@ -35,7 +35,8 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { readModel, validateModel } = require('./validate');
+const { readModel } = require('./lib/load-model');
+const { validateModel } = require('./validate');
 const ELK = require('./vendor/elk.bundled.js');
 
 // ---------- 定数 ----------
@@ -277,7 +278,7 @@ function midpointAlongRoute(route) {
 /**
  * レーン内ノードの安定位相ソート。入次数 0 のノードを元の順序（screens/nodes の出現順）
  * 優先で選び続ける。閉路が残った場合は残りの中で元の順序が最小のものを強制的に選ぶ
- * （model.json の記述順を最大限尊重しつつ、必ず全ノードを並べ切る）。
+ * （model の記述順を最大限尊重しつつ、必ず全ノードを並べ切る）。
  */
 function topoOrderStable(ids, edges) {
   const indexOf = new Map(ids.map((id, i) => [id, i]));

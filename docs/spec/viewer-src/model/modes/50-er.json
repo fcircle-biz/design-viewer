@@ -1,0 +1,346 @@
+{
+  "modes": {
+    "er": {
+      "label": "ER図",
+      "desc": "商品・カテゴリ・在庫・ユーザーのデータモデル",
+      "nodes": [
+        {
+          "id": "T_USERS",
+          "kind": "er",
+          "tone": "slate",
+          "label": "ユーザー",
+          "sub": "users",
+          "info": [
+            "role は admin（全機能）/ staff（削除不可）",
+            "商品の作成・更新・削除は操作者と日時を記録"
+          ],
+          "fields": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "key": "PK",
+              "note": "主キー"
+            },
+            {
+              "name": "name",
+              "type": "varchar(50)",
+              "key": "",
+              "note": "氏名"
+            },
+            {
+              "name": "email",
+              "type": "varchar(255)",
+              "key": "UK",
+              "note": "ログイン ID（一意）"
+            },
+            {
+              "name": "password_hash",
+              "type": "varchar(255)",
+              "key": "",
+              "note": "パスワードハッシュ"
+            },
+            {
+              "name": "role",
+              "type": "varchar(10)",
+              "key": "",
+              "note": "admin / staff"
+            },
+            {
+              "name": "is_active",
+              "type": "boolean",
+              "key": "",
+              "note": "有効フラグ"
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp",
+              "key": "",
+              "note": ""
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp",
+              "key": "",
+              "note": ""
+            }
+          ]
+        },
+        {
+          "id": "T_CATEGORIES",
+          "kind": "er",
+          "tone": "green",
+          "label": "カテゴリ",
+          "sub": "categories",
+          "info": [
+            "商品が紐づいているカテゴリは削除不可"
+          ],
+          "fields": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "key": "PK",
+              "note": "主キー"
+            },
+            {
+              "name": "name",
+              "type": "varchar(50)",
+              "key": "UK",
+              "note": "カテゴリ名（一意）"
+            },
+            {
+              "name": "sort_order",
+              "type": "int",
+              "key": "",
+              "note": "表示順"
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp",
+              "key": "",
+              "note": ""
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp",
+              "key": "",
+              "note": ""
+            }
+          ]
+        },
+        {
+          "id": "T_PRODUCTS",
+          "kind": "er",
+          "tone": "blue",
+          "label": "商品",
+          "sub": "products",
+          "info": [
+            "論理削除（deleted_at）。入出庫履歴は残す",
+            "在庫数は入出庫登録でのみ変更（商品編集からは不可）",
+            "published にするには商品名・価格・カテゴリ・画像1枚以上が必要"
+          ],
+          "fields": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "key": "PK",
+              "note": "主キー"
+            },
+            {
+              "name": "sku",
+              "type": "varchar(32)",
+              "key": "UK",
+              "note": "商品コード（一意）"
+            },
+            {
+              "name": "name",
+              "type": "varchar(100)",
+              "key": "",
+              "note": "商品名"
+            },
+            {
+              "name": "category_id",
+              "type": "bigint",
+              "key": "FK",
+              "note": "FK → categories.id"
+            },
+            {
+              "name": "price",
+              "type": "int",
+              "key": "",
+              "note": "販売価格（税込、円、0以上）"
+            },
+            {
+              "name": "description",
+              "type": "text",
+              "key": "",
+              "note": "説明"
+            },
+            {
+              "name": "status",
+              "type": "varchar(10)",
+              "key": "",
+              "note": "draft / published / archived"
+            },
+            {
+              "name": "stock_quantity",
+              "type": "int",
+              "key": "",
+              "note": "現在在庫数（0以上）"
+            },
+            {
+              "name": "low_stock_threshold",
+              "type": "int",
+              "key": "",
+              "note": "在庫少アラートの閾値（初期値5）"
+            },
+            {
+              "name": "deleted_at",
+              "type": "timestamp",
+              "key": "",
+              "note": "論理削除日時"
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp",
+              "key": "",
+              "note": ""
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp",
+              "key": "",
+              "note": ""
+            }
+          ]
+        },
+        {
+          "id": "T_PRODUCT_IMAGES",
+          "kind": "er",
+          "tone": "teal",
+          "label": "商品画像",
+          "sub": "product_images",
+          "info": [
+            "1商品5枚まで。JPEG / PNG、1枚5MB以下",
+            "sort_order 0 がメイン画像"
+          ],
+          "fields": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "key": "PK",
+              "note": "主キー"
+            },
+            {
+              "name": "product_id",
+              "type": "bigint",
+              "key": "FK",
+              "note": "FK → products.id"
+            },
+            {
+              "name": "url",
+              "type": "varchar(500)",
+              "key": "",
+              "note": "画像URL"
+            },
+            {
+              "name": "sort_order",
+              "type": "int",
+              "key": "",
+              "note": "表示順（0がメイン画像）"
+            }
+          ]
+        },
+        {
+          "id": "T_STOCK_MOVEMENTS",
+          "kind": "er",
+          "tone": "amber",
+          "label": "入出庫履歴",
+          "sub": "stock_movements",
+          "info": [
+            "type は in（入庫）/ out（出庫）/ adjust（調整）",
+            "出庫で在庫が0未満になる場合はエラー",
+            "登録と products.stock_quantity 更新は同一トランザクション"
+          ],
+          "fields": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "key": "PK",
+              "note": "主キー"
+            },
+            {
+              "name": "product_id",
+              "type": "bigint",
+              "key": "FK",
+              "note": "FK → products.id"
+            },
+            {
+              "name": "type",
+              "type": "varchar(10)",
+              "key": "",
+              "note": "in（入庫）/ out（出庫）/ adjust（調整）"
+            },
+            {
+              "name": "quantity",
+              "type": "int",
+              "key": "",
+              "note": "数量（in/outは正数、adjustは増減値）"
+            },
+            {
+              "name": "quantity_after",
+              "type": "int",
+              "key": "",
+              "note": "登録後の在庫数"
+            },
+            {
+              "name": "note",
+              "type": "varchar(255)",
+              "key": "",
+              "note": "メモ"
+            },
+            {
+              "name": "user_id",
+              "type": "bigint",
+              "key": "FK",
+              "note": "FK → users.id（登録者）"
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp",
+              "key": "",
+              "note": "登録日時"
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "T_PRODUCTS",
+          "to": "T_CATEGORIES",
+          "type": "rel",
+          "fromField": "category_id",
+          "toField": "id",
+          "label": "分類する",
+          "fromLabel": "N",
+          "toLabel": "0..1"
+        },
+        {
+          "from": "T_PRODUCT_IMAGES",
+          "to": "T_PRODUCTS",
+          "type": "rel",
+          "fromField": "product_id",
+          "toField": "id",
+          "label": "持つ",
+          "fromLabel": "N",
+          "toLabel": "1"
+        },
+        {
+          "from": "T_STOCK_MOVEMENTS",
+          "to": "T_PRODUCTS",
+          "type": "rel",
+          "fromField": "product_id",
+          "toField": "id",
+          "label": "記録される",
+          "fromLabel": "N",
+          "toLabel": "1"
+        },
+        {
+          "from": "T_STOCK_MOVEMENTS",
+          "to": "T_USERS",
+          "type": "rel",
+          "fromField": "user_id",
+          "toField": "id",
+          "label": "登録する",
+          "fromLabel": "N",
+          "toLabel": "1"
+        }
+      ],
+      "legend": [
+        {
+          "type": "rel",
+          "label": "外部キー参照"
+        }
+      ]
+    }
+  }
+}

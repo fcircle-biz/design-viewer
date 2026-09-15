@@ -1,6 +1,6 @@
 window.VIEWER_DATA = {
   "version": 2,
-  "generatedAt": "2026-09-15T08:28:48.118Z",
+  "generatedAt": "2026-09-15T09:10:04.304Z",
   "meta": {
     "title": "商品管理システム",
     "subtitle": "設計ビューア（docs/product-management-spec.md）",

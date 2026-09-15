@@ -2,16 +2,18 @@
 /**
  * design-viewer / validate.js
  *
- * <viewer-src>/model.json の参照整合チェック。
+ * <viewer-src>/model.json（または <viewer-src>/model/**\/*.json）の参照整合チェック。
  * 単体実行: node validate.js <viewer-src>
  * モジュール利用: const { readModel, validateModel } = require('./validate');
  *
  * エラー（参照が壊れている・必須項目欠落）は非 0 終了。警告（表示のみ影響）は表示のみで終了 0。
- * 詳細な入力モデルの仕様は ../schema/model.md を参照。
+ * 詳細な入力モデルの仕様は ../schema/model.md を参照。model の読み込み（model.json / model/ の
+ * 判定・分割ファイルのマージ）は lib/load-model.js が担う。
  */
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { readModel } = require('./lib/load-model');
 
 const KNOWN_EDGE_TYPES = new Set(['user', 'system', 'nav', 'start', 'rel', 'weak', 'flow']);
 const KNOWN_CONCEPT_VARIANTS = new Set(['actor', 'entity', 'system']);
@@ -21,20 +23,6 @@ const KNOWN_DFD_VARIANTS = new Set(['ext', 'proc', 'store']);
 const KNOWN_FIELD_KEYS = new Set(['PK', 'FK', 'UK', '']);
 const KNOWN_FLOW_LAYOUTS = new Set(['lanes', 'elk']);
 const KNOWN_FLOW_EDGE_STYLES = new Set(['curve', 'orthogonal']);
-
-/** <viewer-src>/model.json を読み込んでパースする。ファイルが無い/壊れていれば例外を投げる。 */
-function readModel(viewerSrcDir) {
-  const modelPath = path.join(viewerSrcDir, 'model.json');
-  if (!fs.existsSync(modelPath)) {
-    throw new Error(`model.json が見つかりません: ${modelPath}`);
-  }
-  const raw = fs.readFileSync(modelPath, 'utf8');
-  try {
-    return JSON.parse(raw);
-  } catch (e) {
-    throw new Error(`model.json の JSON 解析に失敗しました: ${e.message}`);
-  }
-}
 
 function pushErr(errors, msg) { errors.push(msg); }
 function pushWarn(warnings, msg) { warnings.push(msg); }
@@ -61,7 +49,7 @@ function validateModel(model, viewerSrcDir) {
   const warnings = [];
 
   if (!model || typeof model !== 'object') {
-    pushErr(errors, 'model.json のトップレベルはオブジェクトである必要があります');
+    pushErr(errors, 'model のトップレベルはオブジェクトである必要があります（model.json / model/*.json）');
     return { errors, warnings };
   }
 

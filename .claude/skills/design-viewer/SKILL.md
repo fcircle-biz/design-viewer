@@ -1,6 +1,6 @@
 ---
 name: design-viewer
-description: 仕様書・設計書から「画面遷移図 / 画面イメージ / 概念図 / 業務フロー / ER 図 / データフロー」を 1 つの無限キャンバスで切り替えて見られる静的ビューア（HTML。file:// で開ける）を生成するスキル。入力は model.json と画面モックアップ HTML、ビルドで ELK.js による自動レイアウトとサムネイル生成を行い、Canvas 2D で描画する。〜100 画面・〜50 テーブル規模を想定。「画面遷移図」「ER 図」「データフロー図」「画面イメージ」「設計ビューア」「システムの全体像を一目で」などの依頼で使う。
+description: 仕様書・設計書から「画面遷移図 / 画面イメージ / 概念図 / 業務フロー / ER 図 / データフロー」を 1 つの無限キャンバスで切り替えて見られる静的ビューア（HTML。file:// で開ける）を生成するスキル。入力は model.json（肥大化する場合は model/ 配下に分割可）と画面モックアップ HTML、ビルドで ELK.js による自動レイアウトとサムネイル生成を行い、Canvas 2D で描画する。〜100 画面・〜50 テーブル規模を想定。「画面遷移図」「ER 図」「データフロー図」「画面イメージ」「設計ビューア」「システムの全体像を一目で」などの依頼で使う。
 user-invocable: true
 ---
 
@@ -25,6 +25,7 @@ user-invocable: true
   SKILL.md             この手順書
   schema/model.md      入力 model.json の仕様（必ず読む）
   engine/              ビューア本体（Canvas 2D。ビルドで出力先へコピーされる）
+  engine/js/           ビューア本体の実体（01-core.js 〜 11-main.js。window.DV 名前空間で連携する）
   scripts/             build.js（validate → layout → thumbs → assemble）ほか
   scripts/vendor/      ELK.js（elkjs 0.12.0、EPL-2.0）
 ```
@@ -32,9 +33,13 @@ user-invocable: true
 プロジェクト側:
 
 ```
-<アプリ>/docs/spec/viewer-src/   入力（人・AI が書く）: model.json, screens/<ID>.html, screens/_shared.css
+<アプリ>/docs/spec/viewer-src/   入力（人・AI が書く）: model.json（または model/**/*.json）, screens/<ID>.html, screens/_shared.css
 <アプリ>/docs/spec/html/         生成物（手で編集しない）: index.html を開けば見られる
 ```
+
+`model.json` が肥大化する場合は、1 ファイルの代わりに `model/` ディレクトリ配下へ複数の
+`*.json` に分割できる（`model.json` と `model/` は排他。両方あるとエラー）。分割方法・
+マージ規則は [schema/model.md §1.1](schema/model.md#11-modeljson-の分割-model-ディレクトリ) を参照。
 
 ## 前提
 - Node 18 以上。ELK は同梱なので npm install 不要。
@@ -50,6 +55,10 @@ user-invocable: true
 ### 2. `viewer-src/model.json` を書く
 - 仕様は [schema/model.md](schema/model.md)。**座標は書かない**（レイアウトは自動。どうしても固定したいノードだけ `pin`）。
 - 規模が大きい場合は並列に分担する: 画面メタと遷移 / 概念図 / 業務フロー / ER 図 / データフロー を別々のエージェントに書かせ、最後に 1 つの JSON にまとめる。ID の命名（例: 画面 `S01`、業務フロー `B01`・`L_*`・`PH1`、DFD `P1`・`D1`）を先に決めておく。
+- 1 つの JSON にまとめる代わりに、`model.json` を作らず `viewer-src/model/` 配下へモード別
+  （`model/modes/flow.json` など）にファイルを分けたまま出力してもよい。並列担当をそのまま
+  ファイル単位に対応させられ、マージは `build.js`（内部の共通ローダー）が自動で行う。
+  分割方法・マージ規則・ファイル名の数字接頭辞による順序制御は [schema/model.md §1.1](schema/model.md#11-modeljson-の分割-model-ディレクトリ) を参照。
 - 画面遷移の方式を選ぶ: 役割・チャネルごとに帯で分けたいなら既定の `lanes`。画面数が少なく（〜20 画面程度）、
   画面のつながりを 1 枚の流れ図として見せたいなら `modes.flow.layout: "elk"`（`docs/design-viewer-elk.html` の見た目。
   起点ノードは `attachTo`、段分けは `nudge` で調整する。model.md §4.1）。
@@ -92,7 +101,7 @@ node .claude/skills/design-viewer/scripts/build.js <アプリ>/docs/spec/viewer-
 - ダミー 100 画面・50 テーブル・400 辺: p95 おおむね 5〜9ms
 - レイアウト計算: 実データ 0.5 秒、ダミー 2 秒前後
 
-性能が落ちたら、まず `engine/viewer.js` の描画が**ワールドに HTML 要素を置いていないか**（置くと拡大縮小のたびに再ラスタライズされて破綻する。v1 がこれで使えなかった）を確認する。
+性能が落ちたら、まず `engine/js/` の描画（06-render.js・07-draw-groups-edges.js・08-draw-nodes.js など）が**ワールドに HTML 要素を置いていないか**（置くと拡大縮小のたびに再ラスタライズされて破綻する。v1 がこれで使えなかった）を確認する。
 
 ## 既知の制約
 - ER 図は FK 側を東、参照先を西のポートに接続するため、循環参照が多いと辺が左に回り込むことがある。

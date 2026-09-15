@@ -1,0 +1,133 @@
+{
+  "modes": {
+    "flow": {
+      "label": "画面遷移図",
+      "desc": "仕様書 §3 の画面遷移。ダッシュボードを起点に、ヘッダーメニューで各機能へ移り、商品一覧から詳細・登録・CSV 取込へ進む。保存・登録後に元の画面へ戻る遷移は破線（トグルで表示）。ヘッダーメニューはどの画面からも使える（§3）。",
+      "layout": "elk",
+      "edgeStyle": "curve",
+      "nodes": [
+        {
+          "id": "START",
+          "kind": "pill",
+          "label": "ログイン前",
+          "sub": "未認証",
+          "attachTo": "S01",
+          "attachGap": 300
+        }
+      ],
+      "edges": [
+        {
+          "from": "START",
+          "to": "S01",
+          "type": "start",
+          "label": "アクセス"
+        },
+        {
+          "from": "S01",
+          "to": "S02",
+          "type": "user",
+          "label": "ログイン"
+        },
+        {
+          "from": "S02",
+          "to": "S03",
+          "type": "user",
+          "label": "商品"
+        },
+        {
+          "from": "S02",
+          "to": "S06",
+          "type": "user",
+          "label": "カテゴリ"
+        },
+        {
+          "from": "S02",
+          "to": "S07",
+          "type": "user",
+          "label": "入出庫"
+        },
+        {
+          "from": "S02",
+          "to": "S08",
+          "type": "user",
+          "label": "ユーザー（管理者）"
+        },
+        {
+          "from": "S03",
+          "to": "S04",
+          "type": "user",
+          "label": "行を選択"
+        },
+        {
+          "from": "S03",
+          "to": "S05",
+          "type": "user",
+          "label": "新規登録"
+        },
+        {
+          "from": "S03",
+          "to": "S09",
+          "type": "user",
+          "label": "CSV取込"
+        },
+        {
+          "from": "S04",
+          "to": "S05",
+          "type": "user",
+          "label": "編集"
+        },
+        {
+          "from": "S04",
+          "to": "S07",
+          "type": "user",
+          "label": "入出庫登録"
+        },
+        {
+          "from": "S05",
+          "to": "S04",
+          "type": "weak",
+          "label": "保存"
+        },
+        {
+          "from": "S07",
+          "to": "S04",
+          "type": "weak",
+          "label": "登録"
+        },
+        {
+          "from": "S09",
+          "to": "S03",
+          "type": "weak",
+          "label": "取込完了"
+        },
+        {
+          "from": "S06",
+          "to": "S03",
+          "type": "weak",
+          "label": "商品一覧へ"
+        }
+      ],
+      "legend": [
+        {
+          "type": "start",
+          "label": "起点"
+        },
+        {
+          "type": "user",
+          "label": "画面を進める操作（§3）"
+        },
+        {
+          "type": "weak",
+          "label": "保存・登録後に戻る遷移"
+        }
+      ],
+      "toggles": [
+        {
+          "type": "weak",
+          "label": "戻る遷移を表示",
+          "default": false
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,208 @@
+{
+  "modes": {
+    "concept": {
+      "label": "概念図",
+      "desc": "利用者（管理者・スタッフ）と商品管理システム、主要な概念（商品・カテゴリ・在庫など）の関係。",
+      "nodes": [
+        {
+          "id": "A_ADMIN",
+          "kind": "concept",
+          "variant": "actor",
+          "icon": "shield",
+          "label": "管理者",
+          "sub": "システム全体の管理者",
+          "info": [
+            "権限: 全機能、ユーザー管理（§1.1）",
+            "商品削除（論理削除）は管理者のみ（§2 F-05）"
+          ]
+        },
+        {
+          "id": "A_STAFF",
+          "kind": "concept",
+          "variant": "actor",
+          "icon": "user",
+          "label": "スタッフ",
+          "sub": "商品・在庫の担当者",
+          "info": [
+            "権限: 商品・カテゴリ・在庫の参照／登録／更新（削除不可）（§1.1）"
+          ]
+        },
+        {
+          "id": "SYS",
+          "kind": "concept",
+          "variant": "system",
+          "icon": "apps",
+          "label": "商品管理システム",
+          "sub": "小規模 EC／店舗向け",
+          "info": [
+            "商品・カテゴリ・在庫を登録・更新し、入出庫の履歴を追跡する（§1）",
+            "対象外: 受注・決済・配送、複数倉庫、外部 EC 連携（§1.2）",
+            "セッション認証。30 分無操作でログアウト（§7）"
+          ]
+        },
+        {
+          "id": "E_PRODUCT",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "tag",
+          "label": "商品",
+          "sub": "products",
+          "info": [
+            "SKU は英数字とハイフンのみ・重複不可・登録後変更不可（§5.1）",
+            "status: draft / published / archived（§4.2）",
+            "削除は論理削除（§5.1）"
+          ]
+        },
+        {
+          "id": "E_CATEGORY",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "list",
+          "label": "カテゴリ",
+          "sub": "categories",
+          "info": [
+            "カテゴリ名は一意（§4.2）",
+            "商品が紐づいているカテゴリは削除できない（§5.3）"
+          ]
+        },
+        {
+          "id": "E_IMAGE",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "spark",
+          "label": "商品画像",
+          "sub": "product_images",
+          "info": [
+            "1 商品 5 枚まで。JPEG / PNG、1 枚 5MB 以下（§5.1）",
+            "sort_order 0 がメイン画像（§4.2）"
+          ]
+        },
+        {
+          "id": "E_STOCK",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "db",
+          "label": "在庫",
+          "sub": "products.stock_quantity",
+          "info": [
+            "在庫数は入出庫登録でのみ変更する（§5.2）",
+            "0 未満になる出庫はエラー（§5.2）",
+            "閾値以下で「在庫少」、0 で「在庫切れ」（§5.2）"
+          ]
+        },
+        {
+          "id": "E_MOVEMENT",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "inbox",
+          "label": "入出庫履歴",
+          "sub": "stock_movements",
+          "info": [
+            "区分: 入庫 / 出庫 / 調整（§4.2）",
+            "在庫数の更新と同一トランザクションで登録（§5.2）",
+            "商品削除後も履歴は残す（§5.1）"
+          ]
+        },
+        {
+          "id": "E_USER",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "team",
+          "label": "ユーザー",
+          "sub": "users",
+          "info": [
+            "role: admin / staff（§4.2）",
+            "登録／編集／無効化は管理者のみ（§2 F-10）"
+          ]
+        },
+        {
+          "id": "E_CSV",
+          "kind": "concept",
+          "variant": "entity",
+          "icon": "doc",
+          "label": "CSVファイル",
+          "sub": "商品の一括登録・出力",
+          "info": [
+            "UTF-8（BOM 可）、1 回 1,000 行まで（§5.4）",
+            "1 行でもエラーがあれば全件取り込まない（§5.4）",
+            "出力の仕様は未確定"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "A_ADMIN",
+          "to": "SYS",
+          "type": "rel",
+          "label": "全機能を使う"
+        },
+        {
+          "from": "A_STAFF",
+          "to": "SYS",
+          "type": "rel",
+          "label": "商品・在庫を扱う"
+        },
+        {
+          "from": "SYS",
+          "to": "E_PRODUCT",
+          "type": "rel",
+          "label": "管理する"
+        },
+        {
+          "from": "A_ADMIN",
+          "to": "E_USER",
+          "type": "rel",
+          "label": "管理する"
+        },
+        {
+          "from": "E_CATEGORY",
+          "to": "E_PRODUCT",
+          "type": "rel",
+          "label": "分類する"
+        },
+        {
+          "from": "E_PRODUCT",
+          "to": "E_IMAGE",
+          "type": "rel",
+          "label": "持つ"
+        },
+        {
+          "from": "E_PRODUCT",
+          "to": "E_STOCK",
+          "type": "rel",
+          "label": "在庫数を持つ"
+        },
+        {
+          "from": "E_PRODUCT",
+          "to": "E_MOVEMENT",
+          "type": "rel",
+          "label": "記録される"
+        },
+        {
+          "from": "E_MOVEMENT",
+          "to": "E_STOCK",
+          "type": "rel",
+          "label": "更新する"
+        },
+        {
+          "from": "E_USER",
+          "to": "E_MOVEMENT",
+          "type": "rel",
+          "label": "登録する"
+        },
+        {
+          "from": "E_CSV",
+          "to": "E_PRODUCT",
+          "type": "rel",
+          "label": "一括登録・出力"
+        }
+      ],
+      "legend": [
+        {
+          "type": "rel",
+          "label": "関係"
+        }
+      ]
+    }
+  }
+}
