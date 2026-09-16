@@ -79,8 +79,8 @@
         { "from": "A_ALB", "to": "A_APPA", "type": "flow" },
         { "from": "A_ALB", "to": "A_APPC", "type": "flow" },
         { "from": "A_APPA", "to": "A_DB", "type": "flow", "label": "SQL" },
-        { "from": "A_APPC", "to": "A_DB", "type": "flow", "label": "SQL" },
-        { "from": "A_DB", "to": "A_DBS", "type": "system", "label": "Multi-AZ 配置" },
+        { "from": "A_APPC", "to": "A_DB", "type": "weak", "label": "SQL（ゾーンをまたぐ）" },
+        { "from": "A_DB", "to": "A_DBS", "type": "weak", "label": "Multi-AZ のレプリケーション" },
         { "from": "A_APPA", "to": "A_NATA", "type": "weak", "label": "外向き通信" },
         { "from": "A_APPC", "to": "A_NATC", "type": "weak", "label": "外向き通信" },
         { "from": "A_APPA", "to": "A_S3", "type": "flow", "label": "CSV・監査ログ" },
@@ -100,7 +100,7 @@
         { "type": "flow", "label": "通信（同期）" },
         { "type": "system", "label": "非同期・ファイル連携" },
         { "type": "rel", "label": "ログ・監視" },
-        { "type": "weak", "label": "外向き通信の経路" }
+        { "type": "weak", "label": "経路・ゾーンをまたぐ通信" }
       ]
     }
   }

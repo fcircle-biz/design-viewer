@@ -156,8 +156,14 @@ function labelOnRoute(route, label, rects, opts) {
   const minDist = (opts && opts.minDist) || 0;
   // opts.placed: 既に置いたラベル矩形（重ねない）。opts.endClearance: 終点（矢じり）からラベル端までの最小距離。
   // どちらも省略時は従来どおり（線分の中点のみを候補にする）。
+  // opts.preferVertical: 縦の線分を優先する（上→下に流れる構成図。既定は横の線分を優先）。
+  // ラベルは白い角丸の下地付きで描かれるので、縦線の上に置いても線と重ならない。
+  // opts.offsetSteps: 線の上に置くとどうしてもノード・枠に重なるとき、線と直角の向きへ
+  // この距離（px の配列。両向きに試す）だけずらした位置も候補にする（線の脇にラベルを置く）。
+  // ずらすほど減点するので、線の上に置ける場所があればそちらが、無ければ近い方のずらし位置が選ばれる。
   const placed = opts && opts.placed;
   const endClear = (opts && opts.endClearance) || 0;
+  const preferVertical = !!(opts && opts.preferVertical);
   const sampling = !!(placed || endClear);
   const hitsRect = (c, r, pad) => c[0] - lw / 2 - pad < r.x + r.w && c[0] + lw / 2 + pad > r.x && c[1] - lh / 2 - pad < r.y + r.h && c[1] + lh / 2 + pad > r.y;
   let best = null;
@@ -174,10 +180,17 @@ function labelOnRoute(route, label, rects, opts) {
       const along = horizontal ? lw : lh;
       const s0 = 6 + along / 2, s1 = len - (isLast ? endClear : 6) - along / 2;
       const fits = s1 >= s0;
+      // 線と直角の向きへずらす量（0 と、指定された各距離の両向き）
+      const offs = [0];
+      ((opts && opts.offsetSteps) || []).forEach(m => { offs.push(-m, m); });
       [0.5, 0.3, 0.7, 0.15, 0.85].forEach(t => {
         const d = fits ? Math.min(s1, Math.max(s0, len * t)) : len / 2;
         const u = d / len;
-        cands.push({ c: [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u], fits, t });
+        const p = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+        offs.forEach(off => {
+          const c = horizontal ? [p[0], p[1] + off] : [p[0] + off, p[1]];
+          cands.push({ c, fits, t, off });
+        });
       });
     }
     for (const cand of cands) {
@@ -185,7 +198,9 @@ function labelOnRoute(route, label, rects, opts) {
       const hits = rects.some(r => hitsRect(c, r, 0));
       const near = avoidRect ? distToRect(c, avoidRect) < minDist : false;
       const collide = placed ? placed.some(r => hitsRect(c, r, 4)) : false;
-      const score = (hits ? 0 : 1e6) + (collide ? 0 : 5e5) + (near ? 0 : 3e5) + (horizontal ? 1e5 : 0) + (cand.fits ? 5e4 : 0)
+      const preferred = preferVertical ? !horizontal : horizontal;
+      const score = (hits ? 0 : 1e6) + (collide ? 0 : 5e5) + (near ? 0 : 3e5) + (preferred ? 1e5 : 0)
+        + Math.max(0, 2e4 - Math.abs(cand.off || 0) * 100) + (cand.fits ? 5e4 : 0)
         + Math.min(len, 4e4) - (cand.t != null ? Math.abs(cand.t - 0.5) * 10 : 0);
       if (!best || score > best.score) best = { c, score };
     }
@@ -1883,6 +1898,10 @@ const ARCH_W = 240, ARCH_H = 96;
 // 枠の内側の余白。top は見出しの札（ラベル・補足）の分だけ広くとる
 const ARCH_PAD = { top: 56, side: 28, bottom: 28 };
 const ARCH_MAX_DEPTH = 8;
+// 辺ラベルが置けないときに線の脇へずらす距離。18px は線をよける程度、
+// ARCH_H/2+26 はカード 1 枚を越えて空いた場所へ出すため（構成図は枠が詰まっていて、
+// 線の上にラベルを置けないことがある）
+const ARCH_LABEL_OFFSETS = [18, ARCH_H / 2 + 26];
 
 /**
  * containers[] を親子の木にする。parent が未知・自分自身・循環になっているものは
@@ -2023,13 +2042,11 @@ async function layoutArch(mode, warnings) {
     return { direction, result, nodePos, containerPos, elkEdges, bounds, fit, crossings, score };
   }
 
-  // 向き（層の進む方向）は model で指定できる。指定が無ければ左→右と上→下を両方試し、
-  // 枠を含めた全体が大きくフィットする方（＝文字が読める方）を選ぶ。
-  // 入れ子が深い構成は、左→右だと横に極端に長くなることがある。
-  const fixed = mode.direction === 'down' ? 'DOWN' : (mode.direction === 'right' ? 'RIGHT' : null);
-  const candidates = fixed ? [await attempt(fixed)] : [await attempt('RIGHT'), await attempt('DOWN')];
-  const chosen = [...candidates].sort((a, b) => a.score - b.score)[0];
-  if (process.env.DV_DEBUG_ARCH) candidates.forEach(c => console.log(`[layout] arch 候補 ${c.direction}: ${Math.round(c.bounds.w)}x${Math.round(c.bounds.h)} fit ${(c.fit*100).toFixed(0)}% 交差 ${c.crossings} score ${c.score.toFixed(0)}`));
+  // 向き（層の進む方向）は上→下が既定。AWS の構成図の慣習（利用者を上に置き、
+  // ロードバランサー → アプリケーション → データベース と下へ降りる）に合わせる。
+  // 横に並べたいときだけ model で direction: "right" を指定する。
+  const chosen = await attempt(mode.direction === 'right' ? 'RIGHT' : 'DOWN');
+  if (process.env.DV_DEBUG_ARCH) console.log(`[layout] arch ${chosen.direction}: ${Math.round(chosen.bounds.w)}x${Math.round(chosen.bounds.h)} fit ${(chosen.fit*100).toFixed(0)}% 交差 ${chosen.crossings}`);
   const { nodePos, containerPos, elkEdges } = chosen;
 
   // 辺のルートの座標は「両端の最小共通の枠」からの相対（ELK の階層レイアウトの仕様。
@@ -2080,7 +2097,10 @@ async function layoutArch(mode, warnings) {
       fromLabel: e.fromLabel, toLabel: e.toLabel,
       route: finalRoute,
       labelAt: !e.label ? undefined
-        : labelOnRoute(finalRoute, e.label, labelAvoidRects, { placed: placedLabels, endClearance: LABEL_ARROW_CLEARANCE }),
+        : labelOnRoute(finalRoute, e.label, labelAvoidRects, {
+          placed: placedLabels, endClearance: LABEL_ARROW_CLEARANCE,
+          preferVertical: chosen.direction === 'DOWN', offsetSteps: ARCH_LABEL_OFFSETS,
+        }),
     };
   });
 
