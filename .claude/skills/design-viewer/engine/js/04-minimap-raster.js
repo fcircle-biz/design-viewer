@@ -4,9 +4,9 @@
   var rt = DV.rt;
   // ミニマップ描画とノード／画面ラスタキャッシュ。
   // --- import ---
-  var LOD_BUCKETS, RASTER_CACHE_MAX, minimapEl, minimapCtx, minimapCardEl, registry, state, screenToWorld, drawNodeRasterContent, BIZ_MINIMAP_COLOR, JOB_MINIMAP_COLOR, invalidate, onViewChanged;
+  var LOD_BUCKETS, RASTER_CACHE_MAX, minimapEl, minimapCtx, minimapCardEl, registry, state, screenToWorld, drawNodeRasterContent, BIZ_MINIMAP_COLOR, JOB_MINIMAP_COLOR, ARCH_MINIMAP_COLOR, invalidate, onViewChanged;
   DV.links.push(function(){
-    LOD_BUCKETS = DV.LOD_BUCKETS; RASTER_CACHE_MAX = DV.RASTER_CACHE_MAX; minimapEl = DV.minimapEl; minimapCtx = DV.minimapCtx; minimapCardEl = DV.minimapCardEl; registry = DV.registry; state = DV.state; screenToWorld = DV.screenToWorld; drawNodeRasterContent = DV.drawNodeRasterContent; BIZ_MINIMAP_COLOR = DV.BIZ_MINIMAP_COLOR; JOB_MINIMAP_COLOR = DV.JOB_MINIMAP_COLOR; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged;
+    LOD_BUCKETS = DV.LOD_BUCKETS; RASTER_CACHE_MAX = DV.RASTER_CACHE_MAX; minimapEl = DV.minimapEl; minimapCtx = DV.minimapCtx; minimapCardEl = DV.minimapCardEl; registry = DV.registry; state = DV.state; screenToWorld = DV.screenToWorld; drawNodeRasterContent = DV.drawNodeRasterContent; BIZ_MINIMAP_COLOR = DV.BIZ_MINIMAP_COLOR; JOB_MINIMAP_COLOR = DV.JOB_MINIMAP_COLOR; ARCH_MINIMAP_COLOR = DV.ARCH_MINIMAP_COLOR; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged;
   });
   // --- body ---
   // ---------------------------------------------------------
@@ -49,6 +49,7 @@
       var variant = p.node && p.node.variant;
       bctx.fillStyle = entry.kind==='biz' ? (BIZ_MINIMAP_COLOR[variant||'task'] || defaultFill)
         : entry.kind==='job' ? (JOB_MINIMAP_COLOR[variant||'job'] || defaultFill)
+        : entry.kind==='arch' ? (ARCH_MINIMAP_COLOR[variant||'service'] || defaultFill)
         : entry.kind==='batch' ? 'rgba(15,118,110,.55)' : defaultFill;
       var x = geom.offX + p.x*geom.scale, y = geom.offY + p.y*geom.scale;
       var w = Math.max(1, p.w*geom.scale), h = Math.max(1, p.h*geom.scale);

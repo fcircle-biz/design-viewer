@@ -4,7 +4,7 @@
  *
  * 負荷試験用のダミー viewer-src（model.json + screens/*.html）をシード固定で生成する。
  * 規模: 画面 100（group 5）・concept 60・biz 40（lane 3・phase 4）・ER 50 テーブル（各 8〜20 列・FK 辺 70 本程度）・
- *       dfd 80・辺（flow 180 本・concept 120 本・biz 約 45 本・dfd 200 本）
+ *       dfd 80・arch 26 ノード（枠 13・入れ子 4 段）・辺（flow 180 本・concept 120 本・biz 約 45 本・dfd 200 本）
  *
  * 単体実行: node gen-dummy.js <出力先 viewer-src フォルダー>
  * モジュール利用: const { genDummy } = require('./gen-dummy');
@@ -223,6 +223,46 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
     dfdEdges.push({ from: a.id, to: b.id, type: 'flow', label: rng() < 0.2 ? 'データ' : '', step: rng() < 0.5 ? randInt(rng, 1, 8) : undefined });
   }
 
+  // ---------- modes.arch（構成図。入れ子の枠 4 段 × 2 系統 + サービス 60） ----------
+  // クラウド › リージョン › VPC › AZ › サブネット の入れ子で、枠 30 前後・ノード 60 前後にする
+  const archContainers = [{ id: 'CLOUD', kind: 'cloud', label: 'ダミークラウド', sub: 'ap-northeast-1' }];
+  const archNodes = [
+    { id: 'A_USER', variant: 'ext', icon: 'user', label: '利用者', sub: 'ブラウザ' },
+    { id: 'A_EXT', variant: 'ext', icon: 'send', label: '外部システム', sub: 'ダミー連携先' },
+  ];
+  const archEdges = [];
+  const archVariants = ['service', 'compute', 'store'];
+  const archIcons = ['lb', 'srv', 'func', 'bucket', 'queue', 'cdn', 'fw', 'key', 'monitor', 'db', 'net'];
+  let archNodeNo = 0;
+  for (let v = 1; v <= 2; v++) {
+    const vpc = `VPC${v}`;
+    archContainers.push({ id: vpc, kind: 'vpc', parent: 'CLOUD', label: `VPC ${v}`, sub: `10.${v}.0.0/16` });
+    for (let z = 1; z <= 2; z++) {
+      const az = `AZ${v}${z}`;
+      archContainers.push({ id: az, kind: 'az', parent: vpc, label: `アベイラビリティゾーン ${z}` });
+      ['subnet-public', 'subnet-private'].forEach((kind, si) => {
+        const sub = `SN${v}${z}${si}`;
+        archContainers.push({ id: sub, kind, parent: az, label: kind === 'subnet-public' ? 'パブリックサブネット' : 'プライベートサブネット' });
+        const prev = [];
+        for (let k = 0; k < 3; k++) {
+          archNodeNo += 1;
+          const id = `A${String(archNodeNo).padStart(2, '0')}`;
+          archNodes.push({
+            id, variant: archVariants[archNodeNo % archVariants.length], container: sub,
+            icon: archIcons[archNodeNo % archIcons.length], service: `ダミーサービス ${archNodeNo}`,
+            label: `構成要素 ${archNodeNo}`, sub: '', info: ['ダミーの構成要素です。'],
+          });
+          if (prev.length) archEdges.push({ from: prev[prev.length - 1], to: id, type: 'flow', label: '' });
+          prev.push(id);
+        }
+      });
+    }
+  }
+  // 枠をまたぐ辺（利用者 → 各 VPC の先頭・末尾 → 外部システム）
+  archEdges.push({ from: 'A_USER', to: archNodes[2].id, type: 'flow', label: 'HTTPS' });
+  archEdges.push({ from: archNodes[archNodes.length - 1].id, to: 'A_EXT', type: 'system', label: '連携' });
+  for (let i = 3; i < archNodes.length - 6; i += 6) archEdges.push({ from: archNodes[i].id, to: archNodes[i + 6].id, type: 'flow', label: '' });
+
   const model = {
     meta: { title: 'design-viewer ダミー負荷試験モデル', subtitle: 'gen-dummy.js が生成（シード固定）', statusNote: 'これはテスト用の自動生成データです。' },
     screens,
@@ -234,6 +274,7 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
       biz: { label: '業務フロー', desc: 'ダミー業務フロー。', lanes: bizLanes, phases: bizPhases, nodes: bizNodes, edges: bizEdges, legend: [{ type: 'flow', label: '業務の流れ' }, { type: 'weak', label: '差し戻し・戻り' }] },
       er: { label: 'ER図', desc: 'ダミー ER 図。', nodes: erNodes, edges: erEdges, legend: [{ type: 'rel', label: 'FK 参照' }] },
       dfd: { label: 'データフロー', desc: 'ダミー DFD。', nodes: dfdNodes, edges: dfdEdges, legend: [{ type: 'flow', label: 'データフロー' }], steps },
+      arch: { label: '構成図', desc: 'ダミー構成図。', containers: archContainers, nodes: archNodes, edges: archEdges, legend: [{ type: 'flow', label: '通信' }, { type: 'system', label: '非同期・連携' }] },
     },
   };
 
@@ -242,6 +283,7 @@ body { margin: 0; font-family: "Segoe UI","Yu Gothic UI","Hiragino Sans","Meiryo
     screens: screens.length, flowEdges: flowEdges.length, conceptNodes: conceptNodes.length, conceptEdges: conceptEdges.length,
     bizNodes: bizNodes.length, bizEdges: bizEdges.length,
     erNodes: erNodes.length, erEdges: erEdges.length, dfdNodes: dfdNodes.length, dfdEdges: dfdEdges.length,
+    archContainers: archContainers.length, archNodes: archNodes.length, archEdges: archEdges.length,
   };
 }
 

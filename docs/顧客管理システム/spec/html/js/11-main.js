@@ -9,7 +9,7 @@
     MODE_LABEL_JA = DV.MODE_LABEL_JA; titleTextEl = DV.titleTextEl; subtitleTextEl = DV.subtitleTextEl; statusNoteEl = DV.statusNoteEl; modeSegEl = DV.modeSegEl; minimapCardEl = DV.minimapCardEl; buildRegistry = DV.buildRegistry; resizeStage = DV.resizeStage; setMode = DV.setMode; invalidate = DV.invalidate; attachListeners = DV.attachListeners;
   });
   // --- body ---
-  var MODE_KEYS = ['concept','biz','gallery','flow','er','dfd','jobflow'];
+  var MODE_KEYS = ['concept','biz','gallery','flow','er','dfd','jobflow','arch'];
   // ---------------------------------------------------------
   // 初期化
   // ---------------------------------------------------------

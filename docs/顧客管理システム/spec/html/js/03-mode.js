@@ -4,9 +4,9 @@
   var rt = DV.rt;
   // アニメーション・モード切替・凡例・DFD ステップ・ジョブフローの機能の絞り込み・検索。
   // --- import ---
-  var jobFilterCardEl, jobFilterSelectEl, batchesById, CONCEPT_VARIANT_COLOR, MODE_MAX_K, EDGE_COLOR, lerp, logLerp, easeInOutCubic, now, escHtml, modeDescEl, searchResultsEl, legendListEl, toggleListEl, stepPlayEl, stepListEl, stepsCardEl, detailPanelEl, neighborToggleBtn, registry, state, nodeLabel, computeBBox, fitView, routeRects, modeNodeRects, phaseRects, worldRectToScreen, invalidate, onViewChanged, selectNode, updateSegActive, currentPanelWidth, updatePanelCssVar;
+  var jobFilterCardEl, jobFilterSelectEl, batchesById, CONCEPT_VARIANT_COLOR, ARCH_VARIANT_COLOR, MODE_MAX_K, EDGE_COLOR, lerp, logLerp, easeInOutCubic, now, escHtml, modeDescEl, searchResultsEl, legendListEl, toggleListEl, stepPlayEl, stepListEl, stepsCardEl, detailPanelEl, neighborToggleBtn, registry, state, nodeLabel, computeBBox, fitView, routeRects, modeNodeRects, phaseRects, worldRectToScreen, invalidate, onViewChanged, selectNode, updateSegActive, currentPanelWidth, updatePanelCssVar;
   DV.links.push(function(){
-    jobFilterCardEl = DV.jobFilterCardEl; jobFilterSelectEl = DV.jobFilterSelectEl; batchesById = DV.batchesById; CONCEPT_VARIANT_COLOR = DV.CONCEPT_VARIANT_COLOR; MODE_MAX_K = DV.MODE_MAX_K; EDGE_COLOR = DV.EDGE_COLOR; lerp = DV.lerp; logLerp = DV.logLerp; easeInOutCubic = DV.easeInOutCubic; now = DV.now; escHtml = DV.escHtml; modeDescEl = DV.modeDescEl; searchResultsEl = DV.searchResultsEl; legendListEl = DV.legendListEl; toggleListEl = DV.toggleListEl; stepPlayEl = DV.stepPlayEl; stepListEl = DV.stepListEl; stepsCardEl = DV.stepsCardEl; detailPanelEl = DV.detailPanelEl; neighborToggleBtn = DV.neighborToggleBtn; registry = DV.registry; state = DV.state; nodeLabel = DV.nodeLabel; computeBBox = DV.computeBBox; fitView = DV.fitView; routeRects = DV.routeRects; modeNodeRects = DV.modeNodeRects; phaseRects = DV.phaseRects; worldRectToScreen = DV.worldRectToScreen; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged; selectNode = DV.selectNode; updateSegActive = DV.updateSegActive; currentPanelWidth = DV.currentPanelWidth; updatePanelCssVar = DV.updatePanelCssVar;
+    jobFilterCardEl = DV.jobFilterCardEl; jobFilterSelectEl = DV.jobFilterSelectEl; batchesById = DV.batchesById; CONCEPT_VARIANT_COLOR = DV.CONCEPT_VARIANT_COLOR; ARCH_VARIANT_COLOR = DV.ARCH_VARIANT_COLOR; MODE_MAX_K = DV.MODE_MAX_K; EDGE_COLOR = DV.EDGE_COLOR; lerp = DV.lerp; logLerp = DV.logLerp; easeInOutCubic = DV.easeInOutCubic; now = DV.now; escHtml = DV.escHtml; modeDescEl = DV.modeDescEl; searchResultsEl = DV.searchResultsEl; legendListEl = DV.legendListEl; toggleListEl = DV.toggleListEl; stepPlayEl = DV.stepPlayEl; stepListEl = DV.stepListEl; stepsCardEl = DV.stepsCardEl; detailPanelEl = DV.detailPanelEl; neighborToggleBtn = DV.neighborToggleBtn; registry = DV.registry; state = DV.state; nodeLabel = DV.nodeLabel; computeBBox = DV.computeBBox; fitView = DV.fitView; routeRects = DV.routeRects; modeNodeRects = DV.modeNodeRects; phaseRects = DV.phaseRects; worldRectToScreen = DV.worldRectToScreen; invalidate = DV.invalidate; onViewChanged = DV.onViewChanged; selectNode = DV.selectNode; updateSegActive = DV.updateSegActive; currentPanelWidth = DV.currentPanelWidth; updatePanelCssVar = DV.updatePanelCssVar;
   });
   // --- body ---
   // ---------------------------------------------------------
@@ -243,6 +243,12 @@
   function rebuildLegendAndToggles(modeObj){
     var legend = modeObj.legend || [];
     legendListEl.innerHTML = legend.length ? legend.map(function(item){
+      // ノード種別の凡例（arch の variant）。構成要素のカードの色の見本を出す
+      if(item.variant && state.mode==='arch' && ARCH_VARIANT_COLOR && ARCH_VARIANT_COLOR[item.variant]){
+        var ac = ARCH_VARIANT_COLOR[item.variant];
+        var ast = 'display:inline-block;flex:none;width:20px;height:13px;box-sizing:border-box;border-radius:4px;background:'+ac.tile+';border:1.5px '+(ac.dash?'dashed ':'solid ')+ac.border+';';
+        return '<div class="v-legend-item"><span style="'+ast+'"></span><span>'+escHtml(item.label)+'</span></div>';
+      }
       // ノード種別の凡例（concept の variant）。辺の線種ではなく、ノードの形・色の見本を出す
       if(item.variant && CONCEPT_VARIANT_COLOR && CONCEPT_VARIANT_COLOR[item.variant]){
         var vc = CONCEPT_VARIANT_COLOR[item.variant];

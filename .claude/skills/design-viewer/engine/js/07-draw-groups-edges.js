@@ -2,11 +2,11 @@
   'use strict';
   var DV = window.DV;
   var rt = DV.rt;
-  // グループ・スイムレーン（アクターの列・フェーズの行・見出し）・辺の描画。
+  // グループ・構成図の枠・スイムレーン（アクターの列・フェーズの行・見出し）・辺の描画。
   // --- import ---
-  var EDGE_COLOR, EDGE_DASH, EDGE_ALPHA, EDGE_LABEL_MIN_K, clamp, roundRectPath, measureCached, truncateText, wrapCharLines, registry, state, worldToScreen, worldRectToScreen, rectIntersects, FONT_STACK, scaledFont, measureScaled;
+  var EDGE_COLOR, EDGE_DASH, EDGE_ALPHA, EDGE_LABEL_MIN_K, clamp, roundRectPath, measureCached, truncateText, wrapCharLines, registry, state, worldToScreen, worldRectToScreen, rectIntersects, FONT_STACK, scaledFont, measureScaled, getIconPath;
   DV.links.push(function(){
-    EDGE_COLOR = DV.EDGE_COLOR; EDGE_DASH = DV.EDGE_DASH; EDGE_ALPHA = DV.EDGE_ALPHA; EDGE_LABEL_MIN_K = DV.EDGE_LABEL_MIN_K; clamp = DV.clamp; roundRectPath = DV.roundRectPath; measureCached = DV.measureCached; truncateText = DV.truncateText; wrapCharLines = DV.wrapCharLines; registry = DV.registry; state = DV.state; worldToScreen = DV.worldToScreen; worldRectToScreen = DV.worldRectToScreen; rectIntersects = DV.rectIntersects; FONT_STACK = DV.FONT_STACK; scaledFont = DV.scaledFont; measureScaled = DV.measureScaled;
+    EDGE_COLOR = DV.EDGE_COLOR; EDGE_DASH = DV.EDGE_DASH; EDGE_ALPHA = DV.EDGE_ALPHA; EDGE_LABEL_MIN_K = DV.EDGE_LABEL_MIN_K; clamp = DV.clamp; roundRectPath = DV.roundRectPath; measureCached = DV.measureCached; truncateText = DV.truncateText; wrapCharLines = DV.wrapCharLines; registry = DV.registry; state = DV.state; worldToScreen = DV.worldToScreen; worldRectToScreen = DV.worldRectToScreen; rectIntersects = DV.rectIntersects; FONT_STACK = DV.FONT_STACK; scaledFont = DV.scaledFont; measureScaled = DV.measureScaled; getIconPath = DV.getIconPath;
   });
   // --- body ---
   function drawGroups(ctx, cull){
@@ -20,14 +20,92 @@
     for(var s=0;s<swim.length;s++) if(rectIntersects(swim[s], cull)) drawSwimlaneColumn(ctx, swim[s]);
     drawPhaseRows(ctx, cull);
     for(var t=0;t<swim.length;t++) if(rectIntersects(swim[t], cull)) drawSwimlaneColumnLines(ctx, swim[t]);
+    // 構成図の枠（入れ子）は外側から描く（layout.js が depth の昇順に並べてある）。
+    // 内側の枠の地色・見出しが外側の枠の上に重なる。
     for(var i=0;i<groups.length;i++){
       var g = groups[i];
       if(g.style==='swimlane') continue;
       var r = { x:g.x, y:g.y, w:g.w, h:g.h };
       if(!rectIntersects(r, cull)) continue;
-      drawDashedGroup(ctx, g, r);
+      if(g.style==='arch') drawArchContainer(ctx, g, r);
+      else drawDashedGroup(ctx, g, r);
     }
     ctx.restore();
+  }
+
+  // 構成図（modes.arch）の枠。kind ごとに枠線の色・線種と地色を変え、左上に見出しの札を描く。
+  // 札はクリックでその枠に寄れる（drawDashedGroup と同じく groupLabelHitRects に登録する）。
+  var ARCH_CONTAINER_STYLE = {
+    cloud:            { color:'#D9531E', tint:'rgba(217,83,30,.035)',  icon:'cloud' },
+    region:           { color:'#147EBA', tint:'rgba(20,126,186,.035)', dash:[8,5], icon:'net' },
+    vpc:              { color:'#7C3AED', tint:'rgba(124,58,237,.035)', icon:'net' },
+    az:               { color:'#5B6472', tint:'rgba(91,100,114,.03)',  dash:[8,5] },
+    'subnet-public':  { color:'#0E9F6E', tint:'rgba(14,159,110,.05)' },
+    'subnet-private': { color:'#2F5BEA', tint:'rgba(47,91,234,.045)' },
+    onprem:           { color:'#B46C00', tint:'rgba(180,108,0,.035)',  icon:'srv' },
+    group:            { color:'#8A93A3', tint:'rgba(138,147,163,.03)', dash:[6,5] }
+  };
+  var ARCH_CHIP_H = 24, ARCH_CHIP_MIN_H = 14;
+  function drawArchContainer(ctx, g, r){
+    var st = ARCH_CONTAINER_STYLE[g.kind] || ARCH_CONTAINER_STYLE.group;
+    var sr = worldRectToScreen(r);
+    roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, 16);
+    ctx.fillStyle = st.tint; ctx.fill();
+    ctx.strokeStyle = st.color;
+    ctx.lineWidth = g.depth ? 1.2 : 1.6;
+    if(st.dash) ctx.setLineDash(st.dash);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if(!g.label) return;
+    if(sr.w < 64 || sr.h < 28) return;   // 枠が画面上で小さすぎるときは見出しを出さない
+
+    // 見出しの札。枠の上端に確保した余白（headerH）の中に納まる大きさで描く。
+    // 入れ子が深いと縮小時に札どうしが重なるので、余白が足りないときは
+    // 一番外側の枠だけ枠の外（上）に出し、内側の枠の札は描かない。
+    var band = (g.headerH||56)*state.view.k;
+    var chipH = ARCH_CHIP_H, inside = true;
+    if(band < ARCH_CHIP_H+8){
+      if(band >= ARCH_CHIP_MIN_H+6) chipH = clamp(band-6, ARCH_CHIP_MIN_H, ARCH_CHIP_H);
+      else if(g.depth===0) inside = false;    // 一番外側の枠は、枠の上に場所がある
+      else return;                            // 内側の枠は札を描かない（重なるため）
+    }
+    var fontPx = clamp(chipH*0.54, 9, 12.5);
+    var iconPx = Math.round(chipH*0.6);
+    var iconW = st.icon ? iconPx+6 : 0;
+    var labelFont = '700 '+fontPx.toFixed(2)+'px '+FONT_STACK;
+    var subFont = '400 '+(fontPx*0.88).toFixed(2)+'px '+FONT_STACK;
+    var labelW = measureCached(ctx, g.label, labelFont);
+    var subW = g.sub ? measureCached(ctx, g.sub, subFont)+9 : 0;   // 8px の間隔 ＋ 丸め誤差の 1px
+    var padX = Math.round(chipH*0.42);
+    var chipW = Math.min(Math.max(40, padX*2+iconW+labelW+subW), Math.max(40, sr.w-16));
+    var cx = sr.x+8, cy = inside ? sr.y+Math.max(3,(band-chipH)/2) : sr.y-chipH-5;
+    roundRectPath(ctx, cx, cy, chipW, chipH, Math.min(8, chipH/3));
+    ctx.fillStyle = 'rgba(255,255,255,.94)'; ctx.fill();
+    ctx.strokeStyle = st.color; ctx.lineWidth = 1; ctx.stroke();
+
+    var tx = cx+padX;
+    if(st.icon){
+      ctx.save();
+      ctx.strokeStyle = st.color; ctx.lineWidth = 1.8; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.translate(tx, cy+chipH/2-iconPx/2);
+      ctx.scale(iconPx/24, iconPx/24);
+      ctx.stroke(getIconPath(st.icon));
+      ctx.restore();
+      tx += iconW;
+    }
+    var textMaxW = Math.max(4, cx+chipW-padX-tx);
+    ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.font = labelFont;
+    ctx.fillStyle = st.color;
+    var lw = Math.min(labelW, textMaxW);
+    ctx.fillText(truncateText(ctx, g.label, labelFont, textMaxW), tx, cy+chipH/2+0.5);
+    if(g.sub && textMaxW-lw > 24){
+      ctx.font = subFont;
+      ctx.fillStyle = '#8A93A3';
+      ctx.fillText(truncateText(ctx, g.sub, subFont, textMaxW-lw-8), tx+lw+8, cy+chipH/2+0.5);
+    }
+    ctx.textBaseline='alphabetic';
+    rt.groupLabelHitRects.push({ x:cx, y:cy, w:chipW, h:chipH, group:g });
   }
 
   // 既存の破線グループ枠（画面遷移図・機能一覧・データフローのステップのグルーピング用）

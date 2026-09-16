@@ -33,6 +33,7 @@ viewer-src/
       40-biz.json         ← { "modes": { "biz": {…} } }
       50-er.json          ← { "modes": { "er": {…} } }
       60-dfd.json         ← { "modes": { "dfd": {…} } }
+      70-arch.json        ← { "modes": { "arch": {…} } }
 ```
 
 - 入力は **`model.json` か `model/` のどちらか一方**。両方存在する場合はどちらを使うか
@@ -64,7 +65,7 @@ viewer-src/
 
 ```jsonc
 {
-  "meta": { "title": "…", "subtitle": "…", "statusNote": "…（任意）", "modeOrder": ["concept", "biz", "gallery", "flow", "er", "dfd", "jobflow"] },
+  "meta": { "title": "…", "subtitle": "…", "statusNote": "…（任意）", "modeOrder": ["concept", "biz", "gallery", "flow", "er", "dfd", "jobflow", "arch"] },
   "screens": [ Screen, … ],
   "batches": [ Batch, … ],
   "groups": [ Group, … ],
@@ -75,17 +76,18 @@ viewer-src/
     "flow":    { "label": "画面遷移図", "desc": "…", "nodes": [FlowNode], "edges": [Edge], "legend": [Legend], "toggles": [Toggle] },
     "jobflow": { "label": "ジョブフロー", "desc": "…", "lanes": [Lane], "phases": [Phase], "nodes": [JobNode], "edges": [Edge], "legend": [Legend] },
     "er":      { "label": "ER図",       "desc": "…", "nodes": [ErNode],      "edges": [Edge], "legend": [Legend] },
-    "dfd":     { "label": "データフロー", "desc": "…", "nodes": [DfdNode],     "edges": [Edge], "legend": [Legend], "steps": [Step], "arrange": "elk | steps" }
+    "dfd":     { "label": "データフロー", "desc": "…", "nodes": [DfdNode],     "edges": [Edge], "legend": [Legend], "steps": [Step], "arrange": "elk | steps" },
+    "arch":    { "label": "構成図",     "desc": "…", "containers": [Container], "nodes": [ArchNode], "edges": [Edge], "legend": [Legend], "direction": "right | down" }
   }
 }
 ```
 
 - `meta.title` は必須。`subtitle` / `statusNote` は任意（`statusNote` は「作成中」等の一言を
   タイトルカードに表示する用途）。
-- `modes` の 7 モードはすべて省略可。無いモードはビューアのモード切替ボタンに出ない。
-- モード切替ボタンの表示名は各モードの `label`（省略時の既定名は 概念図 / 業務フロー / 機能一覧 / 画面遷移図 / ER図 / データフロー / ジョブフロー）。
+- `modes` の 8 モードはすべて省略可。無いモードはビューアのモード切替ボタンに出ない。
+- モード切替ボタンの表示名は各モードの `label`（省略時の既定名は 概念図 / 業務フロー / 機能一覧 / 画面遷移図 / ER図 / データフロー / ジョブフロー / 構成図）。
   並び順は `meta.modeOrder`（任意。モードのキーの配列）で指定でき、書かなかったモードは既定順
-  （concept, biz, gallery, flow, er, dfd, jobflow）で後ろに続く。数字キー 1〜n はボタンの並び順に対応する。
+  （concept, biz, gallery, flow, er, dfd, jobflow, arch）で後ろに続く。数字キー 1〜n はボタンの並び順に対応する。
 - `screens` / `groups` は `modes.flow` や `modes.gallery` が無くても、画面一覧・詳細パネルの
   メタ情報として使われるので用意しておくとよい。
 
@@ -517,6 +519,98 @@ gallery はこの順に左→右（棚詰めで折り返し）のブロックと
 
 - 仕様書に異常時の扱いが無い場合は `ng` の辺・分岐を推測で描かず、ノードの `info` やバッチの `notes` に「未確定」と書く。
 
+### 6.5 `modes.arch`（構成図）
+
+AWS のようなクラウド上のシステム構成を、入れ子の枠（クラウド › VPC › アベイラビリティゾーン › サブネット）に
+サービスを置いて描く。枠は `containers[]`、その中に置くものは `nodes[]` で、`nodes[].container` で所属を指す。
+**枠の入れ子は `containers[].parent` だけで決まり、座標は書かない**（ELK の階層レイアウトが枠の中と外をまとめて解く）。
+
+```jsonc
+"arch": {
+  "label": "構成図", "desc": "…",
+  "containers": [
+    { "id": "AWS",  "kind": "cloud",           "label": "AWS アカウント", "sub": "ap-northeast-1" },
+    { "id": "VPC",  "kind": "vpc",  "parent": "AWS", "label": "VPC", "sub": "10.0.0.0/16" },
+    { "id": "AZ1",  "kind": "az",   "parent": "VPC", "label": "アベイラビリティゾーン a" },
+    { "id": "PUB1", "kind": "subnet-public",  "parent": "AZ1", "label": "パブリックサブネット", "sub": "10.0.1.0/24" },
+    { "id": "PRI1", "kind": "subnet-private", "parent": "AZ1", "label": "プライベートサブネット", "sub": "10.0.11.0/24" }
+  ],
+  "nodes": [
+    { "id": "USER", "variant": "ext", "icon": "user", "label": "利用者", "sub": "社内 PC のブラウザ" },
+    { "id": "ALB",  "variant": "service", "container": "PUB1", "icon": "lb",
+      "service": "Elastic Load Balancing（ALB）", "label": "ロードバランサー", "sub": "HTTPS 443",
+      "info": ["2 つの AZ に振り分ける。"], "spec": ["（非機能要件）: …"], "notes": ["…"] },
+    { "id": "APP",  "variant": "compute", "container": "PRI1", "icon": "srv",
+      "service": "Amazon ECS on AWS Fargate", "label": "アプリケーション" },
+    { "id": "DB",   "variant": "store", "container": "PRI1", "icon": "db",
+      "service": "Amazon RDS for PostgreSQL", "label": "業務データベース" }
+  ],
+  "edges": [
+    { "from": "USER", "to": "ALB", "type": "flow", "label": "HTTPS" },
+    { "from": "APP",  "to": "DB",  "type": "flow", "label": "SQL" }
+  ],
+  "legend": [ { "type": "flow", "label": "通信" }, { "type": "system", "label": "非同期・連携" } ]
+}
+```
+
+`containers[]`:
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | ○ | 枠の一意 id。`nodes[].id` と重複させない（エラー） |
+| `label` | string | 推奨 | 枠の名前（見出しの札に出る） |
+| `sub` | string | - | 補足（リージョン名・CIDR など。札の名前の右に小さく出る） |
+| `kind` | string | - | 枠の種類。色・線種が変わる。既定 `group` |
+| `parent` | string | - | 外側の枠の `id`。省略すると一番外側（循環・自分自身はエラー） |
+| `info` | string[] | - | 補足（現在はビューアに出さない。将来の枠の詳細表示用） |
+
+`kind` の集合（左が外側で使うものの目安）:
+
+| `kind` | 枠線 | 用途 |
+|---|---|---|
+| `cloud` | 橙の実線 | クラウド全体・アカウント |
+| `region` | 青の破線 | リージョン |
+| `vpc` | 紫の実線 | VPC |
+| `az` | 灰の破線 | アベイラビリティゾーン |
+| `subnet-public` | 緑の実線 | パブリックサブネット |
+| `subnet-private` | 青の実線 | プライベートサブネット |
+| `onprem` | 茶の実線 | オンプレミス・社内ネットワーク |
+| `group` | 灰の破線（既定） | その他のまとまり（外部サービス群など） |
+
+`nodes[]`:
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | ○ | ノードの一意 id |
+| `label` | string | ○ | 図に描く名前（役割で書く。例: 「ロードバランサー」） |
+| `variant` | string | - | `service`（マネージドサービス。紫）\| `compute`（サーバー・コンテナ・関数。橙）\| `store`（DB・ストレージ。緑）\| `ext`（利用者・外部システム。灰の破線）。既定 `service` |
+| `container` | string | - | 置く枠の `id`。省略すると枠の外（利用者・外部システム向け） |
+| `service` | string | - | 製品・サービス名（例: `Amazon ECS on AWS Fargate`）。カードの名前の下と詳細パネルに出る |
+| `sub` | string | - | 補足（ポート・台数・インスタンスタイプなど） |
+| `icon` | string | - | §10 のアイコン名。構成図向けに `cloud lb srv func bucket queue cdn fw key monitor net` がある |
+| `info` / `spec` / `notes` | string[] | - | 詳細パネルの「説明」「仕様」「注意」 |
+| `pin` | `{x,y}` | - | 座標の固定（§9。枠の外に出てしまうので、ふつうは使わない） |
+
+- 辺（`edges[]`）は §8 の共通形式。構成図では `flow`（通信・同期呼び出し。青の実線）と `system`（非同期・ファイル連携。紫の破線）、
+  `rel`（参照・管理関係。灰の実線）を使い分ける。**枠（`containers[].id`）を辺の端点にはできない**（エラー）。
+- `type: "weak"`（灰の破線）の辺は**層（左→右の段）の決定に使わない**。NAT ゲートウェイの経由のような
+  「流れではないつながり」を `weak` にすると、その辺のせいで枠の並びが実際の構成と逆になる（パブリックサブネットが
+  プライベートサブネットの右に来るなど）のを防げる。配置のあとに直線的な直交ルートで結ぶだけなので、
+  ほかのノード・枠を横切ることがある（業務フローの `weak` と同じ考え方。§6.2）。
+- `legend[]` は辺の線種（`{ "type": "flow", "label": "通信" }`）に加えて、ノードの種別を
+  `{ "variant": "service" | "compute" | "store" | "ext", "label": "…" }` の形で書ける
+  （カードの色の見本が出る。色が何を表すかは凡例が無いと伝わらないので書いておく）。
+- `direction`（任意）: 層の進む向き。**既定は `down`（上→下）** — AWS の構成図の慣習（利用者を上に置き、
+  ロードバランサー → アプリケーション → データベース と下へ降りる）に合わせてある。横に流したいときだけ `right` を指定する。
+- 図の読みやすさは枠の入れ子の深さと辺の本数で決まる。AZ をまたぐ冗長構成は、AZ ごとの枠に同じ役割のノードを
+  並べて書く（`ALB-A` / `ALB-C` のように id を分ける）。ノードは 40 個程度までを目安にし、
+  それ以上になるならサブシステムごとに分ける。
+- **並列に置きたい枠（ゾーン a とゾーン c など）をまたぐ辺は `weak` にする。** 層は辺で決まるので、
+  ゾーンをまたぐ辺を `flow` のままにすると、片方のゾーンがもう片方の下（`direction: "right"` なら右）に
+  積まれて横に並ばない。レプリケーションやゾーンをまたぐ参照は、AWS の構成図でも破線で描く慣習に合う。
+- **仕様書に無い構成を描かない。** 冗長化・バックアップ・監視などが仕様書に書かれていなければ、推測でノードを足さず
+  `notes` や `meta.statusNote` に「未確定」と書く。
+
 ## 7. `modes.er`（ER図）
 
 ```jsonc
@@ -596,8 +690,13 @@ v1 の `data.js` からの移植時はこの 2 プロパティを削除してよ
 
 ## 10. icon 名の集合
 
-`icon` に指定できる名前は v1 と同じ固定集合:
+`icon` に指定できる名前は固定集合:
 `chat bell team cal bot apps search inbox doc check tag user flow db spark shield gear plus back list send warn clock`
+
+構成図（§6.5）向けに次のアイコンも使える（AWS 公式アイコンではなく、他と同じ線画で描いた汎用の記号）:
+`cloud`（クラウド）`lb`（ロードバランサー）`srv`（サーバー・コンテナ）`func`（関数・イベント処理）
+`bucket`（オブジェクトストレージ）`queue`（キュー・メッセージ）`cdn`（CDN・インターネット）`fw`（ファイアウォール・WAF）
+`key`（鍵・シークレット）`monitor`（監視・メトリクス）`net`（ネットワーク・ルーティング）
 
 ## 11. 最小の例
 
@@ -650,6 +749,9 @@ v1 の `data.js` からの移植時はこの 2 プロパティを削除してよ
 - `modes.flow.layout` / `edgeStyle` / `arrange` / `attachSide` の未知の値、`nudge` / `attachGap` / `layoutOptions` の型違い、
   `attachTo` の未知 id・連鎖（`layout: "elk"` 以外で使うと警告）
 - `modes.flow.hubGroup` が未知の group を参照している（エラー）、`arrange: "groups"` 以外で使っている（警告）
+- arch の `containers` の id の欠落・重複、`parent` の未知参照・自分自身・循環、`nodes[].container` の未知参照、
+  ノード id と枠 id の重複、枠を端点にした辺、`direction` の未知の値（エラー）。
+  `kind` / `variant` / `icon` の未知の値、`label` の欠落（警告）
 - `screens/<ID>.html` が無い（警告のみ）
 - 必須項目（`meta.title`、`screens[].id/title`、`groups[].id/label`、各ノードの `id` など）の欠落
 

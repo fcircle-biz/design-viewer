@@ -28,6 +28,9 @@
  * - concept / dfd: ELK layered(RIGHT・wrapping) と stress を両方試し、フィットズーム最大
  *   （重なり 0 件必須）→ 交差最小 → 総エッジ長最小の複合スコアで採用する方を選ぶ。
  * - er: ELK layered(RIGHT)。FK 辺は行位置に固定した FIXED_POS ポートで接続。
+ * - arch: containers[] の入れ子の枠を ELK の複合ノードにし、hierarchyHandling: INCLUDE_CHILDREN で
+ *   枠の中と外をまとめて 1 回で解く（layoutArch）。枠は groups[]（style: "arch"）として出力する。
+ *   type: "weak" の辺は ELK に渡さず（層の決定に使わず）、配置後に直交ルートを引くだけにする。
  *
  * 設計判断（flow のレーン内・レーン間の辺）:
  * 当初はレーン内も ELK layered(RIGHT) の自動配置に任せていたが、辺の少ないノードを
@@ -153,8 +156,14 @@ function labelOnRoute(route, label, rects, opts) {
   const minDist = (opts && opts.minDist) || 0;
   // opts.placed: 既に置いたラベル矩形（重ねない）。opts.endClearance: 終点（矢じり）からラベル端までの最小距離。
   // どちらも省略時は従来どおり（線分の中点のみを候補にする）。
+  // opts.preferVertical: 縦の線分を優先する（上→下に流れる構成図。既定は横の線分を優先）。
+  // ラベルは白い角丸の下地付きで描かれるので、縦線の上に置いても線と重ならない。
+  // opts.offsetSteps: 線の上に置くとどうしてもノード・枠に重なるとき、線と直角の向きへ
+  // この距離（px の配列。両向きに試す）だけずらした位置も候補にする（線の脇にラベルを置く）。
+  // ずらすほど減点するので、線の上に置ける場所があればそちらが、無ければ近い方のずらし位置が選ばれる。
   const placed = opts && opts.placed;
   const endClear = (opts && opts.endClearance) || 0;
+  const preferVertical = !!(opts && opts.preferVertical);
   const sampling = !!(placed || endClear);
   const hitsRect = (c, r, pad) => c[0] - lw / 2 - pad < r.x + r.w && c[0] + lw / 2 + pad > r.x && c[1] - lh / 2 - pad < r.y + r.h && c[1] + lh / 2 + pad > r.y;
   let best = null;
@@ -171,10 +180,17 @@ function labelOnRoute(route, label, rects, opts) {
       const along = horizontal ? lw : lh;
       const s0 = 6 + along / 2, s1 = len - (isLast ? endClear : 6) - along / 2;
       const fits = s1 >= s0;
+      // 線と直角の向きへずらす量（0 と、指定された各距離の両向き）
+      const offs = [0];
+      ((opts && opts.offsetSteps) || []).forEach(m => { offs.push(-m, m); });
       [0.5, 0.3, 0.7, 0.15, 0.85].forEach(t => {
         const d = fits ? Math.min(s1, Math.max(s0, len * t)) : len / 2;
         const u = d / len;
-        cands.push({ c: [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u], fits, t });
+        const p = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+        offs.forEach(off => {
+          const c = horizontal ? [p[0], p[1] + off] : [p[0] + off, p[1]];
+          cands.push({ c, fits, t, off });
+        });
       });
     }
     for (const cand of cands) {
@@ -182,7 +198,9 @@ function labelOnRoute(route, label, rects, opts) {
       const hits = rects.some(r => hitsRect(c, r, 0));
       const near = avoidRect ? distToRect(c, avoidRect) < minDist : false;
       const collide = placed ? placed.some(r => hitsRect(c, r, 4)) : false;
-      const score = (hits ? 0 : 1e6) + (collide ? 0 : 5e5) + (near ? 0 : 3e5) + (horizontal ? 1e5 : 0) + (cand.fits ? 5e4 : 0)
+      const preferred = preferVertical ? !horizontal : horizontal;
+      const score = (hits ? 0 : 1e6) + (collide ? 0 : 5e5) + (near ? 0 : 3e5) + (preferred ? 1e5 : 0)
+        + Math.max(0, 2e4 - Math.abs(cand.off || 0) * 100) + (cand.fits ? 5e4 : 0)
         + Math.min(len, 4e4) - (cand.t != null ? Math.abs(cand.t - 0.5) * 10 : 0);
       if (!best || score > best.score) best = { c, score };
     }
@@ -1869,6 +1887,248 @@ function layoutSwimlane(biz, warnings, modeName) {
   return { label: biz.label, desc: biz.desc, legend: biz.legend, bounds, groups, phases, nodes, edges };
 }
 
+// ---------- arch（構成図。入れ子のコンテナ + ELK 階層レイアウト） ----------
+// AWS のような「クラウド › VPC › AZ › サブネット」の入れ子の枠にサービスを置く図。
+// 枠（containers[]）を ELK の複合ノード（children を持つノード）にして、
+// hierarchyHandling: INCLUDE_CHILDREN で枠の中も外もまとめて 1 回で解く
+// （枠ごとに別々に解くと、枠をまたぐ辺が枠を横切る位置を制御できない）。
+// ELK の座標は親からの相対なので、結果の木をたどって絶対座標へ直す。
+// 枠は groups[]（style: "arch"）として出力し、ビューアは depth の小さい順（外側から）に描く。
+const ARCH_W = 240, ARCH_H = 96;
+// 枠の内側の余白。top は見出しの札（ラベル・補足）の分だけ広くとる
+const ARCH_PAD = { top: 56, side: 28, bottom: 28 };
+const ARCH_MAX_DEPTH = 8;
+// 辺ラベルが置けないときに線の脇へずらす距離。18px は線をよける程度、
+// ARCH_H/2+26 はカード 1 枚を越えて空いた場所へ出すため（構成図は枠が詰まっていて、
+// 線の上にラベルを置けないことがある）
+const ARCH_LABEL_OFFSETS = [18, ARCH_H / 2 + 26];
+
+/**
+ * containers[] を親子の木にする。parent が未知・自分自身・循環になっているものは
+ * 根（枠の外）に付け替えて警告する（validate.js でもエラーにしているが、ここでも落ちないようにする）。
+ * 戻り値: { byId, rootContainers, childContainers, depthOf }
+ */
+function buildArchTree(containersIn, warnings) {
+  const byId = new Map();
+  containersIn.forEach((c) => { if (c && c.id && !byId.has(c.id)) byId.set(c.id, c); });
+  const parentOf = new Map();
+  byId.forEach((c, id) => {
+    let p = c.parent;
+    if (p === id) { warnings.push(`arch: containers.${id}.parent が自分自身を指しています。枠の外に置きます`); p = null; }
+    if (p && !byId.has(p)) { warnings.push(`arch: containers.${id}.parent が未知の枠を参照しています: ${p}。枠の外に置きます`); p = null; }
+    parentOf.set(id, p || null);
+  });
+  // 循環（A→B→A）は根に付け替える
+  byId.forEach((c, id) => {
+    const seen = new Set([id]);
+    let p = parentOf.get(id);
+    while (p) {
+      if (seen.has(p)) { warnings.push(`arch: containers の parent が循環しています（${id}）。枠の外に置きます`); parentOf.set(id, null); break; }
+      seen.add(p);
+      p = parentOf.get(p);
+    }
+  });
+  const childContainers = new Map();   // parentId（根は null）-> [id]（記述順）
+  containersIn.forEach((c) => {
+    if (!c || !c.id || byId.get(c.id) !== c) return;
+    const p = parentOf.get(c.id);
+    const key = p || '';
+    if (!childContainers.has(key)) childContainers.set(key, []);
+    childContainers.get(key).push(c.id);
+  });
+  const depthOf = new Map();
+  byId.forEach((c, id) => {
+    let d = 0, p = parentOf.get(id);
+    while (p && d < ARCH_MAX_DEPTH) { d += 1; p = parentOf.get(p); }
+    depthOf.set(id, d);
+  });
+  return { byId, parentOf, childContainers, depthOf };
+}
+
+async function layoutArch(mode, warnings) {
+  const nodesIn = Array.isArray(mode.nodes) ? mode.nodes : [];
+  const containersIn = Array.isArray(mode.containers) ? mode.containers : [];
+  if (nodesIn.length === 0) {
+    return { label: mode.label, desc: mode.desc, legend: mode.legend, bounds: { x: 0, y: 0, w: 0, h: 0 }, nodes: [], groups: [], edges: [] };
+  }
+  const edgesIn = Array.isArray(mode.edges) ? mode.edges : [];
+  // type: "weak" の辺は層（左→右の段）の決定に使わない。ELK のグラフから外し、配置のあとに
+  // 直交ルートを引くだけにする。NAT ゲートウェイの経由・ログの送信のような「流れではないつながり」を
+  // weak にしておくと、その辺のせいで枠の並びが実際の構成と逆になるのを防げる（biz の weak と同じ考え方）。
+  const elkEdgesIn = edgesIn.filter(e => e && e.type !== 'weak');
+  const { byId, parentOf, childContainers, depthOf } = buildArchTree(containersIn, warnings);
+
+  // ノードを所属する枠ごとに分ける（container が無い・未知なら枠の外）
+  const childNodes = new Map();
+  nodesIn.forEach((n) => {
+    let c = n.container || null;
+    if (c && !byId.has(c)) { warnings.push(`arch: nodes.${n.id}.container が未知の枠を参照しています: ${c}。枠の外に置きます`); c = null; }
+    const key = c || '';
+    if (!childNodes.has(key)) childNodes.set(key, []);
+    childNodes.get(key).push(n);
+  });
+
+  // 層の間隔は辺ラベルが収まる幅（layoutFreeDiagram と同じ考え方）
+  const maxLabelW = Math.max(0, ...elkEdgesIn.map(e => (e.label ? estimateTextWidth(e.label, 11) + 18 : 0)));
+  const betweenLayers = Math.round(Math.min(220, Math.max(56, maxLabelW + 48)));
+
+  function elkNodeOf(n) { return { id: n.id, width: ARCH_W, height: ARCH_H }; }
+  function elkContainerOf(id) {
+    const kids = [
+      ...(childContainers.get(id) || []).map(elkContainerOf),
+      ...(childNodes.get(id) || []).map(elkNodeOf),
+    ];
+    return {
+      id,
+      layoutOptions: {
+        'elk.padding': `[top=${ARCH_PAD.top},left=${ARCH_PAD.side},bottom=${ARCH_PAD.bottom},right=${ARCH_PAD.side}]`,
+        'elk.spacing.nodeNode': '36',
+        'elk.layered.spacing.nodeNodeBetweenLayers': String(betweenLayers),
+      },
+      // 空の枠でも見出しの札ぶんの大きさは残す
+      ...(kids.length ? { children: kids } : { width: 260, height: ARCH_PAD.top + 40 }),
+    };
+  }
+
+  function buildGraph(direction) {
+    return {
+      id: 'root',
+      layoutOptions: {
+        'elk.algorithm': 'layered',
+        'elk.direction': direction,
+        // 枠の中と外をまとめて 1 回で解く（枠をまたぐ辺のルートもここで決まる）
+        'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+        'elk.edgeRouting': 'ORTHOGONAL',
+        'elk.spacing.nodeNode': '48',
+        'elk.layered.spacing.nodeNodeBetweenLayers': String(betweenLayers),
+        'elk.spacing.edgeNode': '18',
+        'elk.spacing.edgeEdge': '12',
+        'elk.padding': '[top=24,left=24,bottom=24,right=24]',
+        'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+      },
+      children: [
+        ...(childContainers.get('') || []).map(elkContainerOf),
+        ...(childNodes.get('') || []).map(elkNodeOf),
+      ],
+      edges: elkEdgesIn.map((e, i) => ({ id: `e${i}`, sources: [e.from], targets: [e.to] })),
+    };
+  }
+
+  async function attempt(direction) {
+    const result = await runElk(buildGraph(direction));
+    // ELK の座標は親からの相対。木をたどって絶対座標にする
+    const nodePos = new Map();
+    const containerPos = new Map();
+    const elkEdges = new Map();
+    (function walk(elkNode, offX, offY) {
+      (elkNode.edges || []).forEach((re) => { elkEdges.set(re.id, re); });
+      (elkNode.children || []).forEach((ch) => {
+        const x = offX + (ch.x || 0), y = offY + (ch.y || 0);
+        const rect = { x, y, w: ch.width || 0, h: ch.height || 0 };
+        if (byId.has(ch.id)) { containerPos.set(ch.id, rect); walk(ch, x, y); }
+        else nodePos.set(ch.id, rect);
+      });
+    })(result, 0, 0);
+    // 枠を含めた大きさで、どれだけ大きくフィットできるか（読みやすさの目安）
+    const allRects = new Map();
+    nodePos.forEach((r, id) => allRects.set(id, r));
+    containerPos.forEach((r, id) => allRects.set('g:' + id, r));
+    const bounds = boundsOfPosMap(allRects);
+    const fit = fitZoom(bounds);
+    const crossings = countCrossings(nodePos, elkEdgesIn);
+    const length = totalRouteLength(result, nodePos, elkEdgesIn);
+    const perEdge = length / Math.max(1, elkEdgesIn.length);
+    const score = (FIT_READABLE - Math.min(fit, FIT_READABLE)) * 2000 + crossings * 10 + perEdge / 10;
+    return { direction, result, nodePos, containerPos, elkEdges, bounds, fit, crossings, score };
+  }
+
+  // 向き（層の進む方向）は上→下が既定。AWS の構成図の慣習（利用者を上に置き、
+  // ロードバランサー → アプリケーション → データベース と下へ降りる）に合わせる。
+  // 横に並べたいときだけ model で direction: "right" を指定する。
+  const chosen = await attempt(mode.direction === 'right' ? 'RIGHT' : 'DOWN');
+  if (process.env.DV_DEBUG_ARCH) console.log(`[layout] arch ${chosen.direction}: ${Math.round(chosen.bounds.w)}x${Math.round(chosen.bounds.h)} fit ${(chosen.fit*100).toFixed(0)}% 交差 ${chosen.crossings}`);
+  const { nodePos, containerPos, elkEdges } = chosen;
+
+  // 辺のルートの座標は「両端の最小共通の枠」からの相対（ELK の階層レイアウトの仕様。
+  // 辺オブジェクト自体は宣言どおり root の edges に入ったまま返ってくるので、原点は自分で求める）。
+  const containerOfNode = new Map();
+  nodesIn.forEach((n) => { const c = n.container; containerOfNode.set(n.id, c && byId.has(c) ? c : null); });
+  function ancestorsOf(nodeId) {          // 外側の枠から順（root は含めない）
+    const chain = [];
+    let c = containerOfNode.get(nodeId) || null;
+    while (c) { chain.unshift(c); c = parentOf.get(c) || null; }
+    return chain;
+  }
+  function edgeOrigin(fromId, toId) {
+    const a = ancestorsOf(fromId), b = ancestorsOf(toId);
+    let lca = null;
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      if (a[i] !== b[i]) break;
+      lca = a[i];
+    }
+    return (lca && containerPos.get(lca)) || { x: 0, y: 0 };
+  }
+
+  const nodes = nodesIn.map((n) => {
+    const p = nodePos.get(n.id) || { x: 0, y: 0, w: ARCH_W, h: ARCH_H };
+    const node = { id: n.id, kind: 'arch', x: p.x, y: p.y, w: p.w, h: p.h };
+    Object.keys(n).forEach((k) => { if (!['id', 'kind', 'pin', 'x', 'y', 'w', 'h'].includes(k)) node[k] = n[k]; });
+    node.pin = n.pin;
+    return node;
+  });
+
+  // 辺ラベルを置くときに避ける矩形: ノードと、枠の上端の見出しの帯（札を描く場所）
+  const nodeRects = [...nodePos.values()];
+  const labelAvoidRects = nodeRects.concat(
+    [...containerPos.values()].map(r => ({ x: r.x, y: r.y, w: r.w, h: Math.min(ARCH_PAD.top, r.h) }))
+  );
+  const placedLabels = [];
+  const elkEdgeIdOf = new Map(elkEdgesIn.map((e, i) => [e, `e${i}`]));
+  const edges = edgesIn.map((e) => {
+    const re = elkEdges.get(elkEdgeIdOf.get(e));
+    const route = re ? flattenSection(re.sections && re.sections[0]) : null;
+    const org = edgeOrigin(e.from, e.to);
+    const abs = route ? route.map(([x, y]) => [x + org.x, y + org.y]) : null;
+    const a = nodePos.get(e.from), b = nodePos.get(e.to);
+    const fallback = a && b ? simpleOrthogonalRoute(a, b) : [[0, 0], [1, 1]];
+    const finalRoute = abs && abs.length >= 2 ? abs : fallback;
+    return {
+      from: e.from, to: e.to, label: e.label, type: e.type,
+      fromLabel: e.fromLabel, toLabel: e.toLabel,
+      route: finalRoute,
+      labelAt: !e.label ? undefined
+        : labelOnRoute(finalRoute, e.label, labelAvoidRects, {
+          placed: placedLabels, endClearance: LABEL_ARROW_CLEARANCE,
+          preferVertical: chosen.direction === 'DOWN', offsetSteps: ARCH_LABEL_OFFSETS,
+        }),
+    };
+  });
+
+  const finalEdges = applyPins(nodes, edges, null, warnings, 'arch');
+  const finalNodes = nodes.map(({ pin, ...rest }) => rest);
+
+  // 枠は外側から描く（入れ子の内側があとに来るように depth の昇順）
+  const groups = containersIn
+    .filter(c => c && c.id && containerPos.has(c.id))
+    .map((c) => {
+      const p = containerPos.get(c.id);
+      return {
+        id: c.id, style: 'arch', kind: c.kind || 'group', label: c.label || c.id, sub: c.sub,
+        parent: parentOf.get(c.id) || undefined, depth: depthOf.get(c.id) || 0,
+        headerH: ARCH_PAD.top, info: c.info,
+        x: p.x, y: p.y, w: p.w, h: p.h,
+      };
+    })
+    .sort((a, b) => a.depth - b.depth);
+
+  const bounds = computeBounds(finalNodes, groups, finalEdges);
+  return {
+    label: mode.label, desc: mode.desc, legend: mode.legend,
+    bounds, nodes: finalNodes, groups, edges: finalEdges,
+    _direction: chosen.direction, _fitZoom: chosen.fit, _crossings: chosen.crossings,
+  };
+}
+
 // ---------- er（layered、FIXED_POS ポート） ----------
 async function layoutEr(mode, warnings) {
   const nodesIn = Array.isArray(mode.nodes) ? mode.nodes : [];
@@ -2010,6 +2270,11 @@ async function computeLayout(model) {
     if (modesIn.dfd.steps) modes.dfd.steps = modesIn.dfd.steps;
     timings.dfd = Date.now() - t;
   }
+  if (modesIn.arch) {
+    t = Date.now();
+    modes.arch = await layoutArch(modesIn.arch, warnings);
+    timings.arch = Date.now() - t;
+  }
 
   const data = {
     version: 2,
@@ -2064,6 +2329,8 @@ if (require.main === module) {
         const o = v._other;
         console.log(`[layout] ${k}: ${v._algorithm} を採用（fitZoom ${(v._fitZoom * 100).toFixed(0)}%・交差 ${v._crossings}・重なり ${v._overlaps}`
           + (o ? `、比較対象 ${o.algorithm}: fitZoom ${(o.fitZoom * 100).toFixed(0)}%・交差 ${o.crossings}・重なり ${o.overlaps}）` : '）'));
+      } else if (k === 'arch') {
+        console.log(`[layout] arch: 枠 ${v.groups.length}・ノード ${v.nodes.length}・辺 ${v.edges.length}（bounds ${Math.round(v.bounds.w)}x${Math.round(v.bounds.h)}）`);
       } else if (k === 'biz' || k === 'jobflow') {
         console.log(`[layout] ${k}: アクター ${v.groups.length}・フェーズ ${v.phases.length}・ノード ${v.nodes.length}・辺 ${v.edges.length}（bounds ${Math.round(v.bounds.w)}x${Math.round(v.bounds.h)}）`);
       }
