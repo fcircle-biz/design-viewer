@@ -14,8 +14,8 @@
   // ---------------------------------------------------------
   // 定数
   // ---------------------------------------------------------
-  var MODE_LABEL_JA = { flow:'画面遷移図', gallery:'機能一覧', concept:'概念図', biz:'業務フロー', jobflow:'ジョブフロー', er:'ER図', dfd:'データフロー' };
-  var MODE_MAX_K = { flow:0.6, gallery:0.6, concept:1.4, biz:1.4, jobflow:1.4, er:1.4, dfd:1.4 };
+  var MODE_LABEL_JA = { flow:'画面遷移図', gallery:'機能一覧', concept:'概念図', biz:'業務フロー', jobflow:'ジョブフロー', er:'ER図', dfd:'データフロー', arch:'構成図' };
+  var MODE_MAX_K = { flow:0.6, gallery:0.6, concept:1.4, biz:1.4, jobflow:1.4, er:1.4, dfd:1.4, arch:1.4 };
   var MIN_K = 0.02, MAX_K = 4.0;
   var EDGE_COLOR = {
     user:'#3B6FF5', system:'#8B5CF6', nav:'#A3ABB9', start:'#64748B',
@@ -25,10 +25,10 @@
     system:[7,6], weak:[7,6], nav:[1.5,7], ng:[7,6]
   };
   var EDGE_ALPHA = { start:0.72 };
-  var KIND_LABEL_JA = { pill:'開始点', concept:'概念', biz:'業務ステップ', job:'ジョブ', batch:'バッチ', er:'テーブル（リスト）', dfd:'処理・データストア・外部' };
+  var KIND_LABEL_JA = { pill:'開始点', concept:'概念', biz:'業務ステップ', job:'ジョブ', batch:'バッチ', er:'テーブル（リスト）', dfd:'処理・データストア・外部', arch:'構成要素' };
   var LOD_BUCKETS = [0.25,0.5,1,2];
   var LIVE_MIN_PX = 300;      // 画面ノードの表示幅（デバイス px）がこれ以上で「大」サムネイル
-  var TEXT_MIN_SCALE = 0.3;   // concept/biz/job/er/dfd: 表示倍率×DPR がこれ未満なら文字を描かず箱だけ
+  var TEXT_MIN_SCALE = 0.3;   // concept/biz/job/er/dfd/arch: 表示倍率×DPR がこれ未満なら文字を描かず箱だけ
   var EDGE_LABEL_MIN_K = 0.14;
   var CARD_TITLE_MIN_PX = 12;  // layout: "elk" の画面カード見出しの最小文字サイズ（これ未満ならカード上に出す）
   var RASTER_CACHE_MAX = 300;
@@ -60,7 +60,19 @@
     list: [['path','M9 6.5h11M9 12h11M9 17.5h11'],['circle',4.3,6.5,1.1],['circle',4.3,12,1.1],['circle',4.3,17.5,1.1]],
     send: [['path','M4.5 12 20 4.5 15 19.5 11.2 13 4.5 12Z'],['path','M11.2 13 15 19.5']],
     warn: [['path','M12 4 21 19.5H3Z'],['path','M12 10.2v4'],['circle',12,16.8,0.9]],
-    clock: [['circle',12,12,8.5],['path','M12 7v5.2l3.4 2']]
+    clock: [['circle',12,12,8.5],['path','M12 7v5.2l3.4 2']],
+    // 構成図（modes.arch）用。AWS 公式アイコンではなく、他のアイコンと同じ線画で描いた汎用の記号
+    cloud: [['path','M7.6 18.5h8.9a3.9 3.9 0 0 0 .6-7.75 5.3 5.3 0 0 0-10-1.55A4.15 4.15 0 0 0 7.6 18.5Z']],
+    lb: [['circle',12,5.2,2.2],['path','M12 7.4v3.6'],['path','M5.5 15.8v-2.7h13v2.7'],['circle',5.5,18,2.2],['circle',12,18,2.2],['circle',18.5,18,2.2]],
+    srv: [['rect',3.5,4.5,17,6,1.4],['rect',3.5,13.5,17,6,1.4],['circle',7,7.5,0.9],['circle',7,16.5,0.9],['path','M11 7.5h6M11 16.5h6']],
+    func: [['path','M13.2 3.5 6 13.8h4.9l-1.3 6.7 7.4-10.5h-5.1l1.3-6.5Z']],
+    bucket: [['path','M4.8 6.6h14.4l-1.5 12a1.6 1.6 0 0 1-1.6 1.4H7.9a1.6 1.6 0 0 1-1.6-1.4L4.8 6.6Z'],['path','M3.5 6.6h17'],['path','M6.6 12.6h10.8']],
+    queue: [['rect',3.4,8,4.6,8,1.2],['rect',9.7,8,4.6,8,1.2],['rect',16,8,4.6,8,1.2]],
+    cdn: [['circle',12,12,8.5],['path','M3.5 12h17'],['path','M12 3.5c2.7 2.8 2.7 14.2 0 17'],['path','M12 3.5c-2.7 2.8-2.7 14.2 0 17']],
+    fw: [['rect',3.5,5.5,17,13,1.4],['path','M3.5 10h17M3.5 14.5h17'],['path','M9.5 5.5V10M15 10v4.5M9.5 14.5v4']],
+    key: [['circle',8.6,15.2,3.8],['path','M11.3 12.5 19.5 4.3'],['path','M16.6 7.2l2.2 2.2'],['path','M19.5 4.3l1.6 1.6']],
+    monitor: [['path','M3.8 4.5v15.7h16.4'],['path','M7 16.5l3.4-4.6 2.8 2.6 3.2-5.4 2.6 3.4']],
+    net: [['rect',3.5,3.5,6.8,6.8,1.3],['rect',13.7,13.7,6.8,6.8,1.3],['path','M10.3 6.9h4.4a2 2 0 0 1 2 2v4.8'],['path','M6.9 10.3v4.4a2 2 0 0 0 2 2h4.8']]
   };
   var iconPathCache = new Map();
   function getIconPath(name){

@@ -2,7 +2,7 @@
   'use strict';
   var DV = window.DV;
   var rt = DV.rt;
-  // ノード種別（pill/concept/biz/job/er/dfd）ごとの図形ラスタ描画。
+  // ノード種別（pill/concept/biz/job/er/dfd/arch）ごとの図形ラスタ描画。
   // --- import ---
   var getIconPath, clamp, roundRectPath, measureCached, truncateText, wrapCharLines, state, FONT_STACK;
   DV.links.push(function(){
@@ -18,6 +18,7 @@
     else if(entry.kind==='job') drawJobContent(ctx, n, w, h, noText);
     else if(entry.kind==='er') drawErContent(ctx, n, w, h);
     else if(entry.kind==='dfd') drawDfdContent(ctx, n, w, h);
+    else if(entry.kind==='arch') drawArchContent(ctx, n, w, h);
   }
 
   function drawPillContent(ctx, n, w, h){
@@ -390,7 +391,66 @@
       ctx.fillText(truncateText(ctx,n.sub,ctx.font,maxW), textX, h/2+15);
     }
   }
+  // ---------------------------------------------------------
+  // arch（構成図）ノード
+  // ---------------------------------------------------------
+  // variant: service（マネージドサービス）| compute（サーバー・コンテナ・関数）|
+  //          store（データベース・ストレージ）| ext（利用者・外部システム。枠の外に置く。破線）
+  // カードは左にアイコンのタイル、右に 名称 / サービス名（service）/ 補足（sub）。
+  var ARCH_VARIANT_COLOR = {
+    service:{ tile:'#F1EAFE', fg:'#7C3AED', border:'#CDB6F6' },
+    compute:{ tile:'#FFF1E6', fg:'#C2410C', border:'#F0C29B' },
+    store:  { tile:'#E7F5F2', fg:'#0F766E', border:'#8CCBC0' },
+    ext:    { tile:'#F1F3F7', fg:'#5B6472', border:'#CBD5E1', dash:[6,4] }
+  };
+  var ARCH_MINIMAP_COLOR = {
+    service:'rgba(124,58,237,.55)', compute:'rgba(194,65,12,.55)',
+    store:'rgba(15,118,110,.55)', ext:'rgba(91,100,114,.5)'
+  };
+  var ARCH_DOT_COLOR = { service:'#7C3AED', compute:'#C2410C', store:'#0F766E', ext:'#5B6472' };
+  function drawArchContent(ctx, n, w, h){
+    var variant = n.variant||'service';
+    var col = ARCH_VARIANT_COLOR[variant] || ARCH_VARIANT_COLOR.service;
+    roundRectPath(ctx,0.75,0.75,w-1.5,h-1.5,14);
+    ctx.fillStyle = '#FFFFFF'; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = col.border;
+    if(col.dash) ctx.setLineDash(col.dash);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    var pad = 14, tile = 44;
+    var ty = h/2-tile/2;
+    roundRectPath(ctx,pad,ty,tile,tile,11);
+    ctx.fillStyle = col.tile; ctx.fill();
+    ctx.save();
+    ctx.strokeStyle = col.fg; ctx.lineWidth = 1.8; ctx.lineCap='round'; ctx.lineJoin='round';
+    var iconSize = 24, ip = getIconPath(n.icon);
+    ctx.translate(pad+tile/2-iconSize/2, ty+tile/2-iconSize/2);
+    ctx.scale(iconSize/24, iconSize/24);
+    ctx.stroke(ip);
+    ctx.restore();
+
+    var textX = pad+tile+12, maxW = w-textX-14;
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    var smalls = [];
+    if(n.service) smalls.push({ text:n.service, color:col.fg });
+    if(n.sub) smalls.push({ text:n.sub, color:'#8A93A3' });
+    var labelFont = '800 14px '+FONT_STACK;
+    var lines = wrapCharLines(ctx, n.label||'', labelFont, maxW, smalls.length ? 1 : 2);
+    var lh = 18, sh = 14;
+    var blockH = lines.length*lh + smalls.length*sh;
+    var top = h/2-blockH/2;
+    ctx.fillStyle = '#1A2029'; ctx.font = labelFont;
+    lines.forEach(function(line,i){ ctx.fillText(line, textX, top+lh*(i+1)-5); });
+    var smallFont = '500 10.5px '+FONT_STACK;
+    ctx.font = smallFont;
+    smalls.forEach(function(sm,i){
+      ctx.fillStyle = sm.color;
+      ctx.fillText(truncateText(ctx, sm.text, smallFont, maxW), textX, top+lines.length*lh+sh*(i+1)-4);
+    });
+  }
+
   // --- body end ---
   // --- export ---
-  DV.drawNodeRasterContent = drawNodeRasterContent; DV.BIZ_MINIMAP_COLOR = BIZ_MINIMAP_COLOR; DV.BIZ_DOT_COLOR = BIZ_DOT_COLOR; DV.BIZ_LABEL_WORLD_PX = BIZ_LABEL_WORLD_PX; DV.JOB_MINIMAP_COLOR = JOB_MINIMAP_COLOR; DV.JOB_DOT_COLOR = JOB_DOT_COLOR; DV.drawBizLabelOverlay = drawBizLabelOverlay; DV.CONCEPT_VARIANT_COLOR = CONCEPT_VARIANT_COLOR; DV.ER_TONE_GRAD = ER_TONE_GRAD; DV.topRoundRectPath = topRoundRectPath; DV.DFD_VARIANT_COLOR = DFD_VARIANT_COLOR;
+  DV.drawNodeRasterContent = drawNodeRasterContent; DV.BIZ_MINIMAP_COLOR = BIZ_MINIMAP_COLOR; DV.BIZ_DOT_COLOR = BIZ_DOT_COLOR; DV.BIZ_LABEL_WORLD_PX = BIZ_LABEL_WORLD_PX; DV.JOB_MINIMAP_COLOR = JOB_MINIMAP_COLOR; DV.JOB_DOT_COLOR = JOB_DOT_COLOR; DV.drawBizLabelOverlay = drawBizLabelOverlay; DV.CONCEPT_VARIANT_COLOR = CONCEPT_VARIANT_COLOR; DV.ER_TONE_GRAD = ER_TONE_GRAD; DV.topRoundRectPath = topRoundRectPath; DV.DFD_VARIANT_COLOR = DFD_VARIANT_COLOR; DV.ARCH_VARIANT_COLOR = ARCH_VARIANT_COLOR; DV.ARCH_MINIMAP_COLOR = ARCH_MINIMAP_COLOR; DV.ARCH_DOT_COLOR = ARCH_DOT_COLOR;
 })();

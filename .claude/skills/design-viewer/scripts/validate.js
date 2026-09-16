@@ -22,7 +22,13 @@ const KNOWN_BIZ_EDGE_TYPES = new Set(['flow', 'weak']);
 const KNOWN_JOB_VARIANTS = new Set(['start', 'end', 'job', 'jobnet', 'wait', 'decision']);
 const KNOWN_JOB_EDGE_TYPES = new Set(['flow', 'ng', 'weak']);
 const KNOWN_STATUSES = ['done', 'wip', 'designed', 'planned'];
-const KNOWN_MODES = ['flow', 'gallery', 'concept', 'biz', 'jobflow', 'er', 'dfd'];
+const KNOWN_MODES = ['flow', 'gallery', 'concept', 'biz', 'jobflow', 'er', 'dfd', 'arch'];
+const KNOWN_ARCH_VARIANTS = new Set(['service', 'compute', 'store', 'ext']);
+const KNOWN_ARCH_CONTAINER_KINDS = new Set(['cloud', 'region', 'vpc', 'az', 'subnet-public', 'subnet-private', 'onprem', 'group']);
+const KNOWN_ARCH_DIRECTIONS = new Set(['right', 'down']);
+// icon に使える名前（schema/model.md §10 と揃える）
+const KNOWN_ICONS = new Set(['chat', 'bell', 'team', 'cal', 'bot', 'apps', 'search', 'inbox', 'doc', 'check', 'tag', 'user', 'flow', 'db', 'spark', 'shield', 'gear', 'plus', 'back', 'list', 'send', 'warn', 'clock',
+  'cloud', 'lb', 'srv', 'func', 'bucket', 'queue', 'cdn', 'fw', 'key', 'monitor', 'net']);
 const KNOWN_ER_TONES = new Set(['blue', 'amber', 'green', 'slate', 'purple', 'teal']);
 const KNOWN_DFD_VARIANTS = new Set(['ext', 'proc', 'store']);
 const KNOWN_FIELD_KEYS = new Set(['PK', 'FK', 'UK', '']);
@@ -68,7 +74,7 @@ function validateModel(model, viewerSrcDir) {
   }
   if (model.meta && model.meta.modeOrder !== undefined) {
     if (!Array.isArray(model.meta.modeOrder)) {
-      pushWarn(warnings, 'meta.modeOrder は配列で指定してください（例: ["concept","biz","gallery","flow","er","dfd","jobflow"]）');
+      pushWarn(warnings, 'meta.modeOrder は配列で指定してください（例: ["concept","biz","gallery","flow","er","dfd","jobflow","arch"]）');
     } else {
       model.meta.modeOrder.filter(k => !KNOWN_MODES.includes(k)).forEach(k => pushWarn(warnings, `meta.modeOrder の未知のモード: ${k}`));
     }
@@ -141,7 +147,7 @@ function validateModel(model, viewerSrcDir) {
   const modes = model.modes && typeof model.modes === 'object' ? model.modes : {};
 
   // 画面・バッチの id を各モードのノード id に使うと、ビューアは同じノードとみなして種別の食い違いで表示できない
-  ['concept', 'biz', 'jobflow', 'er', 'dfd'].forEach(k => {
+  ['concept', 'biz', 'jobflow', 'er', 'dfd', 'arch'].forEach(k => {
     const ns = modes[k] && Array.isArray(modes[k].nodes) ? modes[k].nodes : [];
     ns.forEach(n => {
       if (n && batchIds.has(n.id)) pushErr(errors, `modes.${k}.nodes の id が batches の id と重複しています: ${n.id}`);
@@ -247,6 +253,11 @@ function validateModel(model, viewerSrcDir) {
     validateSwimlane('jobflow', modes.jobflow, errors, warnings, {
       variants: KNOWN_JOB_VARIANTS, edgeTypes: KNOWN_JOB_EDGE_TYPES, refField: 'batch', refIds: batchIds, refName: 'batch',
     });
+  }
+
+  // --- modes.arch（構成図） ---
+  if (modes.arch) {
+    validateArch(modes.arch, errors, warnings);
   }
 
   // --- modes.er ---
@@ -396,6 +407,66 @@ function validateSwimlane(modeName, mode, errors, warnings, opts) {
   });
   nodeEdgeCount.forEach((count, id) => {
     if (count === 0) pushWarn(warnings, `modes.${modeName}.nodes.${id} に接続する辺がありません`);
+  });
+  return nodeIds;
+}
+
+/**
+ * modes.arch（構成図）の検証。入れ子の枠（containers）の参照・循環と、ノードの所属先を見る。
+ */
+function validateArch(arch, errors, warnings) {
+  const containers = Array.isArray(arch.containers) ? arch.containers : [];
+  if (arch.containers !== undefined && !Array.isArray(arch.containers)) pushErr(errors, 'modes.arch.containers は配列である必要があります');
+  if (arch.direction !== undefined && !KNOWN_ARCH_DIRECTIONS.has(arch.direction)) {
+    pushErr(errors, `modes.arch.direction が未知です: ${arch.direction}（right | down）`);
+  }
+  const containerIds = new Set();
+  containers.forEach((c, i) => {
+    if (!c || !c.id) { pushErr(errors, `modes.arch.containers[${i}] に id がありません`); return; }
+    if (containerIds.has(c.id)) pushErr(errors, `modes.arch.containers の id が重複しています: ${c.id}`);
+    containerIds.add(c.id);
+    if (!c.label) pushWarn(warnings, `modes.arch.containers.${c.id} に label がありません`);
+    if (c.kind !== undefined && !KNOWN_ARCH_CONTAINER_KINDS.has(c.kind)) {
+      pushWarn(warnings, `modes.arch.containers.${c.id}.kind が未知です: ${c.kind}（${[...KNOWN_ARCH_CONTAINER_KINDS].join(' | ')}）`);
+    }
+  });
+  containers.forEach((c) => {
+    if (!c || !c.id || c.parent === undefined || c.parent === null) return;
+    if (c.parent === c.id) { pushErr(errors, `modes.arch.containers.${c.id}.parent が自分自身を指しています`); return; }
+    if (!containerIds.has(c.parent)) pushErr(errors, `modes.arch.containers.${c.id}.parent が未知の枠を参照しています: ${c.parent}`);
+  });
+  // parent の循環（A → B → A）
+  // 自分自身を指す parent は上で報告済みなので、循環の検査では無視する（同じことを二重に言わない）
+  const parentOf = new Map(containers.filter(c => c && c.id).map(c => [c.id, (c.parent !== c.id && containerIds.has(c.parent)) ? c.parent : null]));
+  parentOf.forEach((_p, id) => {
+    const seen = new Set([id]);
+    let cur = parentOf.get(id);
+    while (cur) {
+      if (seen.has(cur)) { pushErr(errors, `modes.arch.containers の parent が循環しています: ${id}`); return; }
+      seen.add(cur);
+      cur = parentOf.get(cur);
+    }
+  });
+
+  const nodeIds = validateGenericDiagram('arch', arch, errors, warnings, {
+    variantSet: KNOWN_ARCH_VARIANTS, variantField: 'variant',
+  });
+  (Array.isArray(arch.nodes) ? arch.nodes : []).forEach((n) => {
+    if (!n || !n.id) return;
+    if (containerIds.has(n.id)) pushErr(errors, `modes.arch.nodes の id が containers の id と重複しています: ${n.id}`);
+    if (n.container !== undefined && n.container !== null && !containerIds.has(n.container)) {
+      pushErr(errors, `modes.arch.nodes.${n.id}.container が未知の枠を参照しています: ${n.container}`);
+    }
+    if (n.icon !== undefined && !KNOWN_ICONS.has(n.icon)) {
+      pushWarn(warnings, `modes.arch.nodes.${n.id}.icon が未知です: ${n.icon}（schema/model.md §10 の一覧から選びます）`);
+    }
+  });
+  (Array.isArray(arch.edges) ? arch.edges : []).forEach((e, i) => {
+    if (!e || !e.from || !e.to) return;
+    if (containerIds.has(e.from) || containerIds.has(e.to)) {
+      pushErr(errors, `modes.arch.edges[${i}] が枠（containers）を端点にしています。辺はノードどうしで結びます: ${e.from} -> ${e.to}`);
+    }
+    if (e.type && !KNOWN_EDGE_TYPES.has(e.type)) pushWarn(warnings, `modes.arch.edges[${i}] の type が未知です: ${e.type}`);
   });
   return nodeIds;
 }

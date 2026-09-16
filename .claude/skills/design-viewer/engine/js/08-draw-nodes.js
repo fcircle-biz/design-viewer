@@ -4,9 +4,9 @@
   var rt = DV.rt;
   // ノード本体・カード・選択ハイライトの描画。
   // --- import ---
-  var LIVE_MIN_PX, TEXT_MIN_SCALE, CARD_TITLE_MIN_PX, getIconPath, roundRectPath, measureCached, truncateText, registry, screensById, batchesById, state, worldRectToScreen, pickBucket, getRaster, getScreenRaster, BIZ_DOT_COLOR, JOB_DOT_COLOR, BIZ_LABEL_WORLD_PX, drawBizLabelOverlay, CONCEPT_VARIANT_COLOR, ER_TONE_GRAD, DFD_VARIANT_COLOR, ensureImage, rectIntersects, FONT_STACK;
+  var LIVE_MIN_PX, TEXT_MIN_SCALE, CARD_TITLE_MIN_PX, getIconPath, roundRectPath, measureCached, truncateText, registry, screensById, batchesById, state, worldRectToScreen, pickBucket, getRaster, getScreenRaster, BIZ_DOT_COLOR, JOB_DOT_COLOR, BIZ_LABEL_WORLD_PX, drawBizLabelOverlay, CONCEPT_VARIANT_COLOR, ER_TONE_GRAD, DFD_VARIANT_COLOR, ARCH_DOT_COLOR, ensureImage, rectIntersects, FONT_STACK;
   DV.links.push(function(){
-    LIVE_MIN_PX = DV.LIVE_MIN_PX; TEXT_MIN_SCALE = DV.TEXT_MIN_SCALE; CARD_TITLE_MIN_PX = DV.CARD_TITLE_MIN_PX; getIconPath = DV.getIconPath; roundRectPath = DV.roundRectPath; measureCached = DV.measureCached; truncateText = DV.truncateText; registry = DV.registry; screensById = DV.screensById; batchesById = DV.batchesById; state = DV.state; worldRectToScreen = DV.worldRectToScreen; pickBucket = DV.pickBucket; getRaster = DV.getRaster; getScreenRaster = DV.getScreenRaster; BIZ_DOT_COLOR = DV.BIZ_DOT_COLOR; JOB_DOT_COLOR = DV.JOB_DOT_COLOR; BIZ_LABEL_WORLD_PX = DV.BIZ_LABEL_WORLD_PX; drawBizLabelOverlay = DV.drawBizLabelOverlay; CONCEPT_VARIANT_COLOR = DV.CONCEPT_VARIANT_COLOR; ER_TONE_GRAD = DV.ER_TONE_GRAD; DFD_VARIANT_COLOR = DV.DFD_VARIANT_COLOR; ensureImage = DV.ensureImage; rectIntersects = DV.rectIntersects; FONT_STACK = DV.FONT_STACK;
+    LIVE_MIN_PX = DV.LIVE_MIN_PX; TEXT_MIN_SCALE = DV.TEXT_MIN_SCALE; CARD_TITLE_MIN_PX = DV.CARD_TITLE_MIN_PX; getIconPath = DV.getIconPath; roundRectPath = DV.roundRectPath; measureCached = DV.measureCached; truncateText = DV.truncateText; registry = DV.registry; screensById = DV.screensById; batchesById = DV.batchesById; state = DV.state; worldRectToScreen = DV.worldRectToScreen; pickBucket = DV.pickBucket; getRaster = DV.getRaster; getScreenRaster = DV.getScreenRaster; BIZ_DOT_COLOR = DV.BIZ_DOT_COLOR; JOB_DOT_COLOR = DV.JOB_DOT_COLOR; BIZ_LABEL_WORLD_PX = DV.BIZ_LABEL_WORLD_PX; drawBizLabelOverlay = DV.drawBizLabelOverlay; CONCEPT_VARIANT_COLOR = DV.CONCEPT_VARIANT_COLOR; ER_TONE_GRAD = DV.ER_TONE_GRAD; DFD_VARIANT_COLOR = DV.DFD_VARIANT_COLOR; ARCH_DOT_COLOR = DV.ARCH_DOT_COLOR; ensureImage = DV.ensureImage; rectIntersects = DV.rectIntersects; FONT_STACK = DV.FONT_STACK;
   });
   // --- body ---
   function drawNodes(ctx, cull, visSet){
@@ -256,6 +256,7 @@
     else if(entry.kind==='biz') fill = BIZ_DOT_COLOR[n.variant] || BIZ_DOT_COLOR.task;
     else if(entry.kind==='job') fill = JOB_DOT_COLOR[n.variant] || JOB_DOT_COLOR.job;
     else if(entry.kind==='dfd') fill = (DFD_VARIANT_COLOR[n.variant]||DFD_VARIANT_COLOR.proc).fg;
+    else if(entry.kind==='arch') fill = ARCH_DOT_COLOR[n.variant] || ARCH_DOT_COLOR.service;
     else if(entry.kind==='pill') fill = '#1A2029';
     roundRectPath(ctx, sr.x, sr.y, sr.w, sr.h, Math.min(10, sr.w/4));
     ctx.fillStyle = fill; ctx.fill();

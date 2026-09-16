@@ -1,6 +1,6 @@
 window.VIEWER_DATA = {
   "version": 2,
-  "generatedAt": "2026-09-15T23:06:18.819Z",
+  "generatedAt": "2026-09-16T00:13:50.654Z",
   "meta": {
     "title": "顧客管理システム（Circle CRM）",
     "subtitle": "リード獲得 → 商談・見積 → 受注 → 問い合わせ対応までを 1 つで管理する B2B 向け CRM",
@@ -9106,6 +9106,921 @@ window.VIEWER_DATA = {
           ]
         }
       ]
+    },
+    "arch": {
+      "label": "構成図",
+      "desc": "AWS 東京リージョンの 2 つのアベイラビリティゾーンに分けて配置したシステム構成。仕様書の「システム構成（AWS）」から作成。",
+      "legend": [
+        {
+          "variant": "service",
+          "label": "マネージドサービス"
+        },
+        {
+          "variant": "compute",
+          "label": "サーバー・コンテナ"
+        },
+        {
+          "variant": "store",
+          "label": "データストア"
+        },
+        {
+          "variant": "ext",
+          "label": "利用者・外部システム"
+        },
+        {
+          "type": "flow",
+          "label": "通信（同期）"
+        },
+        {
+          "type": "system",
+          "label": "非同期・ファイル連携"
+        },
+        {
+          "type": "rel",
+          "label": "ログ・監視"
+        },
+        {
+          "type": "weak",
+          "label": "外向き通信の経路"
+        }
+      ],
+      "bounds": {
+        "x": -56,
+        "y": -56,
+        "w": 3868,
+        "h": 1140
+      },
+      "nodes": [
+        {
+          "id": "A_USER",
+          "kind": "arch",
+          "x": 24,
+          "y": 622,
+          "w": 240,
+          "h": 96,
+          "variant": "ext",
+          "icon": "user",
+          "label": "利用者",
+          "sub": "ブラウザ",
+          "info": [
+            "営業担当・営業マネージャー・サポート担当・システム管理者。"
+          ],
+          "spec": [
+            "非機能要件: 対応ブラウザは Chrome／Edge の最新版。"
+          ]
+        },
+        {
+          "id": "A_FORM",
+          "kind": "arch",
+          "x": 24,
+          "y": 766,
+          "w": 240,
+          "h": 96,
+          "variant": "ext",
+          "icon": "doc",
+          "label": "Web 問い合わせフォーム",
+          "sub": "自社サイト",
+          "spec": [
+            "外部連携: Web 問い合わせフォーム（自社サイト）から、フォーム送信内容をリードとして自動登録する。"
+          ]
+        },
+        {
+          "id": "A_ACC",
+          "kind": "arch",
+          "x": 3492,
+          "y": 456,
+          "w": 240,
+          "h": 96,
+          "variant": "ext",
+          "icon": "send",
+          "label": "会計システム",
+          "sub": "受注データの取得元",
+          "spec": [
+            "システム構成（AWS）: 会計システム向けの受注データ CSV は S3 に置き、会計システム側が取得する。"
+          ],
+          "notes": [
+            "未確定事項: 会計システムとの連携方式（CSV 以外の API 連携にするか）。"
+          ]
+        },
+        {
+          "id": "A_WAF",
+          "kind": "arch",
+          "x": 493,
+          "y": 638,
+          "w": 240,
+          "h": 96,
+          "variant": "service",
+          "container": "C_AWS",
+          "icon": "fw",
+          "service": "AWS WAF",
+          "label": "Web アプリケーションファイアウォール",
+          "spec": [
+            "システム構成（AWS）: 利用者のブラウザからの HTTPS はロードバランサー（ALB）で受ける。ALB の前段に AWS WAF を置く。"
+          ]
+        },
+        {
+          "id": "A_ALB",
+          "kind": "arch",
+          "x": 962,
+          "y": 638,
+          "w": 240,
+          "h": 96,
+          "variant": "service",
+          "container": "C_VPC",
+          "icon": "lb",
+          "service": "Elastic Load Balancing（ALB）",
+          "label": "ロードバランサー",
+          "sub": "HTTPS 443",
+          "info": [
+            "両ゾーンのパブリックサブネットに配置し、2 ゾーンのアプリケーションへ振り分ける。"
+          ],
+          "spec": [
+            "システム構成（AWS）: 利用者のブラウザからの HTTPS はロードバランサー（ALB）で受ける。",
+            "システム構成（AWS）: Web 問い合わせフォーム（自社サイト）からのリード登録は、ALB 経由の API で受ける。"
+          ]
+        },
+        {
+          "id": "A_NATA",
+          "kind": "arch",
+          "x": 2250,
+          "y": 248,
+          "w": 240,
+          "h": 96,
+          "variant": "service",
+          "container": "C_PUBA",
+          "icon": "net",
+          "service": "NAT ゲートウェイ",
+          "label": "NAT ゲートウェイ",
+          "sub": "ゾーン a",
+          "spec": [
+            "システム構成（AWS）: プライベートサブネットから外部への通信は、各ゾーンの NAT ゲートウェイを経由する。"
+          ]
+        },
+        {
+          "id": "A_NATC",
+          "kind": "arch",
+          "x": 1464,
+          "y": 438,
+          "w": 240,
+          "h": 96,
+          "variant": "service",
+          "container": "C_PUBC",
+          "icon": "net",
+          "service": "NAT ゲートウェイ",
+          "label": "NAT ゲートウェイ",
+          "sub": "ゾーン c",
+          "spec": [
+            "システム構成（AWS）: プライベートサブネットから外部への通信は、各ゾーンの NAT ゲートウェイを経由する。"
+          ]
+        },
+        {
+          "id": "A_APPA",
+          "kind": "arch",
+          "x": 2032,
+          "y": 596,
+          "w": 240,
+          "h": 96,
+          "variant": "compute",
+          "container": "C_PRIA",
+          "icon": "srv",
+          "service": "Amazon ECS on AWS Fargate",
+          "label": "アプリケーション",
+          "sub": "ゾーン a のタスク",
+          "spec": [
+            "システム構成（AWS）: Amazon ECS on AWS Fargate。プライベートサブネットで 2 ゾーンにタスクを分散する。"
+          ]
+        },
+        {
+          "id": "A_APPC",
+          "kind": "arch",
+          "x": 1464,
+          "y": 654,
+          "w": 240,
+          "h": 96,
+          "variant": "compute",
+          "container": "C_PRIC",
+          "icon": "srv",
+          "service": "Amazon ECS on AWS Fargate",
+          "label": "アプリケーション",
+          "sub": "ゾーン c のタスク",
+          "spec": [
+            "システム構成（AWS）: Amazon ECS on AWS Fargate。プライベートサブネットで 2 ゾーンにタスクを分散する。"
+          ]
+        },
+        {
+          "id": "A_BATCH",
+          "kind": "arch",
+          "x": 2032,
+          "y": 464,
+          "w": 240,
+          "h": 96,
+          "variant": "compute",
+          "container": "C_PRIA",
+          "icon": "clock",
+          "service": "Amazon ECS タスク",
+          "label": "夜間バッチ",
+          "sub": "J01・J02",
+          "info": [
+            "J01 受注データ出力（毎日 2:00）と J02 ケース自動クローズ（毎日 3:00）を実行する。"
+          ],
+          "spec": [
+            "システム構成（AWS）: 夜間バッチ（受注データ出力・ケース自動クローズ）は Amazon EventBridge Scheduler が ECS タスクを起動する。"
+          ]
+        },
+        {
+          "id": "A_DB",
+          "kind": "arch",
+          "x": 2468,
+          "y": 624.8,
+          "w": 240,
+          "h": 96,
+          "variant": "store",
+          "container": "C_PRIA",
+          "icon": "db",
+          "service": "Amazon RDS for PostgreSQL",
+          "label": "業務データベース",
+          "sub": "プライマリ",
+          "spec": [
+            "システム構成（AWS）: Amazon RDS for PostgreSQL。プライマリをゾーン a、スタンバイをゾーン c に置く Multi-AZ 配置とする。"
+          ],
+          "notes": [
+            "未確定事項: バックアップの保持期間と復旧目標（RPO／RTO）。"
+          ]
+        },
+        {
+          "id": "A_DBS",
+          "kind": "arch",
+          "x": 1464,
+          "y": 786,
+          "w": 240,
+          "h": 96,
+          "variant": "store",
+          "container": "C_PRIC",
+          "icon": "db",
+          "service": "Amazon RDS for PostgreSQL",
+          "label": "業務データベース",
+          "sub": "スタンバイ（Multi-AZ）",
+          "spec": [
+            "システム構成（AWS）: プライマリをゾーン a、スタンバイをゾーン c に置く Multi-AZ 配置とする。"
+          ]
+        },
+        {
+          "id": "A_SCHED",
+          "kind": "arch",
+          "x": 493,
+          "y": 256,
+          "w": 240,
+          "h": 96,
+          "variant": "service",
+          "container": "C_AWS",
+          "icon": "cal",
+          "service": "Amazon EventBridge Scheduler",
+          "label": "スケジューラー",
+          "sub": "夜間バッチの起動",
+          "spec": [
+            "システム構成（AWS）: 夜間バッチは Amazon EventBridge Scheduler が ECS タスクを起動する。"
+          ]
+        },
+        {
+          "id": "A_S3",
+          "kind": "arch",
+          "x": 3023,
+          "y": 456,
+          "w": 240,
+          "h": 96,
+          "variant": "store",
+          "container": "C_AWS",
+          "icon": "bucket",
+          "service": "Amazon S3",
+          "label": "ファイル保管",
+          "sub": "CSV・監査ログ",
+          "spec": [
+            "システム構成（AWS）: CSV インポートのファイル、受注データ出力の CSV、監査ログのアーカイブは Amazon S3 に保存する。",
+            "非機能要件: すべてのレコードの作成・更新・削除について、変更前後の値・変更者・日時を監査ログに保存し、5 年間保持する。"
+          ]
+        },
+        {
+          "id": "A_SES",
+          "kind": "arch",
+          "x": 3023,
+          "y": 720,
+          "w": 240,
+          "h": 96,
+          "variant": "service",
+          "container": "C_AWS",
+          "icon": "send",
+          "service": "Amazon SES",
+          "label": "メール送信",
+          "spec": [
+            "システム構成（AWS）: 通知メールは Amazon SES から送る。",
+            "外部連携: メールサーバー（SMTP）へ、担当割り当て・承認依頼・ケース更新の通知メールを送る。"
+          ]
+        },
+        {
+          "id": "A_CW",
+          "kind": "arch",
+          "x": 3023,
+          "y": 588,
+          "w": 240,
+          "h": 96,
+          "variant": "service",
+          "container": "C_AWS",
+          "icon": "monitor",
+          "service": "Amazon CloudWatch",
+          "label": "ログ・監視",
+          "spec": [
+            "システム構成（AWS）: アプリケーション・バッチのログとメトリクスは Amazon CloudWatch に集約する。"
+          ]
+        }
+      ],
+      "groups": [
+        {
+          "id": "C_AWS",
+          "style": "arch",
+          "kind": "cloud",
+          "label": "AWS",
+          "sub": "東京リージョン（ap-northeast-1）",
+          "depth": 0,
+          "headerH": 56,
+          "x": 465,
+          "y": 24,
+          "w": 2826,
+          "h": 980
+        },
+        {
+          "id": "C_VPC",
+          "style": "arch",
+          "kind": "vpc",
+          "label": "VPC",
+          "sub": "10.0.0.0/16",
+          "parent": "C_AWS",
+          "depth": 1,
+          "headerH": 56,
+          "x": 934,
+          "y": 80,
+          "w": 1888,
+          "h": 896
+        },
+        {
+          "id": "C_AZA",
+          "style": "arch",
+          "kind": "az",
+          "label": "アベイラビリティゾーン a",
+          "parent": "C_VPC",
+          "depth": 2,
+          "headerH": 56,
+          "x": 1971,
+          "y": 136,
+          "w": 798,
+          "h": 640.8
+        },
+        {
+          "id": "C_AZC",
+          "style": "arch",
+          "kind": "az",
+          "label": "アベイラビリティゾーン c",
+          "parent": "C_VPC",
+          "depth": 2,
+          "headerH": 56,
+          "x": 1403,
+          "y": 326,
+          "w": 362,
+          "h": 612
+        },
+        {
+          "id": "C_PUBA",
+          "style": "arch",
+          "kind": "subnet-public",
+          "label": "パブリックサブネット",
+          "sub": "10.0.1.0/24",
+          "parent": "C_AZA",
+          "depth": 3,
+          "headerH": 56,
+          "x": 2222,
+          "y": 192,
+          "w": 296,
+          "h": 180
+        },
+        {
+          "id": "C_PRIA",
+          "style": "arch",
+          "kind": "subnet-private",
+          "label": "プライベートサブネット",
+          "sub": "10.0.11.0/24",
+          "parent": "C_AZA",
+          "depth": 3,
+          "headerH": 56,
+          "x": 2004,
+          "y": 408,
+          "w": 732,
+          "h": 340.8
+        },
+        {
+          "id": "C_PUBC",
+          "style": "arch",
+          "kind": "subnet-public",
+          "label": "パブリックサブネット",
+          "sub": "10.0.2.0/24",
+          "parent": "C_AZC",
+          "depth": 3,
+          "headerH": 56,
+          "x": 1436,
+          "y": 382,
+          "w": 296,
+          "h": 180
+        },
+        {
+          "id": "C_PRIC",
+          "style": "arch",
+          "kind": "subnet-private",
+          "label": "プライベートサブネット",
+          "sub": "10.0.12.0/24",
+          "parent": "C_AZC",
+          "depth": 3,
+          "headerH": 56,
+          "x": 1436,
+          "y": 598,
+          "w": 296,
+          "h": 312
+        }
+      ],
+      "edges": [
+        {
+          "from": "A_USER",
+          "to": "A_WAF",
+          "label": "HTTPS",
+          "type": "flow",
+          "route": [
+            [
+              264,
+              670
+            ],
+            [
+              493,
+              670
+            ]
+          ],
+          "labelAt": [
+            378.5,
+            670
+          ]
+        },
+        {
+          "from": "A_FORM",
+          "to": "A_WAF",
+          "label": "リード登録 API",
+          "type": "flow",
+          "route": [
+            [
+              264,
+              814
+            ],
+            [
+              274,
+              814
+            ],
+            [
+              274,
+              702
+            ],
+            [
+              493,
+              702
+            ]
+          ],
+          "labelAt": [
+            383.5,
+            702
+          ]
+        },
+        {
+          "from": "A_WAF",
+          "to": "A_ALB",
+          "type": "flow",
+          "route": [
+            [
+              733,
+              686
+            ],
+            [
+              962,
+              686
+            ]
+          ]
+        },
+        {
+          "from": "A_ALB",
+          "to": "A_APPA",
+          "type": "flow",
+          "route": [
+            [
+              1202,
+              670
+            ],
+            [
+              1212,
+              670
+            ],
+            [
+              1212,
+              315
+            ],
+            [
+              1780,
+              315
+            ],
+            [
+              1780,
+              644
+            ],
+            [
+              2032,
+              644
+            ]
+          ]
+        },
+        {
+          "from": "A_ALB",
+          "to": "A_APPC",
+          "type": "flow",
+          "route": [
+            [
+              1202,
+              702
+            ],
+            [
+              1464,
+              702
+            ]
+          ]
+        },
+        {
+          "from": "A_APPA",
+          "to": "A_DB",
+          "label": "SQL",
+          "type": "flow",
+          "route": [
+            [
+              2272,
+              672.8
+            ],
+            [
+              2468,
+              672.8
+            ]
+          ],
+          "labelAt": [
+            2370,
+            672.8
+          ]
+        },
+        {
+          "from": "A_APPC",
+          "to": "A_DB",
+          "label": "SQL",
+          "type": "flow",
+          "route": [
+            [
+              1704,
+              702
+            ],
+            [
+              2282,
+              702
+            ],
+            [
+              2282,
+              696.8
+            ],
+            [
+              2468,
+              696.8
+            ]
+          ],
+          "labelAt": [
+            1993,
+            702
+          ]
+        },
+        {
+          "from": "A_DB",
+          "to": "A_DBS",
+          "label": "Multi-AZ 配置",
+          "type": "system",
+          "route": [
+            [
+              2708,
+              672.8
+            ],
+            [
+              2784,
+              672.8
+            ],
+            [
+              2784,
+              948
+            ],
+            [
+              1212,
+              948
+            ],
+            [
+              1212,
+              834
+            ],
+            [
+              1464,
+              834
+            ]
+          ],
+          "labelAt": [
+            1998,
+            948
+          ]
+        },
+        {
+          "from": "A_APPA",
+          "to": "A_NATA",
+          "label": "外向き通信",
+          "type": "weak",
+          "route": [
+            [
+              2152,
+              596
+            ],
+            [
+              2152,
+              470
+            ],
+            [
+              2370,
+              470
+            ],
+            [
+              2370,
+              344
+            ]
+          ],
+          "labelAt": [
+            2370,
+            381.8
+          ]
+        },
+        {
+          "from": "A_APPC",
+          "to": "A_NATC",
+          "label": "外向き通信",
+          "type": "weak",
+          "route": [
+            [
+              1584,
+              654
+            ],
+            [
+              1584,
+              594
+            ],
+            [
+              1584,
+              534
+            ]
+          ],
+          "labelAt": [
+            1584,
+            564
+          ]
+        },
+        {
+          "from": "A_APPA",
+          "to": "A_S3",
+          "label": "CSV・監査ログ",
+          "type": "flow",
+          "route": [
+            [
+              2272,
+              615.2
+            ],
+            [
+              2282,
+              615.2
+            ],
+            [
+              2282,
+              501
+            ],
+            [
+              2867,
+              501
+            ],
+            [
+              2867,
+              520
+            ],
+            [
+              3023,
+              520
+            ]
+          ],
+          "labelAt": [
+            2574.5,
+            501
+          ]
+        },
+        {
+          "from": "A_APPA",
+          "to": "A_SES",
+          "label": "通知メール",
+          "type": "system",
+          "route": [
+            [
+              2272,
+              653.6
+            ],
+            [
+              2302,
+              653.6
+            ],
+            [
+              2302,
+              613.8
+            ],
+            [
+              2837,
+              613.8
+            ],
+            [
+              2837,
+              768
+            ],
+            [
+              3023,
+              768
+            ]
+          ],
+          "labelAt": [
+            2569.5,
+            613.8
+          ]
+        },
+        {
+          "from": "A_SCHED",
+          "to": "A_BATCH",
+          "label": "毎日 2:00・3:00 に起動",
+          "type": "flow",
+          "route": [
+            [
+              733,
+              304
+            ],
+            [
+              1790,
+              304
+            ],
+            [
+              1790,
+              512
+            ],
+            [
+              2032,
+              512
+            ]
+          ],
+          "labelAt": [
+            1261.5,
+            304
+          ]
+        },
+        {
+          "from": "A_BATCH",
+          "to": "A_DB",
+          "label": "SQL",
+          "type": "flow",
+          "route": [
+            [
+              2272,
+              536
+            ],
+            [
+              2312,
+              536
+            ],
+            [
+              2312,
+              648.8
+            ],
+            [
+              2468,
+              648.8
+            ]
+          ],
+          "labelAt": [
+            2390,
+            648.8
+          ]
+        },
+        {
+          "from": "A_BATCH",
+          "to": "A_S3",
+          "label": "受注データ CSV",
+          "type": "flow",
+          "route": [
+            [
+              2272,
+              488
+            ],
+            [
+              3023,
+              488
+            ]
+          ],
+          "labelAt": [
+            2797.7,
+            488
+          ]
+        },
+        {
+          "from": "A_S3",
+          "to": "A_ACC",
+          "label": "CSV の取得",
+          "type": "system",
+          "route": [
+            [
+              3263,
+              504
+            ],
+            [
+              3492,
+              504
+            ]
+          ],
+          "labelAt": [
+            3377.5,
+            504
+          ]
+        },
+        {
+          "from": "A_APPA",
+          "to": "A_CW",
+          "label": "ログ・メトリクス",
+          "type": "rel",
+          "route": [
+            [
+              2272,
+              634.4
+            ],
+            [
+              2292,
+              634.4
+            ],
+            [
+              2292,
+              602.8
+            ],
+            [
+              2847,
+              602.8
+            ],
+            [
+              2847,
+              652
+            ],
+            [
+              3023,
+              652
+            ]
+          ],
+          "labelAt": [
+            2458.5,
+            602.8
+          ]
+        },
+        {
+          "from": "A_BATCH",
+          "to": "A_CW",
+          "type": "rel",
+          "route": [
+            [
+              2272,
+              512
+            ],
+            [
+              2857,
+              512
+            ],
+            [
+              2857,
+              620
+            ],
+            [
+              3023,
+              620
+            ]
+          ]
+        }
+      ],
+      "_direction": "RIGHT",
+      "_fitZoom": 0.39913700107874867,
+      "_crossings": 5
     }
   }
 };

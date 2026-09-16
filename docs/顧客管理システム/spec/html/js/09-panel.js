@@ -328,6 +328,40 @@
     panelBodyEl.innerHTML = html;
     attachPanelHandlers();
   }
+  // 構成図（modes.arch）の構成要素: サービス名・所属する枠のパンくず・説明・仕様・注意・つながり
+  function renderArchPanel(entry){
+    var mp = entry.modePos.arch || entry.modePos[Object.keys(entry.modePos)[0]];
+    var n = (mp && mp.node) || {};
+    var html = '<div class="v-panel-kicker">'+escHtml(entry.id)+' ・ '+escHtml(ARCH_VARIANT_LABEL_JA[n.variant] || KIND_LABEL_JA.arch || '構成要素')+'</div>'+
+      '<div class="v-panel-title">'+escHtml(n.label||entry.id)+'</div>';
+    var tags = [];
+    if(n.service) tags.push('<span class="v-tag">'+escHtml(n.service)+'</span>');
+    if(n.sub) tags.push('<span class="v-tag v-tag-slate">'+escHtml(n.sub)+'</span>');
+    if(tags.length) html += '<div class="v-tag-row">'+tags.join('')+'</div>';
+    var crumbs = archBreadcrumb(n.container);
+    if(crumbs.length){
+      html += section('置き場所', '<div class="v-section-p">'+crumbs.map(function(c){
+        return escHtml(c.label)+(c.sub ? '（'+escHtml(c.sub)+'）' : '');
+      }).join(' › ')+'</div>');
+    }
+    html += section('説明', infoBodyHtml(n.info) || emptyHtml());
+    if(n.spec && n.spec.length) html += specSection(n.spec, '仕様');
+    html += notesSection(n.notes);
+    html += transitionsSection(entry.id, 'つながり（通信・データ）');
+    panelBodyEl.innerHTML = html;
+    attachPanelHandlers();
+  }
+  var ARCH_VARIANT_LABEL_JA = { service:'マネージドサービス', compute:'サーバー・コンテナ・関数', store:'データストア', ext:'利用者・外部システム' };
+  // 所属する枠を外側から並べる（AWS › VPC › AZ-a › パブリックサブネット）
+  function archBreadcrumb(containerId){
+    var groups = (VIEWER_DATA.modes.arch && VIEWER_DATA.modes.arch.groups) || [];
+    var byId = {};
+    groups.forEach(function(g){ byId[g.id] = g; });
+    var chain = [], guard = 0, cur = containerId;
+    while(cur && byId[cur] && guard++ < 16){ chain.unshift(byId[cur]); cur = byId[cur].parent; }
+    return chain;
+  }
+
   function renderPanel(){
     if(!state.selected){ detailPanelEl.hidden=true; return; }
     var entry = registry.get(state.selected);
@@ -335,6 +369,7 @@
     if(entry.kind==='screen') renderScreenPanel(entry);
     else if(entry.kind==='batch') renderBatchPanel(entry);
     else if(entry.kind==='biz' || entry.kind==='job') renderBizPanel(entry);
+    else if(entry.kind==='arch') renderArchPanel(entry);
     else renderNodePanel(entry);
   }
 
